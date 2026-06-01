@@ -44,3 +44,12 @@ make test
 ## ディレクトリ構成
 
 `docs/superpowers/plans/2026-06-01-ai-tutor-curriculum-sprint-0.md` を参照。
+
+## 実装進捗
+
+- [x] Sprint 0: スケルトン + カリキュラム配信 + AIチューター対話MVP
+- [ ] Sprint 1: PostgreSQL + 認証 + 進捗管理 + 会話履歴永続化
+- [ ] Sprint 2: 課題提出 + AI採点
+- [ ] Sprint 3: 管理者ダッシュボード
+
+詳細は `docs/superpowers/plans/` を参照。
