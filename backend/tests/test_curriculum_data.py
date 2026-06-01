@@ -1,3 +1,5 @@
+import pytest
+
 from app.data.curriculum import CURRICULUM, get_phase
 
 
@@ -20,6 +22,9 @@ def test_each_phase_has_at_least_three_tasks():
 def test_system_prompt_mentions_phase_label():
     for phase_no, phase in CURRICULUM.items():
         assert f"Phase{phase_no}" in phase["system_prompt"]
+        assert phase["title"] in phase["system_prompt"], (
+            f"Phase {phase_no} system_prompt does not reference its own title"
+        )
 
 
 def test_get_phase_returns_data_for_valid_id():
@@ -28,6 +33,5 @@ def test_get_phase_returns_data_for_valid_id():
 
 
 def test_get_phase_raises_for_invalid_id():
-    import pytest
     with pytest.raises(KeyError):
         get_phase(99)

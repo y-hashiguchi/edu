@@ -1,5 +1,7 @@
 """4フェーズのカリキュラム定義（Sprint 0 single source of truth）。"""
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import TypedDict
 
 
@@ -12,7 +14,7 @@ class PhaseData(TypedDict):
     system_prompt: str
 
 
-CURRICULUM: dict[int, PhaseData] = {
+CURRICULUM: Mapping[int, PhaseData] = MappingProxyType({
     1: {
         "title": "開発環境の近代化",
         "goal": "AIツールを使いこなすための「土台」を固める",
@@ -121,9 +123,20 @@ CURRICULUM: dict[int, PhaseData] = {
             "- 3〜5文程度で日本語で返答する"
         ),
     },
-}
+})
 
 
 def get_phase(phase_no: int) -> PhaseData:
-    """Return phase data; raises KeyError if not found."""
-    return CURRICULUM[phase_no]
+    """Return phase data for phase_no.
+
+    Raises:
+        KeyError: with a descriptive message including valid phase numbers
+            if phase_no is not in CURRICULUM.
+    """
+    try:
+        return CURRICULUM[phase_no]
+    except KeyError:
+        valid = sorted(CURRICULUM.keys())
+        raise KeyError(
+            f"Phase {phase_no} not found. Valid phases: {valid}"
+        ) from None
