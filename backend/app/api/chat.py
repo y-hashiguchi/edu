@@ -14,6 +14,9 @@ def chat(
     claude: ClaudeClient = Depends(get_claude_client),
     store: InMemoryChatStore = Depends(get_chat_store),
 ) -> ChatResponse:
+    # Defense-in-depth: ChatRequest.phase is validated 1-4 by Pydantic, and
+    # CURRICULUM has exactly those keys. This branch guards against future
+    # drift (e.g. removing a phase without updating the validator).
     if request.phase not in CURRICULUM:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

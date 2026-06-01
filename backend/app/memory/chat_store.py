@@ -4,6 +4,16 @@ from threading import Lock
 
 
 class InMemoryChatStore:
+    """Sprint 0 in-process chat history store.
+
+    Thread-safety: individual operations (get_history, append, clear) are
+    protected by a lock, but the get-then-append sequence used by the chat
+    route is NOT atomic. Concurrent requests for the same (user_id, phase)
+    may interleave appends. Acceptable for single-tenant Sprint 0; before
+    multi-user production use, swap to a transactional store or add per-key
+    locking in the route.
+    """
+
     def __init__(self) -> None:
         self._data: dict[tuple[str, int], list[dict[str, str]]] = {}
         self._lock = Lock()
