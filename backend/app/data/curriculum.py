@@ -1,4 +1,15 @@
-"""4フェーズのカリキュラム定義（Sprint 0 single source of truth）。"""
+"""4フェーズのカリキュラム定義（Sprint 0 single source of truth）。
+
+Immutability contract:
+- The top-level CURRICULUM mapping is wrapped in MappingProxyType, so
+  ``CURRICULUM[5] = ...`` raises TypeError.
+- Inner PhaseData dicts and the lists they contain (skills, tasks) are
+  NOT wrapped. Callers MUST treat them as read-only. Mutation will
+  silently corrupt curriculum state for the rest of the process.
+- A deep-immutable refactor (frozen dataclass + tuple fields) is
+  deferred to a future sprint to avoid breaking dict-style access
+  used by API handlers (Task 7, Task 8).
+"""
 
 from collections.abc import Mapping
 from types import MappingProxyType
