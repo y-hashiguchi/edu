@@ -12,6 +12,8 @@ __pycache__/
 node_modules/
 dist/
 .vite/
+# Prevent stray tsc-compiled JS from src (vite project uses bundler)
+frontend/src/**/*.js
 
 # Env
 .env
