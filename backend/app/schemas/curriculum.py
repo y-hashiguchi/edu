@@ -12,3 +12,5 @@ class PhaseSummary(BaseModel):
     duration: str
     skills: list[str]
     tasks: list[str]
+    locked: bool
+    status: str
