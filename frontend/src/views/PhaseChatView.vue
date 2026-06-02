@@ -1,22 +1,41 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useCurriculumStore } from '@/stores/curriculum';
 import ChatLog from '@/components/ChatLog.vue';
 import ChatInput from '@/components/ChatInput.vue';
 
 const props = defineProps<{ phase: number }>();
 const store = useCurriculumStore();
+const router = useRouter();
+
 const sending = ref(false);
 const sendError = ref<string | null>(null);
+const confirmingComplete = ref(false);
+const completing = ref(false);
 
 const phaseData = computed(() => store.getPhase(props.phase));
 const messages = computed(() => store.chatLogs[props.phase] ?? []);
 const quickQuestions = computed(() => phaseData.value?.tasks.slice(0, 3) ?? []);
 
+const isLastPhase = computed(() => props.phase === 4);
+const completionLabel = computed(() =>
+  phaseData.value?.status === 'completed' ? '完了済み' : 'このフェーズを完了する',
+);
+
 onMounted(async () => {
   if (store.phases.length === 0) {
     await store.fetchPhasesWithProgress();
   }
+  const data = store.getPhase(props.phase);
+  if (!data) {
+    return;
+  }
+  if (data.locked) {
+    await router.push('/');
+    return;
+  }
+  await store.loadHistory(props.phase);
 });
 
 const submit = async (text: string) => {
@@ -28,6 +47,27 @@ const submit = async (text: string) => {
     sendError.value = e instanceof Error ? e.message : 'unknown error';
   } finally {
     sending.value = false;
+  }
+};
+
+const openConfirm = () => {
+  confirmingComplete.value = true;
+};
+
+const cancelConfirm = () => {
+  confirmingComplete.value = false;
+};
+
+const confirmComplete = async () => {
+  completing.value = true;
+  try {
+    await store.completePhase(props.phase);
+    confirmingComplete.value = false;
+    await router.push('/');
+  } catch (e) {
+    sendError.value = e instanceof Error ? e.message : 'unknown error';
+  } finally {
+    completing.value = false;
   }
 };
 </script>
@@ -55,24 +95,49 @@ const submit = async (text: string) => {
     </aside>
 
     <ChatLog :messages="messages" />
-    <p v-if="sendError" class="error">エラー: {{ sendError }}</p>
+    <p v-if="sending" class="thinking">AIが応答中…</p>
+    <p v-if="sendError" class="error" role="alert">エラー: {{ sendError }}</p>
     <ChatInput :disabled="sending" @submit="submit" />
+
+    <hr />
+
+    <button
+      type="button"
+      class="complete-btn"
+      :disabled="completing"
+      @click="openConfirm"
+    >
+      {{ completionLabel }}
+    </button>
+
+    <div v-if="confirmingComplete" class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h3>Phase {{ phaseData.phase }} を完了しますか？</h3>
+        <p v-if="!isLastPhase">
+          完了すると Phase {{ phaseData.phase + 1 }} が解放されます。履歴は引き続き閲覧できます。
+        </p>
+        <p v-else>すべてのカリキュラムを終了します。履歴は引き続き閲覧できます。</p>
+        <div class="actions">
+          <button type="button" @click="cancelConfirm" :disabled="completing">キャンセル</button>
+          <button
+            type="button"
+            class="primary"
+            @click="confirmComplete"
+            :disabled="completing"
+          >
+            {{ completing ? '完了処理中…' : '完了する' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.phase-chat {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+.phase-chat { display: flex; flex-direction: column; gap: 1rem; }
 .phase-chat header h2 { margin: 0.5rem 0 0.25rem; font-size: 1.2rem; }
 .phase-chat header a { color: var(--color-accent); text-decoration: none; font-size: 0.9rem; }
-.quick {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
+.quick { display: flex; flex-direction: column; gap: 0.4rem; }
 .quick h3 {
   margin: 0;
   font-size: 0.75rem;
@@ -99,4 +164,51 @@ const submit = async (text: string) => {
   margin: 0;
 }
 .loading { color: #6b7280; }
+.thinking { color: #6b7280; font-size: 0.9rem; margin: 0; }
+hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+.complete-btn {
+  align-self: flex-start;
+  background: var(--color-accent);
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.7rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.complete-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  max-width: 420px;
+  width: calc(100% - 2rem);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+.modal h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.modal p { margin: 0 0 1rem; color: #374151; }
+.actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.actions button {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+.actions button.primary {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+.actions button:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
