@@ -15,7 +15,7 @@ const quickQuestions = computed(() => phaseData.value?.tasks.slice(0, 3) ?? []);
 
 onMounted(async () => {
   if (store.phases.length === 0) {
-    await store.fetchPhases();
+    await store.fetchPhasesWithProgress();
   }
 });
 
