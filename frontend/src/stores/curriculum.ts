@@ -32,11 +32,7 @@ export const useCurriculumStore = defineStore('curriculum', {
     },
 
     async sendChat(phase: number, message: string) {
-      const result = await api.sendChat({
-        user_id: this.userId,
-        phase,
-        message,
-      });
+      const result = await api.sendChat({ phase, message });
       this.chatLogs[phase] = result.history;
       return result.reply;
     },

@@ -1,12 +1,41 @@
-import type { ChatResponse, PhaseSummary } from '@/types/curriculum';
+import type {
+  ChatMessage,
+  ChatResponse,
+  PhaseSummary,
+  ProgressCompleteResponse,
+  ProgressOut,
+} from '@/types/curriculum';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
+let _onUnauthorized: (() => void) | null = null;
+
+export function registerUnauthorizedHandler(cb: () => void) {
+  _onUnauthorized = cb;
+}
+
+function getToken(): string | null {
+  try {
+    const persisted = localStorage.getItem('auth');
+    if (!persisted) return null;
+    return (JSON.parse(persisted) as { token: string | null }).token;
+  } catch {
+    return null;
+  }
+}
+
+export async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+
+  if (response.status === 401) {
+    if (_onUnauthorized) _onUnauthorized();
+    throw new Error('API 401: Unauthorized');
+  }
   if (!response.ok) {
     throw new Error(`API ${response.status}: ${await response.text()}`);
   }
@@ -14,10 +43,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listPhases: () => request<PhaseSummary[]>('/api/curriculum/phases'),
+  listPhases: () => rawRequest<PhaseSummary[]>('/api/curriculum/phases'),
 
-  sendChat: (payload: { user_id: string; phase: number; message: string }) =>
-    request<ChatResponse>('/api/chat', {
+  listProgress: () => rawRequest<ProgressOut[]>('/api/progress'),
+
+  completePhase: (phase: number) =>
+    rawRequest<ProgressCompleteResponse>(`/api/progress/${phase}/complete`, {
+      method: 'POST',
+    }),
+
+  getChatHistory: (phase: number) =>
+    rawRequest<ChatMessage[]>(`/api/chat/history/${phase}`),
+
+  sendChat: (payload: { phase: number; message: string }) =>
+    rawRequest<ChatResponse>('/api/chat', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
