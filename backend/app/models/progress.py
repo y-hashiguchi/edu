@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
-class ProgressStatus(str, Enum):
+class ProgressStatus(StrEnum):
     LOCKED = "locked"
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"

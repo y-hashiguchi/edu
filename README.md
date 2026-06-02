@@ -1,17 +1,19 @@
 # AI駆動型開発 補足カリキュラム — AIチューター
 
-FastAPI + Vue.js による AI駆動型開発カリキュラム学習支援ツールのリファレンス実装。
+FastAPI + Vue.js + PostgreSQL による AI駆動型開発カリキュラム学習支援ツールのリファレンス実装。
 
 ## セットアップ
 
 ```bash
 cp .env.example .env
-# .env を編集して ANTHROPIC_API_KEY を設定
+# .env を編集:
+#   ANTHROPIC_API_KEY   Claude API キー
+#   JWT_SECRET_KEY      openssl rand -hex 32 で生成した値
 ```
 
 ## 開発起動
 
-### Docker Composeで起動
+### Docker Composeで起動（推奨）
 
 ```bash
 make dev
@@ -20,13 +22,20 @@ make dev
 - Backend: http://localhost:8000
 - Frontend: http://localhost:5173
 - API docs: http://localhost:8000/docs
+- Postgres: localhost:5432（user/password: postgres/postgres）
+
+backend コンテナは起動時に `alembic upgrade head` を自動実行する。
 
 ### ローカル直接起動
 
 ```bash
+# Postgres
+docker compose up -d postgres
+
 # Backend
 cd backend
-uv sync
+uv sync --extra dev
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 
 # Frontend
@@ -35,21 +44,42 @@ npm install
 npm run dev
 ```
 
+## マイグレーション
+
+```bash
+make migrate                   # alembic upgrade head
+make revision M="add foo"      # autogenerate
+make db-shell                  # psql に接続
+```
+
 ## テスト
 
 ```bash
-make test
+make test                      # backend + frontend
+make test-backend              # pytest（postgres を自動起動）
+make test-frontend             # vitest
 ```
 
 ## ディレクトリ構成
 
-`docs/superpowers/plans/2026-06-01-ai-tutor-curriculum-sprint-0.md` を参照。
+設計書: `docs/design/`
+- 01 システム基本設計
+- 02 詳細設計
+- 03 DB設計
+- 04 IF設計
+- 05 画面設計
+- 06 テスト設計
+
+実装計画:
+- Sprint 0: `docs/superpowers/plans/2026-06-01-ai-tutor-curriculum-sprint-0.md`
+- Sprint 1: `docs/superpowers/plans/2026-06-02-ai-tutor-curriculum-sprint-1.md`
 
 ## 実装進捗
 
 - [x] Sprint 0: スケルトン + カリキュラム配信 + AIチューター対話MVP
-- [ ] Sprint 1: PostgreSQL + 認証 + 進捗管理 + 会話履歴永続化
-- [ ] Sprint 2: 課題提出 + AI採点
+- [x] Sprint 1: PostgreSQL + JWT 認証 + 進捗管理 + 会話履歴永続化
+- [ ] Sprint 2: 課題提出 + AI採点 + RAG (pgvector)
 - [ ] Sprint 3: 管理者ダッシュボード
+- [ ] Sprint 4: CI/CD + 本番デプロイ + 監視
 
 詳細は `docs/superpowers/plans/` を参照。
