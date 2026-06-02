@@ -1,32 +1,47 @@
-"""Sprint 0 用のプロセス内会話履歴ストア（async 版）。Task 8 で SqlChatStore に置換。"""
+"""SQL-backed chat history store (Sprint 1)."""
 
-from asyncio import Lock
+import uuid
+
+from fastapi import Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_db
+from app.models.chat_history import ChatHistory
 
 
-class InMemoryChatStore:
-    """In-process async chat history store (transitional)."""
+class SqlChatStore:
+    """Async chat history store backed by `chat_history` table."""
 
-    def __init__(self) -> None:
-        self._data: dict[tuple[str, int], list[dict[str, str]]] = {}
-        self._lock = Lock()
+    def __init__(self, db: AsyncSession) -> None:
+        self._db = db
 
-    async def get_history(self, user_id: str, phase: int) -> list[dict[str, str]]:
-        async with self._lock:
-            return list(self._data.get((user_id, phase), []))
+    @property
+    def db(self) -> AsyncSession:
+        """Expose the bound session (chat route owns transaction commits)."""
+        return self._db
 
-    async def append(self, user_id: str, phase: int, role: str, content: str) -> None:
-        async with self._lock:
-            self._data.setdefault((user_id, phase), []).append(
-                {"role": role, "content": content}
+    async def get_history(
+        self, user_id: uuid.UUID, phase: int
+    ) -> list[dict[str, str]]:
+        result = await self._db.execute(
+            select(ChatHistory)
+            .where(
+                ChatHistory.user_id == user_id,
+                ChatHistory.phase == phase,
             )
+            .order_by(ChatHistory.created_at)
+        )
+        return [{"role": m.role, "content": m.content} for m in result.scalars().all()]
 
-    async def clear(self, user_id: str, phase: int) -> None:
-        async with self._lock:
-            self._data.pop((user_id, phase), None)
+    async def append(
+        self, user_id: uuid.UUID, phase: int, role: str, content: str
+    ) -> None:
+        self._db.add(
+            ChatHistory(user_id=user_id, phase=phase, role=role, content=content)
+        )
+        await self._db.flush()
 
 
-_store_singleton = InMemoryChatStore()
-
-
-def get_chat_store() -> InMemoryChatStore:
-    return _store_singleton
+async def get_chat_store(db: AsyncSession = Depends(get_db)) -> SqlChatStore:
+    return SqlChatStore(db)
