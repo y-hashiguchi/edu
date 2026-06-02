@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(
+async def chat(
     request: ChatRequest,
     claude: ClaudeClient = Depends(get_claude_client),
     store: InMemoryChatStore = Depends(get_chat_store),
@@ -23,18 +23,18 @@ def chat(
             detail=f"phase {request.phase} not found",
         )
 
-    history = store.get_history(request.user_id, request.phase)
+    history = await store.get_history(request.user_id, request.phase)
     next_history = history + [{"role": "user", "content": request.message}]
 
-    reply = claude.complete(
+    reply = await claude.complete(
         system_prompt=CURRICULUM[request.phase]["system_prompt"],
         history=next_history,
     )
 
-    store.append(request.user_id, request.phase, "user", request.message)
-    store.append(request.user_id, request.phase, "assistant", reply)
+    await store.append(request.user_id, request.phase, "user", request.message)
+    await store.append(request.user_id, request.phase, "assistant", reply)
 
-    full_history = store.get_history(request.user_id, request.phase)
+    full_history = await store.get_history(request.user_id, request.phase)
     return ChatResponse(
         reply=reply,
         history=[ChatMessage(**m) for m in full_history],

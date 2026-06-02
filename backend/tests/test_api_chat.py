@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from app.core.claude_client import ClaudeClient, get_claude_client
 from app.memory.chat_store import InMemoryChatStore, get_chat_store
@@ -6,9 +6,9 @@ from app.memory.chat_store import InMemoryChatStore, get_chat_store
 
 def _fake_client(*replies: str) -> tuple[ClaudeClient, MagicMock]:
     fake_sdk = MagicMock()
-    fake_sdk.messages.create.side_effect = [
-        MagicMock(content=[MagicMock(text=r)]) for r in replies
-    ]
+    fake_sdk.messages.create = AsyncMock(
+        side_effect=[MagicMock(content=[MagicMock(text=r)]) for r in replies]
+    )
     return ClaudeClient(sdk=fake_sdk, model="claude-sonnet-4-5"), fake_sdk
 
 
@@ -49,8 +49,8 @@ def test_chat_carries_history_across_calls(client):
         client.post("/api/chat", json={"user_id": "u1", "phase": 1, "message": "Q1"})
         client.post("/api/chat", json={"user_id": "u1", "phase": 1, "message": "Q2"})
 
-        second_call_messages = fake_sdk.messages.create.call_args_list[1].kwargs["messages"]
-        roles = [m["role"] for m in second_call_messages]
+        second_call = fake_sdk.messages.create.await_args_list[1]
+        roles = [m["role"] for m in second_call.kwargs["messages"]]
         assert roles == ["user", "assistant", "user"]
     finally:
         app.dependency_overrides.clear()

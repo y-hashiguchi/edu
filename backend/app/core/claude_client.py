@@ -1,8 +1,8 @@
-"""Anthropic Claude SDK の薄いラッパー。テスト時はSDKをモック注入する。"""
+"""Anthropic Claude SDK の async ラッパー。テスト時はSDKをモック注入する。"""
 
 from typing import Protocol
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 
 from app.config import settings
 
@@ -16,13 +16,13 @@ class ClaudeClient:
         self._sdk = sdk
         self._model = model
 
-    def complete(
+    async def complete(
         self,
         system_prompt: str,
         history: list[dict[str, str]],
         max_tokens: int = 1024,
     ) -> str:
-        response = self._sdk.messages.create(  # type: ignore[attr-defined]
+        response = await self._sdk.messages.create(  # type: ignore[attr-defined]
             model=self._model,
             max_tokens=max_tokens,
             system=system_prompt,
@@ -33,5 +33,5 @@ class ClaudeClient:
 
 def get_claude_client() -> ClaudeClient:
     """FastAPI Dependsから利用するファクトリ。"""
-    sdk = Anthropic(api_key=settings.anthropic_api_key)
+    sdk = AsyncAnthropic(api_key=settings.anthropic_api_key)
     return ClaudeClient(sdk=sdk, model=settings.anthropic_model)
