@@ -52,3 +52,35 @@ async def db_session(_setup_db):
 
     async with SessionLocal() as session:
         yield session
+
+
+@pytest_asyncio.fixture
+async def auth_user(db_session):
+    from app.core.security import hash_password
+    from app.models.user import User
+    from app.services.progress import initialize_progress
+
+    user = User(
+        email="alice@example.com",
+        name="アリス",
+        password_hash=hash_password("password123"),
+    )
+    db_session.add(user)
+    await db_session.flush()
+    await initialize_progress(db_session, user.id)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def auth_token(auth_user) -> str:
+    from app.core.security import create_access_token
+
+    return create_access_token(subject=str(auth_user.id))
+
+
+@pytest_asyncio.fixture
+async def auth_client(client, auth_token):
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+    return client

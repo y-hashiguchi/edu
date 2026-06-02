@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth, curriculum, health
 from app.api import chat as chat_router
-from app.api import curriculum, health
 from app.config import settings
 
 
@@ -18,6 +18,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(curriculum.router)
     app.include_router(chat_router.router)
     return app
