@@ -4,6 +4,7 @@ import type {
   PhaseSummary,
   ProgressCompleteResponse,
   ProgressOut,
+  Submission,
 } from '@/types/curriculum';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
@@ -65,6 +66,15 @@ export const api = {
 
   sendChat: (payload: { phase: number; message: string }) =>
     rawRequest<ChatResponse>('/api/chat', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  listSubmissions: (phase: number) =>
+    rawRequest<Submission[]>(`/api/submissions/${phase}`),
+
+  submitTask: (payload: { phase: number; task_no: number; content: string }) =>
+    rawRequest<Submission>('/api/submissions', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

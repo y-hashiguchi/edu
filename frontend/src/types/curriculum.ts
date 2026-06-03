@@ -43,3 +43,14 @@ export interface TokenResponse {
   access_token: string;
   token_type: string;
 }
+
+export interface Submission {
+  id: string;
+  phase: number;
+  task_no: number;
+  content: string;
+  ai_feedback: string | null;
+  score: number | null;
+  submitted_at: string;
+  graded_at: string | null;
+}
