@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.curriculum import CURRICULUM
 from app.models.progress import Progress, ProgressStatus
+from app.models.submission import Submission
 
 
 class PhaseLockedError(Exception):
@@ -89,3 +90,24 @@ async def complete_phase(
 
     await db.commit()
     return current, next_unlocked
+
+
+async def maybe_mark_submitted(
+    db: AsyncSession, user_id: uuid.UUID, phase: int, required_task_count: int
+) -> Progress | None:
+    """Promote in_progress -> submitted iff all tasks in phase have a submission."""
+    progress = await _get(db, user_id, phase)
+    if progress is None or progress.status != ProgressStatus.IN_PROGRESS.value:
+        return None
+    rows = (
+        await db.execute(
+            select(Submission.task_no).where(
+                Submission.user_id == user_id, Submission.phase == phase
+            )
+        )
+    ).all()
+    if len({row.task_no for row in rows}) < required_task_count:
+        return None
+    progress.status = ProgressStatus.SUBMITTED.value
+    await db.flush()
+    return progress
