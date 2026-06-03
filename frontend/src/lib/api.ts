@@ -9,12 +9,20 @@ import type {
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
 let _onUnauthorized: (() => void) | null = null;
+let _tokenGetter: (() => string | null) | null = null;
 
 export function registerUnauthorizedHandler(cb: () => void) {
   _onUnauthorized = cb;
 }
 
+export function registerTokenGetter(getter: () => string | null) {
+  _tokenGetter = getter;
+}
+
 function getToken(): string | null {
+  if (_tokenGetter) return _tokenGetter();
+  // Fallback: read from localStorage if the getter hasn't been registered yet
+  // (e.g. during early app boot before main.ts runs).
   try {
     const persisted = localStorage.getItem('auth');
     if (!persisted) return null;
