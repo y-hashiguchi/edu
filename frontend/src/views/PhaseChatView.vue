@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useCurriculumStore } from '@/stores/curriculum';
 import ChatLog from '@/components/ChatLog.vue';
 import ChatInput from '@/components/ChatInput.vue';
+import SubmissionPanel from '@/components/SubmissionPanel.vue';
 
 const props = defineProps<{ phase: number }>();
 const store = useCurriculumStore();
@@ -13,9 +14,11 @@ const sending = ref(false);
 const sendError = ref<string | null>(null);
 const confirmingComplete = ref(false);
 const completing = ref(false);
+const busyTaskNo = ref<number | null>(null);
 
 const phaseData = computed(() => store.getPhase(props.phase));
 const messages = computed(() => store.chatLogs[props.phase] ?? []);
+const submissions = computed(() => store.submissions[props.phase] ?? []);
 const quickQuestions = computed(() => phaseData.value?.tasks.slice(0, 3) ?? []);
 
 const isLastPhase = computed(() => props.phase === 4);
@@ -28,14 +31,15 @@ onMounted(async () => {
     await store.fetchPhasesWithProgress();
   }
   const data = store.getPhase(props.phase);
-  if (!data) {
-    return;
-  }
+  if (!data) return;
   if (data.locked) {
     await router.push('/');
     return;
   }
-  await store.loadHistory(props.phase);
+  await Promise.all([
+    store.loadHistory(props.phase),
+    store.loadSubmissions(props.phase),
+  ]);
 });
 
 const submit = async (text: string) => {
@@ -47,6 +51,18 @@ const submit = async (text: string) => {
     sendError.value = e instanceof Error ? e.message : 'unknown error';
   } finally {
     sending.value = false;
+  }
+};
+
+const submitTask = async (taskNo: number, content: string) => {
+  busyTaskNo.value = taskNo;
+  sendError.value = null;
+  try {
+    await store.submitTask(props.phase, taskNo, content);
+  } catch (e) {
+    sendError.value = e instanceof Error ? e.message : 'unknown error';
+  } finally {
+    busyTaskNo.value = null;
   }
 };
 
@@ -98,6 +114,15 @@ const confirmComplete = async () => {
     <p v-if="sending" class="thinking">AIが応答中…</p>
     <p v-if="sendError" class="error" role="alert">エラー: {{ sendError }}</p>
     <ChatInput :disabled="sending" @submit="submit" />
+
+    <hr class="thin" />
+
+    <SubmissionPanel
+      :phase="phaseData"
+      :submissions="submissions"
+      :busy-task-no="busyTaskNo"
+      @submit="submitTask"
+    />
 
     <hr />
 
@@ -166,6 +191,7 @@ const confirmComplete = async () => {
 .loading { color: #6b7280; }
 .thinking { color: #6b7280; font-size: 0.9rem; margin: 0; }
 hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+hr.thin { margin: 0.5rem 0; }
 .complete-btn {
   align-self: flex-start;
   background: var(--color-accent);
