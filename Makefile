@@ -1,4 +1,4 @@
-.PHONY: dev test test-backend test-frontend lint clean migrate revision db-shell
+.PHONY: dev test test-backend test-frontend lint clean migrate revision db-shell seed-embeddings
 
 dev:
 	docker compose up --build
@@ -12,6 +12,12 @@ revision:
 
 db-shell:
 	docker compose exec postgres psql -U postgres -d ai_tutor
+
+seed-embeddings:
+	docker compose up -d postgres
+	cd backend && set -a && . ../.env && set +a && \
+		DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_tutor \
+		uv run python scripts/seed_embeddings.py
 
 test: test-backend test-frontend
 
