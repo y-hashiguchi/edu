@@ -5,12 +5,14 @@ import type {
   PhaseSummary,
   ProgressCompleteResponse,
   ProgressOut,
+  Submission,
 } from '@/types/curriculum';
 
 interface State {
   phases: PhaseSummary[];
   progress: Record<number, ProgressOut>;
   chatLogs: Record<number, ChatMessage[]>;
+  submissions: Record<number, Submission[]>;
   loading: boolean;
   error: string | null;
 }
@@ -20,6 +22,7 @@ export const useCurriculumStore = defineStore('curriculum', {
     phases: [],
     progress: {},
     chatLogs: {},
+    submissions: {},
     loading: false,
     error: null,
   }),
@@ -47,7 +50,6 @@ export const useCurriculumStore = defineStore('curriculum', {
 
     async completePhase(phase: number): Promise<ProgressCompleteResponse> {
       const result = await api.completePhase(phase);
-
       this.progress[phase] = {
         phase: result.phase,
         status: result.status,
@@ -58,7 +60,6 @@ export const useCurriculumStore = defineStore('curriculum', {
         const n = result.next_unlocked;
         this.progress[n.phase] = n;
       }
-
       this.phases = this.phases.map((p) => {
         const prog = this.progress[p.phase];
         if (!prog) return p;
@@ -79,6 +80,22 @@ export const useCurriculumStore = defineStore('curriculum', {
       const result = await api.sendChat({ phase, message });
       this.chatLogs[phase] = result.history;
       return result.reply;
+    },
+
+    async loadSubmissions(phase: number) {
+      this.submissions[phase] = await api.listSubmissions(phase);
+    },
+
+    async submitTask(phase: number, task_no: number, content: string) {
+      const submission = await api.submitTask({ phase, task_no, content });
+      const list = [...(this.submissions[phase] ?? [])];
+      const idx = list.findIndex((s) => s.task_no === task_no);
+      if (idx >= 0) list[idx] = submission;
+      else list.push(submission);
+      this.submissions[phase] = list.sort((a, b) => a.task_no - b.task_no);
+      // progress could have just promoted to 'submitted'; refresh
+      await this.fetchPhasesWithProgress();
+      return submission;
     },
 
     getPhase(phaseNo: number): PhaseSummary | undefined {
