@@ -414,3 +414,82 @@ FastAPI が自動生成。`http://localhost:8000/docs`（Swagger UI）/ `http://
 ## 7. レート制限・スロットリング
 
 Sprint 1 では未実装。Claude API 側のレート上限（無料枠 50RPM 想定）を超えた場合のフロント側 UI は「数秒待って再試行」ヒントを表示するに留める。Sprint 4 でアプリ側レート制限を導入する。
+
+---
+
+## 8. Sprint 2 追加エンドポイント
+
+### 8.1 `POST /api/submissions`
+
+**用途:** 1 タスクの提出 + 即時採点（UPSERT）
+
+**Request:**
+```json
+{ "phase": 1, "task_no": 1, "content": "Gitでブランチ切ってPR出しました..." }
+```
+
+| フィールド | 型 | 制約 |
+|---|---|---|
+| `phase` | integer | 1–4 |
+| `task_no` | integer | 1–5 |
+| `content` | string | 1–10000 文字 |
+
+**Response 201:**
+```json
+{
+  "id": "uuid",
+  "phase": 1,
+  "task_no": 1,
+  "content": "...",
+  "ai_feedback": "良い回答です。次は…",
+  "score": 82,
+  "submitted_at": "2026-06-03T08:15:30+00:00",
+  "graded_at": "2026-06-03T08:15:32+00:00"
+}
+```
+
+**Error:**
+
+| HTTP | 条件 | detail |
+|---|---|---|
+| 401 | 認証 | 共通 |
+| 403 | フェーズロック中 | `"phase {n} is locked"` |
+| 404 | 該当 phase 不在 (内部不整合) | `"phase {n} not found"` |
+| 422 | バリデーション失敗（含む `task_no` 範囲外） | FastAPI 標準 |
+| 502 | 採点 Claude エラー | (補足: row は保存され score=null / ai_feedback="採点エラー…" となる。Sprint 2 では 502 ではなく **201 + score=null** で返す方針) |
+
+**冪等性:** 同 (user, phase, task_no) は UPSERT。`graded_at` は再採点ごとに更新。
+
+### 8.2 `GET /api/submissions/{phase}`
+
+**Path:** `phase` 1–4。
+
+**Response 200:**
+```json
+[
+  { "phase": 1, "task_no": 1, "content": "...", "score": 82, "ai_feedback": "...", ... },
+  { "phase": 1, "task_no": 2, "content": "...", "score": null, "ai_feedback": null, ... }
+]
+```
+
+並び順は `task_no` 昇順。フェーズ内で未提出のタスクは配列に含まれない。
+
+### 8.3 進捗自動遷移
+
+Sprint 1 で導入した `progress.status` は `POST /api/submissions` でも変化する:
+
+- フェーズ内の全タスクが少なくとも 1 回提出済になった瞬間に、`in_progress → submitted` に自動遷移
+- `submitted` 状態は `POST /api/progress/{phase}/complete` で受講者が明示的に「完了する」操作をするまで保持
+- `complete` API は `submitted` でも `in_progress` でも受け付ける（Sprint 1 仕様維持）
+
+### 8.4 `POST /api/chat` (拡張)
+
+Sprint 2 で内部処理が変わる（外部 API 仕様は不変）:
+
+1. 受信メッセージで RAG 検索 (`top_k=4`)
+2. 取得した類似コンテンツを system prompt に追記
+3. Claude を呼び出して `reply` を取得
+4. user message と assistant reply を **両方とも** embeddings に永続化（次回以降の RAG hit を増やす）
+5. chat_history への永続化（既存）
+
+RAG 失敗時はコンテキスト無し、または不完全状態で続行（response は変わらない）。
