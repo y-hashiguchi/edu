@@ -101,3 +101,21 @@ def test_chat_does_not_accept_extra_user_id_field(auth_client):
         assert response.status_code == 200
     finally:
         app.dependency_overrides.clear()
+
+
+def test_chat_system_prompt_includes_phase_label(auth_client):
+    """RAG コンテキスト追記後も Phase ラベルは保持される。"""
+    from app.main import app
+
+    fake, fake_sdk = _fake_client("reply")
+    app.dependency_overrides[get_claude_client] = lambda: fake
+
+    try:
+        response = auth_client.post(
+            "/api/chat", json={"phase": 1, "message": "Gitのブランチを教えて"}
+        )
+        assert response.status_code == 200
+        system_sent = fake_sdk.messages.create.await_args.kwargs["system"]
+        assert "Phase1" in system_sent
+    finally:
+        app.dependency_overrides.clear()
