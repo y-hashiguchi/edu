@@ -16,15 +16,14 @@ cp .env.example .env
 ### Docker Composeで起動（推奨）
 
 ```bash
-make dev
+make dev                # postgres + backend + frontend を起動 (alembic upgrade head を自動実行)
+make seed-embeddings    # Sprint 2 用 — カリキュラム埋め込みを 1 回だけ DB に投入 (28 行)
 ```
 
 - Backend: http://localhost:8000
 - Frontend: http://localhost:5173
 - API docs: http://localhost:8000/docs
 - Postgres: localhost:5432（user/password: postgres/postgres）
-
-backend コンテナは起動時に `alembic upgrade head` を自動実行する。
 
 ### ローカル直接起動
 
@@ -50,6 +49,7 @@ npm run dev
 make migrate                   # alembic upgrade head
 make revision M="add foo"      # autogenerate
 make db-shell                  # psql に接続
+make seed-embeddings           # カリキュラムを embeddings テーブルに投入
 ```
 
 ## テスト
@@ -73,13 +73,14 @@ make test-frontend             # vitest
 実装計画:
 - Sprint 0: `docs/superpowers/plans/2026-06-01-ai-tutor-curriculum-sprint-0.md`
 - Sprint 1: `docs/superpowers/plans/2026-06-02-ai-tutor-curriculum-sprint-1.md`
+- Sprint 2: `docs/superpowers/plans/2026-06-03-ai-tutor-curriculum-sprint-2.md`
 
 ## 実装進捗
 
 - [x] Sprint 0: スケルトン + カリキュラム配信 + AIチューター対話MVP
 - [x] Sprint 1: PostgreSQL + JWT 認証 + 進捗管理 + 会話履歴永続化
-- [ ] Sprint 2: 課題提出 + AI採点 + RAG (pgvector)
-- [ ] Sprint 3: 管理者ダッシュボード
+- [x] Sprint 2: 課題提出 + AI採点 (Claude JSON) + RAG (pgvector + fastembed)
+- [ ] Sprint 3: ファイルアップロード + 管理者ダッシュボード
 - [ ] Sprint 4: CI/CD + 本番デプロイ + 監視
 
 詳細は `docs/superpowers/plans/` を参照。
