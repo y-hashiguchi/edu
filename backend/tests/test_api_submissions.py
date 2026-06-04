@@ -13,7 +13,8 @@ def _fake(reply: str) -> ClaudeClient:
 
 def test_submit_requires_auth(client, db_session):
     response = client.post(
-        "/api/submissions", json={"phase": 1, "task_no": 1, "content": "x"}
+        "/api/submissions",
+        data={"phase": "1", "task_no": "1", "content": "x"},
     )
     assert response.status_code == 401
 
@@ -27,7 +28,11 @@ def test_submit_creates_and_returns_grade(auth_client):
     try:
         response = auth_client.post(
             "/api/submissions",
-            json={"phase": 1, "task_no": 1, "content": "Gitでブランチ切りました"},
+            data={
+                "phase": "1",
+                "task_no": "1",
+                "content": "Gitでブランチ切りました",
+            },
         )
         assert response.status_code == 201
         body = response.json()
@@ -45,7 +50,8 @@ def test_submit_locked_phase_returns_403(auth_client):
     )
     try:
         response = auth_client.post(
-            "/api/submissions", json={"phase": 2, "task_no": 1, "content": "x"}
+            "/api/submissions",
+            data={"phase": "2", "task_no": "1", "content": "x"},
         )
         assert response.status_code == 403
     finally:
@@ -60,7 +66,8 @@ def test_submit_invalid_task_returns_422(auth_client):
     )
     try:
         response = auth_client.post(
-            "/api/submissions", json={"phase": 1, "task_no": 99, "content": "x"}
+            "/api/submissions",
+            data={"phase": "1", "task_no": "99", "content": "x"},
         )
         assert response.status_code == 422
     finally:
@@ -75,10 +82,12 @@ def test_list_returns_submissions(auth_client):
     )
     try:
         auth_client.post(
-            "/api/submissions", json={"phase": 1, "task_no": 1, "content": "A"}
+            "/api/submissions",
+            data={"phase": "1", "task_no": "1", "content": "A"},
         )
         auth_client.post(
-            "/api/submissions", json={"phase": 1, "task_no": 2, "content": "B"}
+            "/api/submissions",
+            data={"phase": "1", "task_no": "2", "content": "B"},
         )
         response = auth_client.get("/api/submissions/1")
         assert response.status_code == 200
@@ -103,7 +112,11 @@ def test_all_submissions_promote_progress_to_submitted(auth_client):
         for tno in (1, 2, 3):
             auth_client.post(
                 "/api/submissions",
-                json={"phase": 1, "task_no": tno, "content": f"task {tno}"},
+                data={
+                    "phase": "1",
+                    "task_no": str(tno),
+                    "content": f"task {tno}",
+                },
             )
         resp = auth_client.get("/api/progress")
         phases = {r["phase"]: r["status"] for r in resp.json()}
