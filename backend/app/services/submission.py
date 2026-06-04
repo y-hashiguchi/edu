@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.claude_client import ClaudeClient
 from app.data.curriculum import CURRICULUM
 from app.models.submission import Submission
-from app.schemas.grading import GradingResult
-from app.services.grading import GradingError, grade_submission
+from app.schemas.grading import GradingResult, GradingResultStatus
+from app.services.grading import grade_submission
 from app.services.progress import maybe_mark_submitted
 
 
@@ -68,17 +68,16 @@ async def upsert_and_grade(
 
     await db.flush()
 
-    try:
-        result: GradingResult = await grade_submission(
-            claude=claude, task_description=task_description, content=content
-        )
+    result: GradingResult = await grade_submission(
+        claude=claude, task_description=task_description, content=content, files=[]
+    )
+    if result.status == GradingResultStatus.GRADED:
         row.score = result.score
         row.ai_feedback = result.feedback
-        row.graded_at = now
-    except GradingError as e:
-        row.ai_feedback = f"採点エラー: {e}"
+    else:
+        row.ai_feedback = f"採点エラー: {result.error_message}"
         row.score = None
-        row.graded_at = now
+    row.graded_at = now
 
     await maybe_mark_submitted(db, user_id, phase, required_task_count=len(tasks))
 
