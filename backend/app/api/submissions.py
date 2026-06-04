@@ -1,6 +1,7 @@
 """Submissions API: multipart upload, regrade, listing with history."""
 
 import uuid
+from pathlib import Path as FsPath
 
 from fastapi import (
     APIRouter,
@@ -13,6 +14,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.claude_client import ClaudeClient, get_claude_client
@@ -22,11 +24,14 @@ from app.core.file_storage import (
     FileTooLargeError,
     InvalidExtensionError,
     MimeMismatchError,
+    PathTraversalError,
+    read_file_bytes,
 )
 from app.db.session import get_db
+from app.models.grading_attempt import GradingAttempt
+from app.models.submission import Submission
 from app.models.submission_file import SubmissionFile
 from app.models.user import User
-from app.models.grading_attempt import GradingAttempt
 from app.schemas.grading import GradingAttemptOut
 from app.schemas.submission import SubmissionFileOut, SubmissionOut
 from app.services import file_storage_service
@@ -169,6 +174,60 @@ async def regrade(
         ) from e
 
     return GradingAttemptOut.model_validate(attempt)
+
+
+@router.get("/{submission_id}/files/{file_id}")
+async def download_file(
+    submission_id: uuid.UUID,
+    file_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    submission = (
+        await db.execute(
+            select(Submission).where(
+                Submission.id == submission_id,
+                Submission.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if submission is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="submission not found",
+        )
+
+    file_row = (
+        await db.execute(
+            select(SubmissionFile).where(
+                SubmissionFile.id == file_id,
+                SubmissionFile.submission_id == submission_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if file_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="file not found",
+        )
+
+    try:
+        data = read_file_bytes(file_row.file_path)
+    except (FileNotFoundError, PathTraversalError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="file unavailable",
+        ) from e
+
+    filename = FsPath(file_row.file_path).name
+    return Response(
+        content=data,
+        media_type=file_row.mime_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/{phase}", response_model=list[SubmissionOut])

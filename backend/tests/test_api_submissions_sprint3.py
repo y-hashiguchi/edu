@@ -223,3 +223,81 @@ async def test_regrade_other_users_submission_returns_404(
     finally:
         app.dependency_overrides.clear()
         client.headers.pop("Authorization", None)
+
+
+def test_download_file_returns_content(auth_client, tmp_path, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "regrade_cooldown_seconds", 0)
+
+    from app.main import app
+
+    app.dependency_overrides[get_claude_client] = lambda: _fake(
+        '{"score":80,"feedback":"x"}'
+    )
+    try:
+        first = auth_client.post(
+            "/api/submissions",
+            data={"phase": "1", "task_no": "1", "content": "v"},
+            files=[("files", ("photo.png", _png_bytes(), "image/png"))],
+        ).json()
+        sub_id = first["id"]
+        file_id = first["files"][0]["id"]
+
+        resp = auth_client.get(f"/api/submissions/{sub_id}/files/{file_id}")
+        assert resp.status_code == 200, resp.text
+        assert resp.content.startswith(b"\x89PNG")
+        assert resp.headers["content-disposition"].startswith("attachment;")
+        assert resp.headers["X-Content-Type-Options"] == "nosniff"
+    finally:
+        app.dependency_overrides.clear()
+
+
+async def test_download_other_users_file_returns_404(
+    client, db_session, tmp_path, monkeypatch
+):
+    from app.config import settings
+    from app.core.security import create_access_token, hash_password
+    from app.main import app
+    from app.models.user import User
+    from app.services.progress import initialize_progress
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "regrade_cooldown_seconds", 0)
+
+    owner = User(
+        email="own@example.com", name="o", password_hash=hash_password("p")
+    )
+    intruder = User(
+        email="int@example.com", name="i", password_hash=hash_password("p")
+    )
+    db_session.add_all([owner, intruder])
+    await db_session.flush()
+    await initialize_progress(db_session, owner.id)
+    await initialize_progress(db_session, intruder.id)
+    await db_session.commit()
+
+    app.dependency_overrides[get_claude_client] = lambda: _fake(
+        '{"score":80,"feedback":"x"}'
+    )
+    try:
+        client.headers.update(
+            {"Authorization": f"Bearer {create_access_token(subject=str(owner.id))}"}
+        )
+        first = client.post(
+            "/api/submissions",
+            data={"phase": "1", "task_no": "1", "content": "v"},
+            files=[("files", ("photo.png", _png_bytes(), "image/png"))],
+        ).json()
+        sub_id = first["id"]
+        file_id = first["files"][0]["id"]
+
+        client.headers.update(
+            {"Authorization": f"Bearer {create_access_token(subject=str(intruder.id))}"}
+        )
+        resp = client.get(f"/api/submissions/{sub_id}/files/{file_id}")
+        assert resp.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+        client.headers.pop("Authorization", None)
