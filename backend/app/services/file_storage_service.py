@@ -28,23 +28,27 @@ async def persist_uploads(
         )
 
     saved: list[SubmissionFile] = []
-    for filename, content in uploads:
-        stored = await file_storage.save_upload(
-            user_id=user_id,
-            submission_id=submission_id,
-            filename=filename,
-            content=content,
-        )
-        row = SubmissionFile(
-            submission_id=submission_id,
-            file_path=stored.file_path,
-            mime_type=stored.mime_type,
-            size_bytes=stored.size_bytes,
-        )
-        db.add(row)
-        saved.append(row)
+    try:
+        for filename, content in uploads:
+            stored = await file_storage.save_upload(
+                user_id=user_id,
+                submission_id=submission_id,
+                filename=filename,
+                content=content,
+            )
+            row = SubmissionFile(
+                submission_id=submission_id,
+                file_path=stored.file_path,
+                mime_type=stored.mime_type,
+                size_bytes=stored.size_bytes,
+            )
+            db.add(row)
+            saved.append(row)
+        await db.flush()
+    except Exception:
+        file_storage.delete_submission_files(user_id, submission_id)
+        raise
 
-    await db.flush()
     return saved
 
 
@@ -61,7 +65,7 @@ async def clear_existing_files(
 
 
 async def list_submission_files(
-    db: AsyncSession, submission_id: uuid.UUID
+    *, db: AsyncSession, submission_id: uuid.UUID
 ) -> list[SubmissionFile]:
     rows = (
         await db.execute(

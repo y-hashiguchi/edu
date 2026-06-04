@@ -140,3 +140,40 @@ async def test_clear_existing_files_drops_db_and_disk(
     ).scalars().all()
     assert remaining == []
     assert not fs_mod.submission_dir(user.id, sub.id).exists()
+
+
+@pytest.mark.asyncio
+async def test_persist_uploads_rolls_back_disk_on_mid_loop_failure(
+    db_session, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from importlib import reload
+
+    import app.config as cfg_mod
+
+    reload(cfg_mod)
+    import app.core.file_storage as fs_mod
+
+    reload(fs_mod)
+    import app.services.file_storage_service as svc_mod
+
+    reload(svc_mod)
+
+    user, sub = await _make_user_and_submission(db_session)
+
+    # First upload valid PNG, second triggers MimeMismatchError (PNG content with .py extension).
+    uploads = [
+        ("good.png", _png_bytes()),
+        ("bad.py", _png_bytes()),  # mime/ext mismatch → raises mid-loop
+    ]
+
+    with pytest.raises(fs_mod.MimeMismatchError):
+        await svc_mod.persist_uploads(
+            db=db_session,
+            user_id=user.id,
+            submission_id=sub.id,
+            uploads=uploads,
+        )
+
+    # Cleanup should have removed the partially-written first file and its dir.
+    assert not fs_mod.submission_dir(user.id, sub.id).exists()
