@@ -82,3 +82,68 @@ async def test_submission_file_requires_submission(db_session):
     db_session.add(f)
     with pytest.raises(IntegrityError):
         await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_grading_attempt_graded_row(db_session):
+    from app.models.grading_attempt import GradingAttempt, GradingStatus
+
+    user = await _make_user(db_session)
+    sub = await _make_submission(db_session, user.id)
+    attempt = GradingAttempt(
+        submission_id=sub.id,
+        status=GradingStatus.GRADED,
+        score=85,
+        feedback="Good",
+        model_name="claude-sonnet-4-5",
+    )
+    db_session.add(attempt)
+    await db_session.commit()
+    await db_session.refresh(attempt)
+    assert attempt.id is not None
+    assert attempt.created_at is not None
+
+
+@pytest.mark.asyncio
+async def test_grading_attempt_failed_row(db_session):
+    from app.models.grading_attempt import GradingAttempt, GradingStatus
+
+    user = await _make_user(db_session)
+    sub = await _make_submission(db_session, user.id)
+    attempt = GradingAttempt(
+        submission_id=sub.id,
+        status=GradingStatus.FAILED,
+        error_message="rate limit",
+        model_name="claude-sonnet-4-5",
+    )
+    db_session.add(attempt)
+    await db_session.commit()
+    await db_session.refresh(attempt)
+    assert attempt.status == GradingStatus.FAILED
+    assert attempt.score is None
+
+
+@pytest.mark.asyncio
+async def test_grading_attempt_cascades_on_submission_delete(db_session):
+    from sqlalchemy import select
+
+    from app.models.grading_attempt import GradingAttempt, GradingStatus
+
+    user = await _make_user(db_session)
+    sub = await _make_submission(db_session, user.id)
+    db_session.add(
+        GradingAttempt(
+            submission_id=sub.id,
+            status=GradingStatus.GRADED,
+            score=80,
+            feedback="ok",
+            model_name="claude-sonnet-4-5",
+        )
+    )
+    await db_session.commit()
+    await db_session.delete(sub)
+    await db_session.commit()
+    remaining = (
+        await db_session.execute(select(GradingAttempt))
+    ).scalars().all()
+    assert remaining == []
