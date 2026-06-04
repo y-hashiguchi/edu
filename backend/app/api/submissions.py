@@ -37,6 +37,7 @@ async def create(
             phase=payload.phase,
             task_no=payload.task_no,
             content=payload.content,
+            uploads=[],
         )
     except SubmissionPhaseInvalidError as e:
         raise HTTPException(

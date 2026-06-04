@@ -45,6 +45,7 @@ async def test_upsert_creates_and_grades(db_session):
         phase=1,
         task_no=1,
         content="Gitでブランチ切ってPRしました",
+        uploads=[],
     )
 
     assert row.score == 80
@@ -62,6 +63,7 @@ async def test_upsert_updates_existing(db_session):
         phase=1,
         task_no=1,
         content="初回",
+        uploads=[],
     )
 
     row = await upsert_and_grade(
@@ -71,6 +73,7 @@ async def test_upsert_updates_existing(db_session):
         phase=1,
         task_no=1,
         content="改善版",
+        uploads=[],
     )
 
     assert row.content == "改善版"
@@ -91,6 +94,7 @@ async def test_all_tasks_submitted_promotes_progress(db_session):
             phase=1,
             task_no=tno,
             content=f"task {tno}",
+            uploads=[],
         )
 
     rows = await list_progress(db_session, user.id)
@@ -108,6 +112,7 @@ async def test_partial_submission_keeps_in_progress(db_session):
         phase=1,
         task_no=1,
         content="task 1",
+        uploads=[],
     )
 
     rows = await list_progress(db_session, user.id)
@@ -126,6 +131,7 @@ async def test_invalid_task_no_raises(db_session):
             phase=1,
             task_no=99,
             content="x",
+            uploads=[],
         )
 
 
@@ -140,6 +146,7 @@ async def test_grading_failure_stores_error_message(db_session):
         phase=1,
         task_no=1,
         content="提出内容",
+        uploads=[],
     )
     assert row.score is None
     assert row.ai_feedback.startswith("採点エラー")
