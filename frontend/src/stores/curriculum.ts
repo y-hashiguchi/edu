@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
-import { api } from '@/lib/api';
+import { api, ApiCooldownError } from '@/lib/api';
 import type {
   ChatMessage,
+  GradingAttempt,
   PhaseSummary,
   ProgressCompleteResponse,
   ProgressOut,
@@ -13,6 +14,7 @@ interface State {
   progress: Record<number, ProgressOut>;
   chatLogs: Record<number, ChatMessage[]>;
   submissions: Record<number, Submission[]>;
+  cooldownUntil: Record<string, number>;
   loading: boolean;
   error: string | null;
 }
@@ -23,12 +25,19 @@ export const useCurriculumStore = defineStore('curriculum', {
     progress: {},
     chatLogs: {},
     submissions: {},
+    cooldownUntil: {},
     loading: false,
     error: null,
   }),
   getters: {
     completedCount: (s) =>
       Object.values(s.progress).filter((p) => p.status === 'completed').length,
+    cooldownSecondsRemaining: (s) => (submissionId: string) => {
+      const until = s.cooldownUntil[submissionId];
+      if (!until) return 0;
+      const now = Date.now();
+      return until > now ? Math.ceil((until - now) / 1000) : 0;
+    },
   },
   actions: {
     async fetchPhasesWithProgress() {
@@ -86,21 +95,77 @@ export const useCurriculumStore = defineStore('curriculum', {
       this.submissions[phase] = await api.listSubmissions(phase);
     },
 
-    async submitTask(phase: number, task_no: number, content: string) {
+    async submitTask(
+      phase: number,
+      task_no: number,
+      content: string,
+      files: File[] = [],
+    ): Promise<Submission> {
       const submission = await api.submitTask({
         phase,
         task_no,
         content,
-        files: [],
+        files,
       });
       const list = [...(this.submissions[phase] ?? [])];
       const idx = list.findIndex((s) => s.task_no === task_no);
       if (idx >= 0) list[idx] = submission;
       else list.push(submission);
       this.submissions[phase] = list.sort((a, b) => a.task_no - b.task_no);
-      // progress could have just promoted to 'submitted'; refresh
+      this._noteCooldownIfGraded(submission);
       await this.fetchPhasesWithProgress();
       return submission;
+    },
+
+    async regradeSubmission(
+      phase: number,
+      submissionId: string,
+    ): Promise<GradingAttempt> {
+      try {
+        const attempt = await api.regradeSubmission(submissionId);
+        this._mergeAttempt(phase, submissionId, attempt);
+        if (attempt.status === 'graded') {
+          this.cooldownUntil[submissionId] = Date.now() + 60_000;
+        }
+        return attempt;
+      } catch (e) {
+        if (e instanceof ApiCooldownError) {
+          this.cooldownUntil[submissionId] =
+            Date.now() + e.retryAfterSeconds * 1000;
+        }
+        throw e;
+      }
+    },
+
+    _mergeAttempt(
+      phase: number,
+      submissionId: string,
+      attempt: GradingAttempt,
+    ) {
+      const list = this.submissions[phase] ?? [];
+      const idx = list.findIndex((s) => s.id === submissionId);
+      if (idx < 0) return;
+      const target = list[idx];
+      const updated: Submission = {
+        ...target,
+        score: attempt.status === 'graded' ? attempt.score : target.score,
+        ai_feedback:
+          attempt.status === 'graded'
+            ? attempt.feedback
+            : `採点エラー: ${attempt.error_message ?? 'unknown'}`,
+        graded_at: attempt.created_at,
+        grading_history: [attempt, ...target.grading_history],
+      };
+      const newList = [...list];
+      newList[idx] = updated;
+      this.submissions[phase] = newList;
+    },
+
+    _noteCooldownIfGraded(submission: Submission) {
+      const latest = submission.grading_history[0];
+      if (latest && latest.status === 'graded') {
+        this.cooldownUntil[submission.id] = Date.now() + 60_000;
+      }
     },
 
     getPhase(phaseNo: number): PhaseSummary | undefined {
