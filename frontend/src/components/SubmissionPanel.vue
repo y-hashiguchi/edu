@@ -7,9 +7,11 @@ const props = defineProps<{
   phase: PhaseSummary;
   submissions: Submission[];
   busyTaskNo: number | null;
+  cooldownFor?: (submissionId: string) => number;
 }>();
 const emit = defineEmits<{
-  submit: [taskNo: number, content: string];
+  submit: [taskNo: number, content: string, files: File[]];
+  regrade: [submissionId: string];
 }>();
 
 const byTaskNo = computed(() => {
@@ -17,6 +19,11 @@ const byTaskNo = computed(() => {
   for (const s of props.submissions) m[s.task_no] = s;
   return m;
 });
+
+function cooldownSecondsFor(submissionId: string | undefined): number {
+  if (!submissionId || !props.cooldownFor) return 0;
+  return props.cooldownFor(submissionId);
+}
 </script>
 
 <template>
@@ -29,7 +36,9 @@ const byTaskNo = computed(() => {
       :task-text="task"
       :submission="byTaskNo[i + 1]"
       :busy="busyTaskNo === i + 1"
-      @submit="(no, content) => emit('submit', no, content)"
+      :cooldown-seconds="cooldownSecondsFor(byTaskNo[i + 1]?.id)"
+      @submit="(no, content, files) => emit('submit', no, content, files)"
+      @regrade="(id) => emit('regrade', id)"
     />
   </section>
 </template>

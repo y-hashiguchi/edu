@@ -5,6 +5,7 @@ import { useCurriculumStore } from '@/stores/curriculum';
 import ChatLog from '@/components/ChatLog.vue';
 import ChatInput from '@/components/ChatInput.vue';
 import SubmissionPanel from '@/components/SubmissionPanel.vue';
+import { ApiCooldownError } from '@/lib/api';
 
 const props = defineProps<{ phase: number }>();
 const store = useCurriculumStore();
@@ -54,17 +55,33 @@ const submit = async (text: string) => {
   }
 };
 
-const submitTask = async (taskNo: number, content: string) => {
+const submitTask = async (taskNo: number, content: string, files: File[]) => {
   busyTaskNo.value = taskNo;
   sendError.value = null;
   try {
-    await store.submitTask(props.phase, taskNo, content);
+    await store.submitTask(props.phase, taskNo, content, files);
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'unknown error';
   } finally {
     busyTaskNo.value = null;
   }
 };
+
+const regradeSubmission = async (submissionId: string) => {
+  sendError.value = null;
+  try {
+    await store.regradeSubmission(props.phase, submissionId);
+  } catch (e) {
+    if (e instanceof ApiCooldownError) {
+      sendError.value = `再採点はあと ${e.retryAfterSeconds} 秒お待ちください。`;
+    } else {
+      sendError.value = e instanceof Error ? e.message : 'unknown error';
+    }
+  }
+};
+
+const cooldownFor = (submissionId: string) =>
+  store.cooldownSecondsRemaining(submissionId);
 
 const openConfirm = () => {
   confirmingComplete.value = true;
@@ -121,7 +138,9 @@ const confirmComplete = async () => {
       :phase="phaseData"
       :submissions="submissions"
       :busy-task-no="busyTaskNo"
+      :cooldown-for="cooldownFor"
       @submit="submitTask"
+      @regrade="regradeSubmission"
     />
 
     <hr />
