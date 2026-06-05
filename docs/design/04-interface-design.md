@@ -493,3 +493,43 @@ Sprint 2 で内部処理が変わる（外部 API 仕様は不変）:
 5. chat_history への永続化（既存）
 
 RAG 失敗時はコンテキスト無し、または不完全状態で続行（response は変わらない）。
+
+## Sprint 3 追加
+
+### POST /api/submissions（multipart）
+
+**Content-Type:** `multipart/form-data`
+**Auth:** Bearer JWT
+
+| field | type | required |
+|---|---|---|
+| phase | int (1-4) | yes |
+| task_no | int (1-5) | yes |
+| content | string | yes |
+| files | UploadFile[] | no, max 3 |
+
+- **201:** `SubmissionOut`（`files` + `grading_history` を含む）
+- **400:** 拡張子NG / サイズ超過 / MIME詐称 / files超過
+- **403:** phase locked
+- **404:** phase not found
+- **422:** task_no が範囲外
+
+### POST /api/submissions/{submission_id}/regrade
+
+**Auth:** Bearer JWT
+
+- **200:** `GradingAttemptOut`
+- **404:** submission not found（他ユーザーのものを含む）
+- **429:** cooldown 中。`Retry-After` ヘッダで残秒数を返す
+
+### GET /api/submissions/{phase}
+
+`SubmissionOut[]`、各 `SubmissionOut` に `files` と `grading_history`（新しい順）を含む。
+
+### GET /api/submissions/{submission_id}/files/{file_id}
+
+所有者本人のみダウンロード可能。レスポンスは:
+- `Content-Disposition: attachment; filename="..."`
+- `X-Content-Type-Options: nosniff`
+
+- **404:** submission または file が存在しないか、ユーザーの所有でない場合

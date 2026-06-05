@@ -286,3 +286,29 @@ steps:
 | bcrypt が CI で遅い | `BCRYPT_ROUNDS=4` をテスト環境変数で強制 |
 | Playwright が CI 上で重い | Sprint 1 では E2E は手動またはローカルのみ。CI 統合は Sprint 4 |
 | フロント 401 ハンドリングのループ | `lib/api` で `/login` 自身からのリクエストは除外する |
+
+## Sprint 3 追加
+
+### バックエンドテスト
+
+- `test_file_storage.py` — sanitize / 拡張子 / MIME / パストラバーサル
+- `test_file_storage_service.py` — persist_uploads / clear_existing_files / 上限超過
+- `test_models_sprint3.py` — SubmissionFile / GradingAttempt / CHECK 制約
+- `test_claude_client.py` — `complete_multimodal` の image/PDF base64 整形
+- `test_grading_service.py` — multimodal blocks / status-typed GradingResult
+- `test_submission_service.py` — files + grading_attempts + regrade（cooldown）
+- `test_api_submissions_sprint3.py` — multipart, regrade, 429 cooldown, owner-scope, file download
+
+### フロントエンドテスト (vitest + @vue/test-utils + jsdom)
+
+- `FileUploadInput.spec.ts` — 拡張子・サイズ・件数バリデーション
+- `GradingHistoryAccordion.spec.ts` — toggle / failed 表示 / empty
+- `curriculum.store.spec.ts` — regradeSubmission（success / 429）
+
+### E2E（Playwright）
+
+ファイル提出 → 採点成功 → 再採点 → クールダウン → 履歴展開 → ファイルダウンロードの golden path 1 本。
+
+### カバレッジ目標
+
+バックエンド 80%+ を維持。フロントは vitest による論理層カバレッジを開始。E2E は golden path のみ。
