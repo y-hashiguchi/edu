@@ -87,7 +87,12 @@ export const useCurriculumStore = defineStore('curriculum', {
     },
 
     async submitTask(phase: number, task_no: number, content: string) {
-      const submission = await api.submitTask({ phase, task_no, content });
+      const submission = await api.submitTask({
+        phase,
+        task_no,
+        content,
+        files: [],
+      });
       const list = [...(this.submissions[phase] ?? [])];
       const idx = list.findIndex((s) => s.task_no === task_no);
       if (idx >= 0) list[idx] = submission;

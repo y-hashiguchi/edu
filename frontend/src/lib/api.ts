@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   ChatResponse,
+  GradingAttempt,
   PhaseSummary,
   ProgressCompleteResponse,
   ProgressOut,
@@ -22,8 +23,6 @@ export function registerTokenGetter(getter: () => string | null) {
 
 function getToken(): string | null {
   if (_tokenGetter) return _tokenGetter();
-  // Fallback: read from localStorage if the getter hasn't been registered yet
-  // (e.g. during early app boot before main.ts runs).
   try {
     const persisted = localStorage.getItem('auth');
     if (!persisted) return null;
@@ -33,6 +32,28 @@ function getToken(): string | null {
   }
 }
 
+export class ApiCooldownError extends Error {
+  constructor(public retryAfterSeconds: number) {
+    super(`cooldown active; retry in ${retryAfterSeconds}s`);
+    this.name = 'ApiCooldownError';
+  }
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 401) {
+    if (_onUnauthorized) _onUnauthorized();
+    throw new Error('API 401: Unauthorized');
+  }
+  if (response.status === 429) {
+    const retryAfter = Number(response.headers.get('Retry-After') ?? '60');
+    throw new ApiCooldownError(Number.isFinite(retryAfter) ? retryAfter : 60);
+  }
+  if (!response.ok) {
+    throw new Error(`API ${response.status}: ${await response.text()}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   const headers = new Headers(init?.headers);
@@ -40,15 +61,32 @@ export async function rawRequest<T>(path: string, init?: RequestInit): Promise<T
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+  return handleResponse<T>(response);
+}
 
-  if (response.status === 401) {
-    if (_onUnauthorized) _onUnauthorized();
-    throw new Error('API 401: Unauthorized');
-  }
-  if (!response.ok) {
-    throw new Error(`API ${response.status}: ${await response.text()}`);
-  }
-  return response.json() as Promise<T>;
+async function multipartRequest<T>(
+  path: string,
+  formData: FormData,
+  method: 'POST' = 'POST',
+): Promise<T> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  // Do NOT set Content-Type; the browser sets it with a multipart boundary.
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers,
+    body: formData,
+  });
+  return handleResponse<T>(response);
+}
+
+export interface SubmitTaskPayload {
+  phase: number;
+  task_no: number;
+  content: string;
+  files: File[];
 }
 
 export const api = {
@@ -73,9 +111,22 @@ export const api = {
   listSubmissions: (phase: number) =>
     rawRequest<Submission[]>(`/api/submissions/${phase}`),
 
-  submitTask: (payload: { phase: number; task_no: number; content: string }) =>
-    rawRequest<Submission>('/api/submissions', {
+  submitTask: (payload: SubmitTaskPayload): Promise<Submission> => {
+    const fd = new FormData();
+    fd.append('phase', String(payload.phase));
+    fd.append('task_no', String(payload.task_no));
+    fd.append('content', payload.content);
+    for (const file of payload.files) {
+      fd.append('files', file, file.name);
+    }
+    return multipartRequest<Submission>('/api/submissions', fd);
+  },
+
+  regradeSubmission: (submissionId: string): Promise<GradingAttempt> =>
+    rawRequest<GradingAttempt>(`/api/submissions/${submissionId}/regrade`, {
       method: 'POST',
-      body: JSON.stringify(payload),
     }),
+
+  downloadFileUrl: (submissionId: string, fileId: string): string =>
+    `${baseUrl}/api/submissions/${submissionId}/files/${fileId}`,
 };

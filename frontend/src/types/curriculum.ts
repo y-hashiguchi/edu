@@ -44,6 +44,26 @@ export interface TokenResponse {
   token_type: string;
 }
 
+export type GradingAttemptStatus = 'graded' | 'failed';
+
+export interface GradingAttempt {
+  id: string;
+  status: GradingAttemptStatus;
+  score: number | null;
+  feedback: string | null;
+  error_message: string | null;
+  model_name: string;
+  created_at: string;
+}
+
+export interface SubmissionFile {
+  id: string;
+  file_path: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+}
+
 export interface Submission {
   id: string;
   phase: number;
@@ -53,4 +73,6 @@ export interface Submission {
   score: number | null;
   submitted_at: string;
   graded_at: string | null;
+  files: SubmissionFile[];
+  grading_history: GradingAttempt[];
 }
