@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.core.claude_client import Attachment, ClaudeClient
+from app.core.file_storage import PathTraversalError, read_file_bytes
 from app.models.submission_file import SubmissionFile
 from app.schemas.grading import GradingResult, GradingResultStatus
 
@@ -57,7 +58,10 @@ def _extract_json(text: str) -> dict:
 
 
 def _read_file_bytes(file_path: str) -> bytes:
-    return Path(file_path).read_bytes()
+    # MED-2: route through file_storage.read_file_bytes which enforces the
+    # upload-root boundary. Defends against a tampered SubmissionFile row
+    # pointing outside the configured upload directory.
+    return read_file_bytes(file_path)
 
 
 def _build_user_text(
@@ -115,6 +119,14 @@ async def grade_submission(
 ) -> GradingResult:
     try:
         attachments, inline_texts = _split_files(files)
+    except PathTraversalError as e:
+        # Boundary breach surfaces explicitly so ops can see the tamper trail.
+        logger.error("attempted read outside upload root: %s", e)
+        return GradingResult(
+            status=GradingResultStatus.FAILED,
+            error_message=f"file outside upload root: {e}",
+            model_name=settings.anthropic_model,
+        )
     except OSError as e:
         return GradingResult(
             status=GradingResultStatus.FAILED,

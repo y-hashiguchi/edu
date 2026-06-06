@@ -43,9 +43,13 @@ async def test_grade_submission_text_only_returns_graded(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_grade_submission_with_image_uses_multimodal(tmp_path):
+async def test_grade_submission_with_image_uses_multimodal(tmp_path, monkeypatch):
+    from app.config import settings
     from app.models.submission_file import SubmissionFile
     from app.services.grading import grade_submission
+
+    # MED-2: grading enforces upload-root boundary; align test fixture root.
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
 
     img_path = tmp_path / "sub.png"
     img_path.write_bytes(_png_bytes())
@@ -77,18 +81,22 @@ async def test_grade_submission_with_image_uses_multimodal(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_grade_submission_truncates_long_text_attachments(tmp_path):
+async def test_grade_submission_truncates_long_text_attachments(tmp_path, monkeypatch):
     """HIGH-2: inline text bodies are truncated before being added to the prompt.
 
     A 5 MB plain-text attachment would otherwise expand the user message far
     beyond what's safe (token cost + context-window blowup).
     """
+    from app.config import settings
     from app.models.submission_file import SubmissionFile
     from app.services import grading
     from app.services.grading import (
         _MAX_INLINE_CHARS_PER_FILE,
         _TRUNCATION_MARKER,
     )
+
+    # MED-2: align upload-root boundary with tmp_path.
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
 
     big_path = tmp_path / "big.txt"
     big_path.write_text("A" * (_MAX_INLINE_CHARS_PER_FILE + 5000))
@@ -152,6 +160,44 @@ async def test_grade_submission_masks_sdk_error_but_logs_detail(caplog):
         "req_xyz" in (r.getMessage() + str(r.exc_info or ""))
         for r in caplog.records
     )
+
+
+@pytest.mark.asyncio
+async def test_grade_submission_rejects_file_outside_upload_root(
+    tmp_path, monkeypatch
+):
+    """MED-2: defense in depth — files whose path escapes the upload root
+    (would only happen via a DB tamper / migration bug) must fail safely
+    instead of letting grading.py read arbitrary host paths."""
+    from app.config import settings
+    from app.models.submission_file import SubmissionFile
+    from app.services.grading import grade_submission
+
+    upload_root = tmp_path / "uploads"
+    upload_root.mkdir()
+    monkeypatch.setattr(settings, "upload_dir", str(upload_root))
+
+    rogue_dir = tmp_path / "etc"
+    rogue_dir.mkdir()
+    rogue = rogue_dir / "secret"
+    rogue.write_text("top secret")
+
+    file_row = SubmissionFile(
+        submission_id=uuid.uuid4(),
+        file_path=str(rogue),
+        mime_type="text/plain",
+        size_bytes=rogue.stat().st_size,
+    )
+    claude = _fake_claude('{"score":80,"feedback":"x"}')
+    result = await grade_submission(
+        claude=claude, task_description="x", content="y", files=[file_row]
+    )
+    assert result.status == GradingResultStatus.FAILED
+    # Either the boundary check error wording, or the generic file read
+    # error — both are correct fail-safe outcomes. The point is the rogue
+    # file must NOT have been opened and inlined into the prompt.
+    msg = (result.error_message or "").lower()
+    assert "upload root" in msg or "file read error" in msg or "outside" in msg
 
 
 @pytest.mark.asyncio
