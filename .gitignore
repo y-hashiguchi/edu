@@ -23,3 +23,13 @@ frontend/src/**/*.js
 .idea/
 .vscode/
 .DS_Store
+
+# Playwright MCP ephemeral output
+/.playwright-mcp/
+
+# Local e2e screenshots from ad-hoc Playwright runs.
+# Committed reference screenshots (e2e-sprint3-*.png) remain tracked.
+/e2e-chat-response.png
+/e2e-history-restored.png
+/e2e-homeview-after-login.png
+/e2e-phase1-completed.png
