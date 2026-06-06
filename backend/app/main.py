@@ -8,6 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import auth, curriculum, health, progress, submissions
 from app.api import chat as chat_router
 from app.config import settings
+from app.core.csp import CSPMiddleware
 from app.core.limiter import limiter
 
 
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
         LimitUploadSize,
         max_body_bytes=settings.max_request_body_bytes,
     )
+    app.add_middleware(CSPMiddleware, policy=settings.csp_policy)
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
