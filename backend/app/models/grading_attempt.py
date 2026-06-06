@@ -4,7 +4,16 @@ import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,6 +33,14 @@ class GradingAttempt(Base):
         CheckConstraint(
             "score IS NULL OR score BETWEEN 0 AND 100",
             name="ck_grading_attempts_score",
+        ),
+        # Mirrors the index declared in the Sprint 3 migration. Without this
+        # model-side declaration alembic autogenerate keeps trying to drop
+        # the index it cannot see in metadata.
+        Index(
+            "ix_grading_attempts_submission_created",
+            "submission_id",
+            text("created_at DESC"),
         ),
     )
 
