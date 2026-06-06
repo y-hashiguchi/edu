@@ -3,6 +3,8 @@
 from app.models.chat_history import ChatHistory  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
 from app.models.grading_attempt import GradingAttempt, GradingStatus  # noqa: F401
+from app.models.instructor_comment import InstructorComment  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
 from app.models.progress import Progress, ProgressStatus  # noqa: F401
 from app.models.submission import Submission  # noqa: F401
 from app.models.submission_file import SubmissionFile  # noqa: F401
