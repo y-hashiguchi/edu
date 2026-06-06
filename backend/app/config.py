@@ -37,6 +37,18 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     submission_rate_limit: str = "10/minute"
 
+    # Notifications (Sprint 4)
+    notification_poll_limit: int = 50
+
+    # Content Security Policy (Sprint 4)
+    # API responses are not HTML, but CSP on the API origin is a cheap
+    # second line of defense for any future inline rendering bug.
+    csp_policy: str = (
+        "default-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'none'"
+    )
+
     # Hard cap on multipart POST body size enforced at the ASGI layer.
     # Defaults to (max_files × max_file_size) + 64 KB headroom for form fields.
     @property
