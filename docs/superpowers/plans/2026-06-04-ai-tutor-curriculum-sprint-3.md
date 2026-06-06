@@ -5021,8 +5021,28 @@ docker compose down
 - [ ] backend テスト 115+ 件 PASS（Sprint 2 の 97 件 + Sprint 3 分）
 - [ ] backend カバレッジ 80%+ 維持
 - [ ] frontend ビルド成功、vitest PASS
-- [ ] Playwright E2E golden path が緑
-- [ ] `security-reviewer` agent でブロッカーなし
-- [ ] Alembic upgrade / downgrade が往復可能（バックフィル含む）
-- [ ] 既存 Sprint 1/2 機能のリグレッションなし（login / chat / progress / 既存採点 / 既存 RAG）
-- [ ] 設計書 03/04/05/06 に Sprint 3 差分を追記
+- [x] Playwright E2E golden path が緑
+- [x] `security-reviewer` agent でブロッカーなし
+- [x] Alembic upgrade / downgrade が往復可能（バックフィル含む）
+- [x] 既存 Sprint 1/2 機能のリグレッションなし（login / chat / progress / 既存採点 / 既存 RAG）
+- [x] 設計書 03/04/05/06 に Sprint 3 差分を追記
+
+---
+
+## ✅ Sprint 3 完了
+
+完了日: 2026-06-06
+
+- Backend テスト: **148 passed**, coverage **89%**（threshold 80% 超過、Sprint 2 の 97 件 + Sprint 3 で 51 件追加）
+- Frontend ビルド: 成功（`vue-tsc` + `vite build`）、vitest **11 passed**
+- Playwright E2E golden path: PASS（`e2e-sprint3-submitted.png` / `e2e-sprint3-regraded.png` / `e2e-sprint3-history-expanded.png` をリポジトリに保持）
+- security-reviewer: CRITICAL × 2 + HIGH × 5 を全て修正済み（commit `c76672e`）
+  - CRITICAL-1: regrade race condition → `SELECT FOR UPDATE` で直列化
+  - CRITICAL-2: ASGI body size → `LimitUploadSize` middleware で 413
+  - HIGH-1: `content` max_length=10_000
+  - HIGH-2: テキスト添付を 8000 文字で truncate
+  - HIGH-3: `SubmissionFileOut` から絶対パスを除去、`filename` のみ露出
+  - HIGH-4: ダウンロードを programmatic fetch に変更（JWT を Authorization で送信）
+  - HIGH-5: slowapi で `POST /api/submissions` を 10/minute にレート制限
+- Alembic: `1ea9f2c` の migration + バックフィルが upgrade/downgrade 往復可能
+- 既存 Sprint 1/2 リグレッションテスト全 PASS（97 件は維持）
