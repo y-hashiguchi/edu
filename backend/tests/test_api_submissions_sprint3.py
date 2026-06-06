@@ -21,6 +21,117 @@ def _fake(reply: str) -> ClaudeClient:
     return ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
 
+def test_create_submission_rejects_overlong_content(auth_client, tmp_path, monkeypatch):
+    """HIGH-1: server enforces max_length on the content form field."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+
+    from app.main import app
+
+    app.dependency_overrides[get_claude_client] = lambda: _fake(
+        '{"score":80,"feedback":"x"}'
+    )
+    try:
+        response = auth_client.post(
+            "/api/submissions",
+            data={"phase": "1", "task_no": "1", "content": "x" * 10_001},
+        )
+        # Pydantic validation runs before any business logic.
+        assert response.status_code == 422, response.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_rate_limit_blocks_burst_create_submission(
+    auth_client, tmp_path, monkeypatch
+):
+    """HIGH-5: more than `submission_rate_limit` POSTs in a short window 429."""
+    from app.config import settings
+    from app.core.limiter import limiter
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+    monkeypatch.setattr(limiter, "enabled", True)
+    # `limits` MemoryStorage is keyed by (route, IP). TestClient always uses
+    # 127.0.0.1, so a previous suite run could leave residue. Reset to ensure
+    # the bucket starts empty.
+    try:
+        limiter._storage.reset()
+    except Exception:  # pragma: no cover - storage backends differ
+        pass
+
+    from app.main import app
+
+    app.dependency_overrides[get_claude_client] = lambda: _fake(
+        '{"score":80,"feedback":"x"}'
+    )
+    try:
+        statuses = []
+        for i in range(11):
+            r = auth_client.post(
+                "/api/submissions",
+                data={
+                    "phase": "1",
+                    "task_no": str((i % 5) + 1),
+                    "content": f"burst-{i}",
+                },
+            )
+            statuses.append(r.status_code)
+        assert 429 in statuses, statuses
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_limit_upload_size_middleware_rejects_oversized_body():
+    """CRITICAL-2: middleware rejects on content-length without reading body."""
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+    from starlette.testclient import TestClient as StarletteTestClient
+
+    from app.main import LimitUploadSize
+
+    async def echo(_request):
+        return PlainTextResponse("ok")
+
+    sub_app = Starlette(routes=[Route("/echo", echo, methods=["POST"])])
+    sub_app.add_middleware(LimitUploadSize, max_body_bytes=1024)
+    sub_client = StarletteTestClient(sub_app)
+
+    body_within = b"x" * 512
+    body_over = b"x" * 2048
+    assert sub_client.post("/echo", content=body_within).status_code == 200
+    over_response = sub_client.post("/echo", content=body_over)
+    assert over_response.status_code == 413
+    assert "too large" in over_response.json()["detail"]
+
+
+def test_files_dto_exposes_only_filename(auth_client, tmp_path, monkeypatch):
+    """HIGH-3: SubmissionFileOut must not leak the absolute server path."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+
+    from app.main import app
+
+    app.dependency_overrides[get_claude_client] = lambda: _fake(
+        '{"score":80,"feedback":"x"}'
+    )
+    try:
+        response = auth_client.post(
+            "/api/submissions",
+            data={"phase": "1", "task_no": "1", "content": "v"},
+            files=[("files", ("photo.png", _png_bytes(), "image/png"))],
+        )
+        assert response.status_code == 201, response.text
+        body = response.json()
+        f = body["files"][0]
+        assert f["filename"] == "photo.png"
+        assert "file_path" not in f
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_multipart_submission_with_file(auth_client, tmp_path, monkeypatch):
     from app.config import settings
 

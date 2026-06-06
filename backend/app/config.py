@@ -33,6 +33,19 @@ class Settings(BaseSettings):
     # Grading (Sprint 3)
     regrade_cooldown_seconds: int = 60
 
+    # Rate limiting (Sprint 3)
+    rate_limit_enabled: bool = True
+    submission_rate_limit: str = "10/minute"
+
+    # Hard cap on multipart POST body size enforced at the ASGI layer.
+    # Defaults to (max_files × max_file_size) + 64 KB headroom for form fields.
+    @property
+    def max_request_body_bytes(self) -> int:
+        return (
+            self.max_file_size_bytes * self.max_files_per_submission
+            + 64 * 1024
+        )
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]

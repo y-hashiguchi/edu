@@ -77,6 +77,54 @@ async def test_grade_submission_with_image_uses_multimodal(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_grade_submission_truncates_long_text_attachments(tmp_path):
+    """HIGH-2: inline text bodies are truncated before being added to the prompt.
+
+    A 5 MB plain-text attachment would otherwise expand the user message far
+    beyond what's safe (token cost + context-window blowup).
+    """
+    from app.models.submission_file import SubmissionFile
+    from app.services import grading
+    from app.services.grading import (
+        _MAX_INLINE_CHARS_PER_FILE,
+        _TRUNCATION_MARKER,
+    )
+
+    big_path = tmp_path / "big.txt"
+    big_path.write_text("A" * (_MAX_INLINE_CHARS_PER_FILE + 5000))
+
+    file_row = SubmissionFile(
+        submission_id=uuid.uuid4(),
+        file_path=str(big_path),
+        mime_type="text/plain",
+        size_bytes=big_path.stat().st_size,
+    )
+
+    sdk = MagicMock()
+    sdk.messages.create = AsyncMock(
+        return_value=MagicMock(content=[MagicMock(text='{"score":80,"feedback":"y"}')])
+    )
+    claude = ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
+
+    result = await grading.grade_submission(
+        claude=claude,
+        task_description="describe Git",
+        content="see file",
+        files=[file_row],
+    )
+    assert result.status == GradingResultStatus.GRADED
+
+    # Verify the prompt actually sent to Claude is bounded.
+    sent = sdk.messages.create.await_args.kwargs["messages"][0]
+    sent_text = next(
+        part["text"] for part in sent["content"] if part.get("type") == "text"
+    )
+    assert _TRUNCATION_MARKER in sent_text
+    # File body slice + marker; allow some slack for task description + content.
+    assert "A" * (_MAX_INLINE_CHARS_PER_FILE + 1) not in sent_text
+
+
+@pytest.mark.asyncio
 async def test_grade_submission_returns_failed_on_claude_error():
     from app.services.grading import grade_submission
 

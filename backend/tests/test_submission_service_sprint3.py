@@ -243,6 +243,83 @@ async def test_failed_attempts_do_not_count_toward_cooldown(
 
 
 @pytest.mark.asyncio
+async def test_concurrent_regrade_serialised_by_row_lock(
+    db_session, tmp_path, monkeypatch
+):
+    """Two parallel regrade calls cannot both bypass the cooldown.
+
+    Reproduces the pre-fix race where both sessions read the same "cooldown
+    just expired" state, both call Claude, and both insert new graded
+    attempts. With SELECT FOR UPDATE on the submission row, the second
+    session blocks until the first commits, then observes the freshly
+    inserted attempt and is rejected with RegradeCooldownError.
+    """
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+
+    from app.config import settings
+    from app.db.session import SessionLocal
+    from app.services import submission as sub_mod
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "regrade_cooldown_seconds", 60)
+
+    user = await _setup_user(db_session)
+    claude = _fake_claude('{"score":70,"feedback":"first"}')
+    row = await sub_mod.upsert_and_grade(
+        db=db_session,
+        claude=claude,
+        user_id=user.id,
+        phase=1,
+        task_no=1,
+        content="v",
+        uploads=[],
+    )
+
+    # Push the only graded attempt 61 s into the past so the cooldown has
+    # just barely elapsed — without the lock both racers would observe
+    # `remaining <= 0` and both proceed.
+    attempt = (
+        await db_session.execute(
+            select(GradingAttempt).where(GradingAttempt.submission_id == row.id)
+        )
+    ).scalar_one()
+    attempt.created_at = datetime.now(UTC) - timedelta(seconds=61)
+    await db_session.commit()
+
+    submission_id = row.id
+    user_id = user.id
+
+    # Hold the Claude call long enough for the second task to observe the
+    # lock contention rather than racing past it on a tight CPU schedule.
+    async def slow_create(**_kwargs):
+        await asyncio.sleep(0.3)
+        return MagicMock(content=[MagicMock(text='{"score":99,"feedback":"x"}')])
+
+    slow_sdk = MagicMock()
+    slow_sdk.messages.create = slow_create
+    slow_claude = ClaudeClient(sdk=slow_sdk, model="claude-sonnet-4-5")
+
+    async def attempt_regrade():
+        async with SessionLocal() as session:
+            try:
+                return await sub_mod.regrade_submission(
+                    db=session,
+                    claude=slow_claude,
+                    user_id=user_id,
+                    submission_id=submission_id,
+                )
+            except sub_mod.RegradeCooldownError as e:
+                return e
+
+    results = await asyncio.gather(attempt_regrade(), attempt_regrade())
+    successes = [r for r in results if not isinstance(r, sub_mod.RegradeCooldownError)]
+    cooldowns = [r for r in results if isinstance(r, sub_mod.RegradeCooldownError)]
+    assert len(successes) == 1, f"expected exactly one success, got {results!r}"
+    assert len(cooldowns) == 1
+
+
+@pytest.mark.asyncio
 async def test_regrade_rejects_other_users_submission(
     db_session, tmp_path, monkeypatch
 ):

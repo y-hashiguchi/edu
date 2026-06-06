@@ -19,6 +19,7 @@ dependencies = [
     "email-validator>=2.2.0",
     "python-multipart>=0.0.12",
     "python-magic>=0.4.27",
+    "slowapi>=0.1.9",
     "fastembed>=0.4.0",
     "numpy>=2.0.0",
     "pgvector>=0.3.0",

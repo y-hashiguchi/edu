@@ -13,6 +13,11 @@ os.environ.setdefault(
 )
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret")
 os.environ.setdefault("BCRYPT_ROUNDS", "4")
+# Disable per-IP rate limiting by default — individual tests opt in by
+# toggling `limiter.enabled = True` in their own setup. With ~100 multipart
+# POSTs flying through the test client, leaving the live 10/minute cap on
+# would surface 429s in unrelated assertions.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 
 @pytest.fixture

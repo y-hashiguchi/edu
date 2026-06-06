@@ -127,6 +127,27 @@ export const api = {
       method: 'POST',
     }),
 
-  downloadFileUrl: (submissionId: string, fileId: string): string =>
-    `${baseUrl}/api/submissions/${submissionId}/files/${fileId}`,
+  // Downloads the file body via an authenticated fetch and returns a Blob.
+  // A bare <a href> cannot carry the Authorization header, so the download
+  // endpoint must be reached programmatically.
+  downloadFile: async (
+    submissionId: string,
+    fileId: string,
+  ): Promise<Blob> => {
+    const token = getToken();
+    const headers = new Headers();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(
+      `${baseUrl}/api/submissions/${submissionId}/files/${fileId}`,
+      { headers },
+    );
+    if (response.status === 401) {
+      if (_onUnauthorized) _onUnauthorized();
+      throw new Error('API 401: Unauthorized');
+    }
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    return response.blob();
+  },
 };

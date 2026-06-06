@@ -5,6 +5,30 @@ import GradingHistoryAccordion from '@/components/GradingHistoryAccordion.vue';
 import { api } from '@/lib/api';
 import type { Submission } from '@/types/curriculum';
 
+const downloadError = ref<string | null>(null);
+
+async function downloadFile(
+  submissionId: string,
+  fileId: string,
+  filename: string,
+): Promise<void> {
+  downloadError.value = null;
+  try {
+    const blob = await api.downloadFile(submissionId, fileId);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    downloadError.value =
+      e instanceof Error ? e.message : 'ファイルのダウンロードに失敗しました';
+  }
+}
+
 const props = defineProps<{
   taskNo: number;
   taskText: string;
@@ -89,16 +113,17 @@ defineExpose({ clearFilesAfterSubmit });
       <strong>添付済み:</strong>
       <ul>
         <li v-for="f in submission.files" :key="f.id">
-          <a
-            :href="api.downloadFileUrl(submission.id, f.id)"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            class="link"
+            @click="downloadFile(submission!.id, f.id, f.filename)"
           >
-            {{ f.file_path.split('/').pop() }}
-          </a>
+            {{ f.filename }}
+          </button>
           <span class="meta">({{ Math.round(f.size_bytes / 1024) }} KB)</span>
         </li>
       </ul>
+      <p v-if="downloadError" class="error">{{ downloadError }}</p>
     </div>
 
     <div v-if="submission?.ai_feedback" class="feedback">
@@ -188,9 +213,23 @@ textarea {
   gap: 0.4rem;
   align-items: center;
 }
-.attached a {
+.attached .link {
+  background: none;
+  border: 0;
+  padding: 0;
   color: var(--color-accent);
   text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.attached .link:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.attached .error {
+  color: #b91c1c;
+  font-size: 0.8rem;
+  margin: 0.3rem 0 0;
 }
 .attached .meta {
   font-size: 0.75rem;

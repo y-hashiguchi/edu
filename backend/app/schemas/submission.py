@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -10,18 +11,25 @@ from app.schemas.grading import GradingAttemptOut
 
 class SubmissionFileOut(BaseModel):
     id: uuid.UUID
-    file_path: str
+    # Only the sanitized basename is exposed; the absolute server-side path
+    # is never sent to clients (would leak the container's WORKDIR / volume
+    # mount layout).
+    filename: str
     mime_type: str
     size_bytes: int
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
-    @property
-    def filename(self) -> str:
-        from pathlib import Path
-
-        return Path(self.file_path).name
+    @classmethod
+    def from_row(cls, row) -> "SubmissionFileOut":
+        return cls(
+            id=row.id,
+            filename=Path(row.file_path).name,
+            mime_type=row.mime_type,
+            size_bytes=row.size_bytes,
+            created_at=row.created_at,
+        )
 
 
 class SubmissionCreate(BaseModel):

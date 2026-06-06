@@ -29,6 +29,14 @@ _TEXT_MIME_PREFIX = "text/"
 _IMAGE_MIME_PREFIX = "image/"
 _PDF_MIME = "application/pdf"
 
+# Hard cap per inlined text attachment. The upload pipeline allows files up
+# to settings.max_file_size_bytes (5 MB) and up to settings.max_files_per_submission
+# (3). Without truncation an attacker can fire 15 MB of UTF-8 into a single
+# prompt and amplify token cost ~4000× per regrade. 8000 chars ≈ 2k tokens
+# per file leaves room for the system prompt and Claude's reply.
+_MAX_INLINE_CHARS_PER_FILE = 8000
+_TRUNCATION_MARKER = "\n[... truncated for prompt-length safety ...]"
+
 
 def _extract_json(text: str) -> dict:
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -79,6 +87,8 @@ def _split_files(
                 body = raw.decode("utf-8")
             except UnicodeDecodeError:
                 body = raw.decode("utf-8", errors="replace")
+            if len(body) > _MAX_INLINE_CHARS_PER_FILE:
+                body = body[:_MAX_INLINE_CHARS_PER_FILE] + _TRUNCATION_MARKER
             inline_texts.append((name, body))
         # other types are skipped silently — extension whitelist already
         # filters out anything we cannot grade.

@@ -10,6 +10,7 @@ from fastapi import (
     Form,
     HTTPException,
     Path,
+    Request,
     Response,
     UploadFile,
     status,
@@ -17,6 +18,7 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.claude_client import ClaudeClient, get_claude_client
 from app.core.deps import get_current_user
 from app.core.file_storage import (
@@ -47,6 +49,8 @@ from app.services.submission import (
     upsert_and_grade,
 )
 
+from app.core.limiter import limiter
+
 router = APIRouter(prefix="/api/submissions", tags=["submissions"])
 
 
@@ -64,16 +68,18 @@ def _to_out(
         score=row.score,
         submitted_at=row.submitted_at,
         graded_at=row.graded_at,
-        files=[SubmissionFileOut.model_validate(f) for f in files],
+        files=[SubmissionFileOut.from_row(f) for f in files],
         grading_history=[GradingAttemptOut.model_validate(a) for a in history],
     )
 
 
 @router.post("", response_model=SubmissionOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit(settings.submission_rate_limit)
 async def create_submission(
+    request: Request,  # required for the slowapi limiter decorator
     phase: int = Form(..., ge=1, le=4),
     task_no: int = Form(..., ge=1, le=5),
-    content: str = Form(...),
+    content: str = Form(..., min_length=1, max_length=10_000),
     files: list[UploadFile] = File(default_factory=list),
     current_user: User = Depends(get_current_user),
     claude: ClaudeClient = Depends(get_claude_client),

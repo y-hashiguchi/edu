@@ -165,15 +165,22 @@ async def _latest_graded_attempt(
 
 
 async def _load_owned_submission(
-    db: AsyncSession, user_id: uuid.UUID, submission_id: uuid.UUID
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    submission_id: uuid.UUID,
+    *,
+    lock: bool = False,
 ) -> Submission:
-    row = (
-        await db.execute(
-            select(Submission).where(
-                Submission.id == submission_id, Submission.user_id == user_id
-            )
-        )
-    ).scalar_one_or_none()
+    stmt = select(Submission).where(
+        Submission.id == submission_id, Submission.user_id == user_id
+    )
+    if lock:
+        # SELECT ... FOR UPDATE serialises concurrent regrade requests on the
+        # same submission. Without this, two parallel cooldown checks can both
+        # read a "cooldown expired" state and both proceed to call Claude,
+        # bypassing the rate limit and burning N× the API cost.
+        stmt = stmt.with_for_update()
+    row = (await db.execute(stmt)).scalar_one_or_none()
     if row is None:
         raise SubmissionNotFoundError(str(submission_id))
     return row
@@ -186,7 +193,7 @@ async def regrade_submission(
     user_id: uuid.UUID,
     submission_id: uuid.UUID,
 ) -> GradingAttempt:
-    row = await _load_owned_submission(db, user_id, submission_id)
+    row = await _load_owned_submission(db, user_id, submission_id, lock=True)
 
     cooldown = settings.regrade_cooldown_seconds
     last_graded = await _latest_graded_attempt(db, row.id)
