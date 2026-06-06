@@ -116,6 +116,31 @@ def _mime_matches_extension(mime: str, ext: str) -> bool:
     return any(mime.startswith(p) for p in prefixes)
 
 
+def _unique_target(target_dir: Path, safe_name: str) -> Path:
+    """Pick a path under target_dir that does not collide with an existing
+    file. Two uploads that sanitize to the same name (e.g. `hello world.png`
+    and `hello_world.png`) would otherwise silently overwrite each other and
+    leave two SubmissionFile rows pointing at the same bytes. We append a
+    numeric suffix (`_1`, `_2`, ...) before the extension to keep both
+    distinguishable on disk. The 100-attempt ceiling is a sanity bound — a
+    submission directory holding 100 files with the same stem is far past
+    any legitimate use.
+    """
+    target = target_dir / safe_name
+    if not target.exists():
+        return target
+    if "." in safe_name:
+        stem, _, ext = safe_name.rpartition(".")
+        suffix = f".{ext}"
+    else:
+        stem, suffix = safe_name, ""
+    for i in range(1, 100):
+        candidate = target_dir / f"{stem}_{i}{suffix}"
+        if not candidate.exists():
+            return candidate
+    raise FileStorageError("could not find unique filename within 100 attempts")
+
+
 async def save_upload(
     *,
     user_id: uuid.UUID,
@@ -139,7 +164,7 @@ async def save_upload(
 
     def _write() -> Path:
         target_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        target = target_dir / safe_name
+        target = _unique_target(target_dir, safe_name)
         target.write_bytes(content)
         return target
 

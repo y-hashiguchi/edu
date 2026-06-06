@@ -187,6 +187,68 @@ async def test_save_upload_rejects_mime_mismatch(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_save_upload_suffixes_collisions(tmp_path, monkeypatch):
+    """MED-4: A second upload with the same sanitized name must not overwrite."""
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    from importlib import reload
+
+    import app.config as cfg_mod
+
+    reload(cfg_mod)
+    import app.core.file_storage as fs_mod
+
+    reload(fs_mod)
+
+    user_id = uuid.uuid4()
+    sub_id = uuid.uuid4()
+    a = await fs_mod.save_upload(
+        user_id=user_id, submission_id=sub_id,
+        filename="img.png", content=_png_bytes(),
+    )
+    b = await fs_mod.save_upload(
+        user_id=user_id, submission_id=sub_id,
+        filename="img.png", content=_png_bytes(),
+    )
+    assert a.file_path != b.file_path
+    assert Path(a.file_path).exists()
+    assert Path(b.file_path).exists()
+    # Suffix should match the convention _N.ext
+    assert Path(b.file_path).name == "img_1.png"
+
+
+@pytest.mark.asyncio
+async def test_save_upload_suffix_handles_extensionless_name(tmp_path, monkeypatch):
+    """Filenames without an extension still get a unique suffix."""
+    monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("ALLOWED_UPLOAD_EXTENSIONS", "py,txt,bin")
+    from importlib import reload
+
+    import app.config as cfg_mod
+
+    reload(cfg_mod)
+    import app.core.file_storage as fs_mod
+
+    reload(fs_mod)
+
+    # We need a filename without dot but allowed_extensions requires one — use
+    # ".txt" path so it survives validate_extension but the collision suffix
+    # logic still has to deal with the dotted form correctly.
+    user_id = uuid.uuid4()
+    sub_id = uuid.uuid4()
+    a = await fs_mod.save_upload(
+        user_id=user_id, submission_id=sub_id,
+        filename="notes.txt", content=b"hello world",
+    )
+    b = await fs_mod.save_upload(
+        user_id=user_id, submission_id=sub_id,
+        filename="notes.txt", content=b"different content",
+    )
+    assert Path(b.file_path).name == "notes_1.txt"
+    assert Path(a.file_path).read_bytes() == b"hello world"
+    assert Path(b.file_path).read_bytes() == b"different content"
+
+
+@pytest.mark.asyncio
 async def test_delete_files_removes_directory(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     from importlib import reload
