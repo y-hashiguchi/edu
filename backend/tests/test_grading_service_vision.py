@@ -125,18 +125,33 @@ async def test_grade_submission_truncates_long_text_attachments(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_grade_submission_returns_failed_on_claude_error():
+async def test_grade_submission_masks_sdk_error_but_logs_detail(caplog):
+    """MED-3: SDK error never leaks request IDs to the API client; full
+    detail is logged server-side for ops."""
+    import logging
+
     from app.services.grading import grade_submission
 
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(side_effect=RuntimeError("boom"))
+    sdk.messages.create = AsyncMock(
+        side_effect=RuntimeError("req_xyz internal routing detail")
+    )
     claude = ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
+    caplog.set_level(logging.ERROR, logger="app.services.grading")
     result = await grade_submission(
         claude=claude, task_description="x", content="y", files=[]
     )
     assert result.status == GradingResultStatus.FAILED
-    assert result.error_message and "boom" in result.error_message
+    msg = result.error_message or ""
+    assert "req_xyz" not in msg
+    assert "routing" not in msg
+    assert "採点サービス" in msg
+    # Full detail must still be present in logs for ops.
+    assert any(
+        "req_xyz" in (r.getMessage() + str(r.exc_info or ""))
+        for r in caplog.records
+    )
 
 
 @pytest.mark.asyncio

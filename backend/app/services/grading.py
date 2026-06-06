@@ -2,6 +2,7 @@
 
 import base64
 import json
+import logging
 import re
 from pathlib import Path
 
@@ -9,6 +10,16 @@ from app.config import settings
 from app.core.claude_client import Attachment, ClaudeClient
 from app.models.submission_file import SubmissionFile
 from app.schemas.grading import GradingResult, GradingResultStatus
+
+logger = logging.getLogger(__name__)
+
+# MED-3: SDK exception messages may include request IDs / internal routing
+# detail. Surface a generic message to the client and keep the full trace
+# in server logs only.
+_USER_FACING_SDK_ERROR = (
+    "採点サービスでエラーが発生しました。"
+    "しばらく時間をおいて再試行してください。"
+)
 
 
 SYSTEM_PROMPT = (
@@ -123,10 +134,11 @@ async def grade_submission(
             text=user_text,
             attachments=attachments,
         )
-    except Exception as e:  # SDK or network errors
+    except Exception:  # SDK or network errors
+        logger.error("Claude API call failed", exc_info=True)
         return GradingResult(
             status=GradingResultStatus.FAILED,
-            error_message=str(e),
+            error_message=_USER_FACING_SDK_ERROR,
             model_name=settings.anthropic_model,
         )
 
