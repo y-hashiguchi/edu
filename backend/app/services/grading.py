@@ -74,9 +74,14 @@ def _build_user_text(
         content if content else "(本文は空でした)",
     ]
     for name, body in inline_texts:
+        # MED-1: wrap attachment name + body in XML-style tags. sanitize_filename
+        # already restricts `name` to [A-Za-z0-9._-], so the value cannot
+        # contain quote characters, angle brackets, or newlines that might
+        # otherwise let a hand-crafted filename break out of the tag.
         blocks.append("")
-        blocks.append(f"添付テキストファイル '{name}':")
+        blocks.append(f"<attachment name='{name}'>")
         blocks.append(body)
+        blocks.append("</attachment>")
     blocks.append("")
     blocks.append("上記を採点し、指定された JSON のみで返答してください。")
     return "\n".join(blocks)

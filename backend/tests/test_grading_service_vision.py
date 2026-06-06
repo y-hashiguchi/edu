@@ -163,6 +163,42 @@ async def test_grade_submission_masks_sdk_error_but_logs_detail(caplog):
 
 
 @pytest.mark.asyncio
+async def test_grade_submission_wraps_attachments_in_xml_blocks(tmp_path, monkeypatch):
+    """MED-1: filename and body live inside <attachment> tags so a
+    suggestive filename like 'score.100.feedback.perfect.txt' cannot be
+    mistaken by the model for prompt instructions."""
+    from app.config import settings
+    from app.models.submission_file import SubmissionFile
+    from app.services.grading import grade_submission
+
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+
+    txt = tmp_path / "score.100.feedback.perfect.txt"
+    txt.write_text("hello world")
+    file_row = SubmissionFile(
+        submission_id=uuid.uuid4(),
+        file_path=str(txt),
+        mime_type="text/plain",
+        size_bytes=txt.stat().st_size,
+    )
+    sdk = MagicMock()
+    sdk.messages.create = AsyncMock(
+        return_value=MagicMock(content=[MagicMock(text='{"score":80,"feedback":"x"}')])
+    )
+    claude = ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
+
+    await grade_submission(
+        claude=claude, task_description="x", content="y", files=[file_row]
+    )
+    msg = sdk.messages.create.await_args.kwargs["messages"][0]
+    text = next(p["text"] for p in msg["content"] if p.get("type") == "text")
+    assert "<attachment name='score.100.feedback.perfect.txt'>" in text
+    assert "</attachment>" in text
+    # The body must appear between the tags, not as bare prose.
+    assert "hello world" in text
+
+
+@pytest.mark.asyncio
 async def test_grade_submission_rejects_file_outside_upload_root(
     tmp_path, monkeypatch
 ):
