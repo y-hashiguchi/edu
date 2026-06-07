@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.notification import Notification
 from app.models.user import User
 
@@ -22,6 +23,20 @@ class NotificationNotFoundError(Exception):
     intruder cannot distinguish ownership from a status code."""
 
 
+class RecipientInboxFullError(Exception):
+    """HIGH-2 (sprint-4 security review): a recipient cannot accumulate
+    more than `settings.notification_unread_cap` unread rows. Caps DB
+    growth and bounds the recurring COUNT(*) cost on each 30 s poll.
+    Routers map this to 429 with a Retry-After header so callers know
+    the right human action is "wait for the learner to read"."""
+
+    def __init__(self, recipient_id: str, cap: int) -> None:
+        super().__init__(
+            f"recipient {recipient_id} inbox at unread cap ({cap})"
+        )
+        self.cap = cap
+
+
 async def send(
     *,
     db: AsyncSession,
@@ -36,6 +51,25 @@ async def send(
     ).scalar_one_or_none()
     if recipient is None:
         raise RecipientNotFoundError(str(recipient_id))
+
+    # HIGH-2: refuse to write past the per-recipient unread cap. The
+    # cap is enforced at write time (not via DB constraint) so the
+    # error can be returned with a meaningful 429 instead of an opaque
+    # IntegrityError.
+    unread = (
+        await db.execute(
+            select(func.count())
+            .select_from(Notification)
+            .where(
+                Notification.recipient_user_id == recipient_id,
+                Notification.read_at.is_(None),
+            )
+        )
+    ).scalar_one()
+    if unread >= settings.notification_unread_cap:
+        raise RecipientInboxFullError(
+            str(recipient_id), settings.notification_unread_cap
+        )
 
     note = Notification(
         recipient_user_id=recipient_id,

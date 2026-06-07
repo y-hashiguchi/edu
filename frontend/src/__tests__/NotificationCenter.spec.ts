@@ -122,6 +122,58 @@ describe('NotificationCenter', () => {
     expect(router.currentRoute.value.path).toBe('/phases/2');
   });
 
+  it('does not render dangerous link schemes as href', async () => {
+    // HIGH-1 defence in depth: even if a notification with a malicious
+    // link survives the backend validator (e.g. a stored record from
+    // before the validator was added), the component must refuse to
+    // render it as a clickable href.
+    mocked.listMyNotifications.mockResolvedValue({
+      items: [
+        makeNote('js', 'javascript:alert(1)'),
+        makeNote('data', 'data:text/html,<script>1</script>'),
+        makeNote('vb', 'vbscript:msgbox(1)'),
+      ],
+      unread_count: 3,
+    });
+    const router = buildRouter();
+    const w = mount(NotificationCenter, {
+      global: { plugins: [router] },
+    });
+    await vi.runOnlyPendingTimersAsync();
+    await Promise.resolve();
+    await w.find('.bell').trigger('click');
+
+    const anchors = w.findAll('a.item');
+    expect(anchors).toHaveLength(0);
+    // The items still render — they just become inert <button>s with
+    // no href. Click does nothing dangerous.
+    const buttons = w.findAll('button.item');
+    expect(buttons).toHaveLength(3);
+    for (const b of buttons) {
+      expect(b.attributes('href')).toBeUndefined();
+    }
+  });
+
+  it('renders safe external https URLs as anchors with noopener', async () => {
+    mocked.listMyNotifications.mockResolvedValue({
+      items: [makeNote('ok', 'https://example.com/help')],
+      unread_count: 1,
+    });
+    const router = buildRouter();
+    const w = mount(NotificationCenter, {
+      global: { plugins: [router] },
+    });
+    await vi.runOnlyPendingTimersAsync();
+    await Promise.resolve();
+    await w.find('.bell').trigger('click');
+
+    const a = w.find('a.item');
+    expect(a.exists()).toBe(true);
+    expect(a.attributes('href')).toBe('https://example.com/help');
+    expect(a.attributes('target')).toBe('_blank');
+    expect(a.attributes('rel')).toBe('noopener noreferrer');
+  });
+
   it('cleans up polling on unmount (idempotent)', async () => {
     mocked.listMyNotifications.mockResolvedValue({ items: [], unread_count: 0 });
     const router = buildRouter();

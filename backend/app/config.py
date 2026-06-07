@@ -45,6 +45,10 @@ class Settings(BaseSettings):
 
     # Notifications (Sprint 4)
     notification_poll_limit: int = 50
+    # HIGH-2 (sprint-4 security review): hard cap on per-recipient
+    # unread rows. Caps DB growth and bounds the recurring
+    # `COUNT(*) WHERE read_at IS NULL` cost on each 30 s poll.
+    notification_unread_cap: int = 200
 
     # Content Security Policy (Sprint 4)
     # API responses are not HTML, but CSP on the API origin is a cheap

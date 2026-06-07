@@ -34,6 +34,26 @@ function close() {
   open.value = false;
 }
 
+/**
+ * HIGH-1 (sprint-4 security review): the backend already rejects
+ * notifications with disallowed schemes at the DTO, but the SPA
+ * re-validates as defence in depth. A stored notification predating
+ * the backend fix, or a future regression, must not be able to embed
+ * `javascript:` or `data:` URIs into the rendered anchor.
+ */
+const SAFE_LINK_RE = /^(https?:\/\/|\/)/i;
+
+function isInternalLink(link: string | null): boolean {
+  return typeof link === 'string' && link.startsWith('/') && SAFE_LINK_RE.test(link);
+}
+
+function safeExternalHref(link: string | null): string | undefined {
+  if (typeof link !== 'string') return undefined;
+  if (link.startsWith('/')) return undefined;
+  if (!SAFE_LINK_RE.test(link)) return undefined;
+  return link;
+}
+
 async function onItemClick(notificationId: string, link: string | null) {
   // Optimistic mark-read so the badge updates before the link
   // navigation kicks in. Even if the network roundtrip fails the
@@ -44,13 +64,13 @@ async function onItemClick(notificationId: string, link: string | null) {
     // store already surfaced the error; nothing to do here.
   }
   close();
-  if (link && link.startsWith('/')) {
-    void router.push(link);
-  } else if (link) {
-    // External link — preserve user intent but never auto-execute.
-    // The href on the anchor would have handled this already; nothing
-    // to do programmatically.
+  if (isInternalLink(link)) {
+    void router.push(link as string);
   }
+  // External links are handled entirely by the <a href> rendered in
+  // the template (with rel="noopener noreferrer" target="_blank").
+  // Unsafe schemes never reach the DOM because safeExternalHref()
+  // returns undefined.
 }
 </script>
 
@@ -84,12 +104,12 @@ async function onItemClick(notificationId: string, link: string | null) {
           :class="{ unread: n.read_at == null }"
         >
           <component
-            :is="n.link && !n.link.startsWith('/') ? 'a' : 'button'"
+            :is="safeExternalHref(n.link) ? 'a' : 'button'"
             type="button"
             class="item"
-            :href="n.link && !n.link.startsWith('/') ? n.link : undefined"
-            :target="n.link && !n.link.startsWith('/') ? '_blank' : undefined"
-            :rel="n.link && !n.link.startsWith('/') ? 'noopener noreferrer' : undefined"
+            :href="safeExternalHref(n.link)"
+            :target="safeExternalHref(n.link) ? '_blank' : undefined"
+            :rel="safeExternalHref(n.link) ? 'noopener noreferrer' : undefined"
             @click="onItemClick(n.id, n.link)"
           >
             <div class="head">

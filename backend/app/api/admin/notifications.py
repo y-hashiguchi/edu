@@ -49,6 +49,16 @@ async def send_notification(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="recipient not found",
         ) from e
+    except notification_service.RecipientInboxFullError as e:
+        # Return 429 instead of 422/409 so the SPA's existing rate-limit
+        # handling (ApiCooldownError) can surface a "try again later"
+        # message without a new branch. Retry-After hints "minutes" —
+        # the cap clears as the learner reads existing items.
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"recipient inbox full (unread cap {e.cap})",
+            headers={"Retry-After": "300"},
+        ) from e
 
     return NotificationOut(
         id=note.id,

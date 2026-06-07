@@ -27,6 +27,141 @@ async def _make_learner(db_session, *, email="learner@e.com"):
 
 
 @pytest.mark.asyncio
+async def test_admin_send_rejects_dangerous_link_scheme(
+    client, db_session, admin_user,
+):
+    """HIGH-1: javascript:/data:/vbscript: schemes cannot reach the DB.
+
+    The DTO validator runs before the service, so the bad scheme is
+    rejected with 422 — never written, never echoed back, never
+    rendered in any learner's NotificationCenter."""
+    learner = await _make_learner(db_session)
+    _auth(client, admin_user.id)
+
+    for bad in [
+        "javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "vbscript:msgbox(1)",
+        "file:///etc/passwd",
+    ]:
+        r = client.post(
+            "/api/admin/notifications",
+            json={
+                "recipient_user_id": str(learner.id),
+                "title": "t", "body": "b", "link": bad,
+            },
+        )
+        assert r.status_code == 422, (bad, r.text)
+
+
+@pytest.mark.asyncio
+async def test_admin_send_accepts_safe_schemes(
+    client, db_session, admin_user,
+):
+    """The allowlist must still permit the two real shapes: relative
+    SPA paths starting with '/', and http(s) URLs."""
+    learner = await _make_learner(db_session)
+    _auth(client, admin_user.id)
+
+    for ok in [
+        "/phases/2",
+        "https://example.com/help",
+        "http://internal.local/x",
+    ]:
+        r = client.post(
+            "/api/admin/notifications",
+            json={
+                "recipient_user_id": str(learner.id),
+                "title": "t", "body": "b", "link": ok,
+            },
+        )
+        assert r.status_code == 201, (ok, r.text)
+
+
+@pytest.mark.asyncio
+async def test_admin_send_returns_429_when_inbox_at_unread_cap(
+    client, db_session, admin_user, monkeypatch,
+):
+    """HIGH-2: per-recipient unread cap stops runaway inbox growth.
+
+    Tightens the cap to 3 so we can exercise the boundary without
+    sending 200 rows in the test suite."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "notification_unread_cap", 3)
+    learner = await _make_learner(db_session)
+    _auth(client, admin_user.id)
+
+    for i in range(3):
+        r = client.post(
+            "/api/admin/notifications",
+            json={
+                "recipient_user_id": str(learner.id),
+                "title": f"t{i}", "body": "b", "link": None,
+            },
+        )
+        assert r.status_code == 201, r.text
+
+    # The next send is over the cap.
+    r = client.post(
+        "/api/admin/notifications",
+        json={
+            "recipient_user_id": str(learner.id),
+            "title": "overflow", "body": "b", "link": None,
+        },
+    )
+    assert r.status_code == 429
+    assert "inbox full" in r.json()["detail"].lower()
+    assert r.headers.get("Retry-After") == "300"
+
+
+@pytest.mark.asyncio
+async def test_unread_cap_resets_after_learner_reads(
+    client, db_session, admin_user, monkeypatch,
+):
+    """Once the learner marks an existing notification read, the admin
+    can resume sending — the cap is on UNREAD, not lifetime rows."""
+    from app.config import settings
+    from app.models.notification import Notification
+    from sqlalchemy import select
+    from datetime import UTC, datetime
+
+    monkeypatch.setattr(settings, "notification_unread_cap", 2)
+    learner = await _make_learner(db_session)
+    _auth(client, admin_user.id)
+
+    for i in range(2):
+        client.post(
+            "/api/admin/notifications",
+            json={
+                "recipient_user_id": str(learner.id),
+                "title": f"t{i}", "body": "b", "link": None,
+            },
+        )
+
+    # Mark one read directly in the DB so we don't depend on the
+    # /api/me/* path in this admin-focused test.
+    note = (
+        await db_session.execute(
+            select(Notification).where(
+                Notification.recipient_user_id == learner.id
+            ).limit(1)
+        )
+    ).scalar_one()
+    note.read_at = datetime.now(UTC)
+    await db_session.commit()
+
+    r = client.post(
+        "/api/admin/notifications",
+        json={
+            "recipient_user_id": str(learner.id),
+            "title": "after-read", "body": "b", "link": None,
+        },
+    )
+    assert r.status_code == 201, r.text
+
+
+@pytest.mark.asyncio
 async def test_admin_sends_notification(client, db_session, admin_user):
     learner = await _make_learner(db_session)
     _auth(client, admin_user.id)
