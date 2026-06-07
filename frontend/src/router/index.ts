@@ -3,6 +3,7 @@ import HomeView from '@/views/HomeView.vue';
 import PhaseChatView from '@/views/PhaseChatView.vue';
 import LoginView from '@/views/LoginView.vue';
 import { useAuthStore } from '@/stores/auth';
+import { adminRoutes, attachAdminGuard } from '@/router/admin';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +16,7 @@ export const router = createRouter({
       component: PhaseChatView,
       props: (route) => ({ phase: Number(route.params.phase) }),
     },
+    ...adminRoutes,
   ],
 });
 
@@ -28,3 +30,8 @@ router.beforeEach((to) => {
   }
   return true;
 });
+
+// Order matters: the auth guard above runs first and short-circuits
+// unauthenticated visitors to /login; this guard then ensures only
+// admins reach /admin/*.
+attachAdminGuard(router);
