@@ -38,3 +38,21 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
     return user
+
+
+async def get_current_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    """RBAC gate for admin-only endpoints.
+
+    Layered on top of `get_current_user` rather than replacing it so the
+    JWT-decoding and user-lookup logic stays in one place, and the 401
+    vs 403 distinction is preserved (no token → 401, valid token but
+    non-admin → 403).
+    """
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin privileges required",
+        )
+    return user

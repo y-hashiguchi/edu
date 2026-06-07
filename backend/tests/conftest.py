@@ -89,3 +89,42 @@ async def auth_token(auth_user) -> str:
 async def auth_client(client, auth_token):
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     return client
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session):
+    """A standalone admin (separate row from `auth_user`) so a single test
+    can spin up an admin AND a non-admin without email collisions."""
+    from app.core.security import hash_password
+    from app.models.user import User
+    from app.services.progress import initialize_progress
+
+    user = User(
+        email="instructor@example.com",
+        name="講師",
+        password_hash=hash_password("password123"),
+        is_admin=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    await initialize_progress(db_session, user.id)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def admin_token(admin_user) -> str:
+    from app.core.security import create_access_token
+    return create_access_token(subject=str(admin_user.id))
+
+
+@pytest_asyncio.fixture
+async def admin_client(client, admin_token):
+    """Use this when a test needs admin-side access end-to-end.
+    Tests that need BOTH admin and learner access in the same test should
+    drive the Authorization header manually instead of mixing this
+    fixture with `auth_client` — the two share one TestClient and would
+    overwrite each other's header."""
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    return client
