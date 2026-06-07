@@ -7,6 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api import auth, curriculum, health, progress, submissions
 from app.api import chat as chat_router
+from app.api.admin import users as admin_users
 from app.config import settings
 from app.core.csp import CSPMiddleware
 from app.core.limiter import limiter
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(progress.router)
     app.include_router(submissions.router)
     app.include_router(chat_router.router)
+    app.include_router(admin_users.router)
     return app
 
 
