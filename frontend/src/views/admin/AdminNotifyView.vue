@@ -1,18 +1,217 @@
 <script setup lang="ts">
-// Placeholder — full implementation lands in Sprint 4 Task 19.
+/**
+ * /admin/notify — compose a new notification to a single learner.
+ *
+ * Recipient picker is populated from the same store call that drives
+ * /admin/users so we don't issue an extra API request here. A small
+ * outbox below the form shows what this admin has already sent.
+ */
+import { computed, onMounted, ref } from 'vue';
+
+import { useAdminStore } from '@/stores/admin';
+
+const store = useAdminStore();
+
+const recipientId = ref('');
+const title = ref('');
+const body = ref('');
+const link = ref('');
+const submitting = ref(false);
+const successMessage = ref<string | null>(null);
+const errorMessage = ref<string | null>(null);
+
+onMounted(async () => {
+  if (store.users.length === 0) {
+    await store.fetchUsers(200, 0);
+  }
+  await store.fetchSentNotifications();
+});
+
+const candidates = computed(() =>
+  store.users.filter((u) => !u.is_admin),
+);
+
+async function submit() {
+  errorMessage.value = null;
+  successMessage.value = null;
+  if (!recipientId.value) {
+    errorMessage.value = '受講者を選択してください';
+    return;
+  }
+  if (!title.value.trim() || !body.value.trim()) {
+    errorMessage.value = 'タイトルと本文を入力してください';
+    return;
+  }
+  submitting.value = true;
+  try {
+    await store.sendNotification({
+      recipient_user_id: recipientId.value,
+      title: title.value.trim(),
+      body: body.value.trim(),
+      link: link.value.trim() ? link.value.trim() : null,
+    });
+    successMessage.value = '通知を送信しました';
+    title.value = '';
+    body.value = '';
+    link.value = '';
+  } catch (e) {
+    errorMessage.value =
+      e instanceof Error ? e.message : '送信に失敗しました';
+  } finally {
+    submitting.value = false;
+  }
+}
 </script>
 
 <template>
-  <section class="placeholder">
+  <section class="panel">
     <h1>通知作成</h1>
-    <p>Task 19 で実装します。</p>
+
+    <form @submit.prevent="submit">
+      <label class="field">
+        <span>宛先</span>
+        <select v-model="recipientId" :disabled="submitting">
+          <option value="" disabled>受講者を選択…</option>
+          <option v-for="u in candidates" :key="u.id" :value="u.id">
+            {{ u.name }} ({{ u.email }})
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>タイトル</span>
+        <input
+          v-model="title"
+          type="text"
+          maxlength="200"
+          :disabled="submitting"
+          placeholder="例: Phase 1 完了おめでとう"
+        />
+      </label>
+
+      <label class="field">
+        <span>本文</span>
+        <textarea
+          v-model="body"
+          rows="4"
+          maxlength="2000"
+          :disabled="submitting"
+          placeholder="伝えたいメッセージを入力..."
+        />
+      </label>
+
+      <label class="field">
+        <span>リンク (任意)</span>
+        <input
+          v-model="link"
+          type="text"
+          maxlength="500"
+          :disabled="submitting"
+          placeholder="/phases/2"
+        />
+      </label>
+
+      <div class="actions">
+        <p v-if="successMessage" class="ok">{{ successMessage }}</p>
+        <p v-if="errorMessage" class="err">{{ errorMessage }}</p>
+        <button type="submit" :disabled="submitting">
+          {{ submitting ? '送信中…' : '送信する' }}
+        </button>
+      </div>
+    </form>
+
+    <section v-if="store.sentNotifications.length > 0" class="outbox">
+      <h2>最近送った通知</h2>
+      <ul>
+        <li v-for="n in store.sentNotifications.slice(0, 10)" :key="n.id">
+          <div class="row-head">
+            <span class="title">{{ n.title }}</span>
+            <time>{{ new Date(n.created_at).toLocaleString('ja-JP') }}</time>
+          </div>
+          <p class="body">{{ n.body }}</p>
+        </li>
+      </ul>
+    </section>
   </section>
 </template>
 
 <style scoped>
-.placeholder {
+.panel {
   background: #fff;
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.4rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  max-width: 640px;
+}
+h1 { margin: 0 0 1rem; font-size: 1.15rem; }
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.88rem;
+}
+.field span {
+  font-weight: 600;
+  color: #374151;
+}
+.field input,
+.field select,
+.field textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+.field textarea { resize: vertical; }
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+.actions button {
+  background: var(--color-accent, #4f46e5);
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.5rem 1.1rem;
+  font: inherit;
+  cursor: pointer;
+}
+.actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.ok { color: #047857; font-size: 0.88rem; margin: 0; }
+.err { color: #b91c1c; font-size: 0.88rem; margin: 0; }
+.outbox { margin-top: 1.6rem; }
+.outbox h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+.outbox ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.outbox li {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+.row-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.row-head .title { color: #1f2937; font-weight: 600; }
+.outbox .body {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
 }
 </style>
