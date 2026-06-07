@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { RouterView, useRouter, useRoute } from 'vue-router';
+import { computed } from 'vue';
+import { RouterView, useRoute, useRouter } from 'vue-router';
+
+import NotificationCenter from '@/components/NotificationCenter.vue';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
@@ -10,22 +13,35 @@ const logout = async () => {
   auth.logout();
   await router.push('/login');
 };
+
+// Admin routes own their own AdminLayout chrome (header, nav,
+// logout). Skipping the global header on /admin/* keeps the visual
+// switch into admin mode unambiguous.
+const isAdminRoute = computed(() =>
+  typeof route.path === 'string' && route.path.startsWith('/admin'),
+);
 </script>
 
 <template>
-  <header class="app-header">
-    <div class="left">
-      <h1>AI駆動型開発 補足カリキュラム</h1>
-      <p>AIチューター — 学習サポートシステム</p>
-    </div>
-    <div class="right" v-if="auth.user && route.name !== 'login'">
-      <span class="who">{{ auth.user.name }} さん</span>
-      <button type="button" @click="logout">ログアウト</button>
-    </div>
-  </header>
-  <main class="app-main">
+  <template v-if="isAdminRoute">
     <RouterView />
-  </main>
+  </template>
+  <template v-else>
+    <header class="app-header">
+      <div class="left">
+        <h1>AI駆動型開発 補足カリキュラム</h1>
+        <p>AIチューター — 学習サポートシステム</p>
+      </div>
+      <div class="right" v-if="auth.user && route.name !== 'login'">
+        <NotificationCenter />
+        <span class="who">{{ auth.user.name }} さん</span>
+        <button type="button" @click="logout">ログアウト</button>
+      </div>
+    </header>
+    <main class="app-main">
+      <RouterView />
+    </main>
+  </template>
 </template>
 
 <style>

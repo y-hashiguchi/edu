@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import CommentThread from '@/components/CommentThread.vue';
 import FileUploadInput from '@/components/FileUploadInput.vue';
 import GradingHistoryAccordion from '@/components/GradingHistoryAccordion.vue';
 import { api } from '@/lib/api';
+import type { LearnerCommentOut } from '@/types/admin';
 import type { Submission } from '@/types/curriculum';
 
 const downloadError = ref<string | null>(null);
+// Comments live in the card's local state because the curriculum store
+// only knows about the latest submission per task; comments are pulled
+// once per submission render and on the prop watcher below if the
+// submission id changes.
+const comments = ref<LearnerCommentOut[]>([]);
+const commentsError = ref<string | null>(null);
 
 async function downloadFile(
   submissionId: string,
@@ -51,6 +59,29 @@ watch(
   (v) => {
     if (v !== undefined) draft.value = v;
   },
+);
+
+async function loadComments(submissionId: string) {
+  commentsError.value = null;
+  try {
+    comments.value = await api.listMySubmissionComments(submissionId);
+  } catch (e) {
+    comments.value = [];
+    commentsError.value =
+      e instanceof Error ? e.message : 'コメントの取得に失敗しました';
+  }
+}
+
+watch(
+  () => props.submission?.id,
+  (id) => {
+    if (id) {
+      void loadComments(id);
+    } else {
+      comments.value = [];
+    }
+  },
+  { immediate: true },
 );
 
 const isGraded = computed(() => props.submission?.score != null);
@@ -153,6 +184,12 @@ defineExpose({ clearFilesAfterSubmit });
       v-if="submission"
       :history="submission.grading_history"
     />
+
+    <section v-if="submission" class="comments">
+      <h4>講師コメント</h4>
+      <p v-if="commentsError" class="error">{{ commentsError }}</p>
+      <CommentThread :comments="comments" />
+    </section>
   </article>
 </template>
 
@@ -269,5 +306,20 @@ button.regrade {
 }
 .cooldown {
   font-size: 0.75rem;
+}
+.comments {
+  margin-top: 0.4rem;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 0.7rem;
+}
+.comments h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.comments .error {
+  color: #b91c1c;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
 }
 </style>
