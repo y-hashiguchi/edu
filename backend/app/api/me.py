@@ -12,11 +12,14 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.comment import LearnerCommentOut
+from app.schemas.notification import NotificationListOut, NotificationOut
 from app.services import comment as comment_service
+from app.services import notification as notification_service
 
 router = APIRouter(prefix="/api/me", tags=["me"])
 
@@ -49,3 +52,71 @@ async def list_my_submission_comments(
         )
         for c, author in rows
     ]
+
+
+@router.get("/notifications", response_model=NotificationListOut)
+async def list_my_notifications(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NotificationListOut:
+    rows, unread = await notification_service.list_for_recipient(
+        db,
+        recipient_id=user.id,
+        limit=settings.notification_poll_limit,
+    )
+    return NotificationListOut(
+        items=[
+            NotificationOut(
+                id=n.id,
+                recipient_user_id=n.recipient_user_id,
+                sender_user_id=n.sender_user_id,
+                sender_name=sender.name,
+                title=n.title,
+                body=n.body,
+                link=n.link,
+                read_at=n.read_at,
+                created_at=n.created_at,
+            )
+            for n, sender in rows
+        ],
+        unread_count=unread,
+    )
+
+
+@router.post(
+    "/notifications/{notification_id}/read",
+    response_model=NotificationOut,
+)
+async def mark_my_notification_read(
+    notification_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NotificationOut:
+    try:
+        note = await notification_service.mark_read(
+            db=db,
+            notification_id=notification_id,
+            recipient_id=user.id,
+        )
+    except notification_service.NotificationNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="notification not found",
+        ) from e
+    # Round-trip the sender display name to keep the response shape
+    # symmetric with the list endpoint.
+    from sqlalchemy import select
+    sender = (
+        await db.execute(select(User).where(User.id == note.sender_user_id))
+    ).scalar_one()
+    return NotificationOut(
+        id=note.id,
+        recipient_user_id=note.recipient_user_id,
+        sender_user_id=note.sender_user_id,
+        sender_name=sender.name,
+        title=note.title,
+        body=note.body,
+        link=note.link,
+        read_at=note.read_at,
+        created_at=note.created_at,
+    )
