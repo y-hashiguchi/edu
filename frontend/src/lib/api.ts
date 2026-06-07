@@ -7,6 +7,22 @@ import type {
   ProgressOut,
   Submission,
 } from '@/types/curriculum';
+import type {
+  AdminCommentOut,
+  AdminSubmissionDetail,
+  AdminSubmissionListFilters,
+  AdminSubmissionListOut,
+  AdminUserDetail,
+  AdminUserListOut,
+  CommentCreatePayload,
+  LearnerCommentOut,
+} from '@/types/admin';
+import type {
+  AdminNotificationListOut,
+  NotificationCreatePayload,
+  NotificationListOut,
+  NotificationOut,
+} from '@/types/notification';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -150,4 +166,72 @@ export const api = {
     }
     return response.blob();
   },
+
+  // ---- Sprint 4 admin endpoints (instructor-only) ----
+
+  adminListUsers: (limit = 50, offset = 0): Promise<AdminUserListOut> =>
+    rawRequest<AdminUserListOut>(
+      `/api/admin/users?limit=${limit}&offset=${offset}`,
+    ),
+
+  adminGetUser: (userId: string): Promise<AdminUserDetail> =>
+    rawRequest<AdminUserDetail>(`/api/admin/users/${userId}`),
+
+  adminListSubmissions: (
+    filters: AdminSubmissionListFilters = {},
+  ): Promise<AdminSubmissionListOut> => {
+    const params = new URLSearchParams();
+    if (filters.user_id) params.set('user_id', filters.user_id);
+    if (filters.phase != null) params.set('phase', String(filters.phase));
+    params.set('limit', String(filters.limit ?? 50));
+    params.set('offset', String(filters.offset ?? 0));
+    return rawRequest<AdminSubmissionListOut>(
+      `/api/admin/submissions?${params.toString()}`,
+    );
+  },
+
+  adminGetSubmission: (id: string): Promise<AdminSubmissionDetail> =>
+    rawRequest<AdminSubmissionDetail>(`/api/admin/submissions/${id}`),
+
+  adminListComments: (id: string): Promise<AdminCommentOut[]> =>
+    rawRequest<AdminCommentOut[]>(`/api/admin/submissions/${id}/comments`),
+
+  adminPostComment: (
+    submissionId: string,
+    body: string,
+  ): Promise<AdminCommentOut> => {
+    const payload: CommentCreatePayload = { body };
+    return rawRequest<AdminCommentOut>(
+      `/api/admin/submissions/${submissionId}/comments`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    );
+  },
+
+  adminSendNotification: (
+    payload: NotificationCreatePayload,
+  ): Promise<NotificationOut> =>
+    rawRequest<NotificationOut>(`/api/admin/notifications`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  adminListSentNotifications: (): Promise<AdminNotificationListOut> =>
+    rawRequest<AdminNotificationListOut>(`/api/admin/notifications`),
+
+  // ---- Sprint 4 learner-side /api/me endpoints ----
+
+  listMyNotifications: (): Promise<NotificationListOut> =>
+    rawRequest<NotificationListOut>(`/api/me/notifications`),
+
+  markNotificationRead: (id: string): Promise<NotificationOut> =>
+    rawRequest<NotificationOut>(`/api/me/notifications/${id}/read`, {
+      method: 'POST',
+    }),
+
+  listMySubmissionComments: (
+    submissionId: string,
+  ): Promise<LearnerCommentOut[]> =>
+    rawRequest<LearnerCommentOut[]>(
+      `/api/me/submissions/${submissionId}/comments`,
+    ),
 };
