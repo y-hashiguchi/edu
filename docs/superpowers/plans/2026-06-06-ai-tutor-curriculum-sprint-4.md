@@ -2443,15 +2443,37 @@ docker compose down
 
 ## 受け入れ基準
 
-- [ ] backend テスト **175+** 件 PASS（Sprint 3 完了時の 148 件 + Sprint 4 で 27+ 件追加）
-- [ ] backend coverage 80%+ 維持
-- [ ] frontend ビルド成功、vitest **15+** 件 PASS
-- [ ] Playwright E2E golden path（admin → コメント → 通知 → 受講者で確認）が緑
-- [ ] `security-reviewer` agent で CRITICAL/HIGH なし
-- [ ] Alembic upgrade / downgrade が往復可能
-- [ ] 既存 Sprint 1/2/3 機能のリグレッションなし（login / chat / progress / 提出 / 採点 / 履歴 / 再採点）
-- [ ] 設計書 03/04/05/06 に Sprint 4 差分を追記
-- [ ] follow-up doc の MED-1〜5 該当行が `[x]` 化されている
-- [ ] non-admin が `/api/admin/*` を叩くと 403
-- [ ] 受講者が他者の通知や他者のコメントスレッドに到達できない（BOLA テスト全 PASS）
-- [ ] 全 API レスポンスに `Content-Security-Policy` ヘッダが付与されている
+- [x] backend テスト **175+** 件 PASS（Sprint 3 完了時の 148 件 + Sprint 4 で 27+ 件追加） — **208 件** 達成 (+60)
+- [x] backend coverage 80%+ 維持 — **86%**
+- [x] frontend ビルド成功、vitest **15+** 件 PASS — **33 件**
+- [x] Playwright E2E golden path（admin → コメント → 通知 → 受講者で確認）が緑
+- [x] `security-reviewer` agent で CRITICAL/HIGH なし — CRITICAL 0、HIGH × 2 を修正 (commit `03bfe8e`)
+- [x] Alembic upgrade / downgrade が往復可能 — `20260606_af4220e315e6` で確認
+- [x] 既存 Sprint 1/2/3 機能のリグレッションなし（login / chat / progress / 提出 / 採点 / 履歴 / 再採点）
+- [x] 設計書 03/04/05/06 に Sprint 4 差分を追記 (commit `a709abe`)
+- [x] follow-up doc の MED-1〜5 該当行が `[x]` 化されている (commit `79d7748`)
+- [x] non-admin が `/api/admin/*` を叩くと 403
+- [x] 受講者が他者の通知や他者のコメントスレッドに到達できない（BOLA テスト全 PASS）
+- [x] 全 API レスポンスに `Content-Security-Policy` ヘッダが付与されている
+
+---
+
+## ✅ Sprint 4 完了
+
+完了日: 2026-06-08
+
+- Backend テスト: **208 passed**, coverage **86%**（threshold 80% 超過、Sprint 3 完了時の 148 件 + Sprint 4 で 60 件追加）
+- Frontend ビルド: 成功（`vue-tsc` + `vite build`）、vitest **33 passed**（Sprint 3 完了時の 11 件 + 22 件追加）
+- Playwright E2E golden path: PASS（`e2e-sprint4-admin-comment.png` / `e2e-sprint4-learner-notification.png` / `e2e-sprint4-learner-comment-visible.png` をリポジトリに保持）
+- security-reviewer: CRITICAL 0、HIGH × 2 修正済み（commit `03bfe8e`）
+  - HIGH-1: 通知 `link` の危険スキーム遮断（backend allowlist + frontend `safeExternalHref` 多層防御）
+  - HIGH-2: per-recipient unread cap (`notification_unread_cap=200`) で inbox DoS 遮断
+- Sprint 3 MEDIUM 5 件も併せて修正済み
+  - MED-1: 添付の XML 区切り (`de317d8`)
+  - MED-2: grading の root 境界統一 (`a7c01c9`)
+  - MED-3: Claude SDK エラーマスク (`841e97f`)
+  - MED-4: ファイル名衝突回避 (`7fafcd1`)
+  - MED-5: CSP middleware (`9c2cba7`)
+- Sprint 4 の MEDIUM × 5 + LOW × 4 は `docs/superpowers/specs/2026-06-08-sprint-4-security-followups.md` に Sprint 5 取り込み優先順位付きで記録
+- Alembic: `20260606_af4220e315e6` で upgrade/downgrade 往復可能、`alembic check` も clean
+- 既存 Sprint 1/2/3 リグレッションテスト全 PASS
