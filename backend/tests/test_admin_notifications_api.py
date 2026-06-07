@@ -115,6 +115,42 @@ async def test_admin_send_requires_admin(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_admin_send_rate_limited_at_high_rate(
+    client, db_session, admin_user, monkeypatch,
+):
+    """Send burst past admin_write_rate_limit returns 429.
+
+    The limit decorator already has coverage on the comments endpoint;
+    this test exists separately because slowapi keys its bucket on the
+    *decorated function* — comments and notifications get distinct
+    counters by design, so a single shared test would not exercise the
+    notifications endpoint's own limit."""
+    from app.config import settings
+    from app.core.limiter import limiter
+
+    learner = await _make_learner(db_session)
+    monkeypatch.setattr(settings, "admin_write_rate_limit", "5/minute")
+    monkeypatch.setattr(limiter, "enabled", True)
+    try:
+        limiter._storage.reset()
+    except Exception:  # pragma: no cover
+        pass
+
+    _auth(client, admin_user.id)
+    statuses = [
+        client.post(
+            "/api/admin/notifications",
+            json={
+                "recipient_user_id": str(learner.id),
+                "title": f"t{i}", "body": "x", "link": None,
+            },
+        ).status_code
+        for i in range(7)
+    ]
+    assert 429 in statuses, statuses
+
+
+@pytest.mark.asyncio
 async def test_admin_list_sent_returns_only_own_outbox(
     client, db_session, admin_user,
 ):

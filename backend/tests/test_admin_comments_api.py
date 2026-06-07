@@ -163,6 +163,39 @@ async def test_learner_read_returns_empty_when_no_comments(
 
 
 @pytest.mark.asyncio
+async def test_admin_comment_rate_limited_at_high_rate(
+    client, db_session, admin_user, monkeypatch,
+):
+    """Burst posts past admin_write_rate_limit return 429.
+
+    Cap dropped to 5/minute here so 7 rapid POSTs guarantee we cross the
+    threshold regardless of what the production default ends up being —
+    coupling the test to "60/minute" would force tests to make 61
+    requests, which the in-process MemoryStorage can still buffer but
+    would slow the suite for no signal."""
+    from app.config import settings
+    from app.core.limiter import limiter
+
+    _learner, sub = await _seed_learner_with_sub(db_session)
+    monkeypatch.setattr(settings, "admin_write_rate_limit", "5/minute")
+    monkeypatch.setattr(limiter, "enabled", True)
+    try:
+        limiter._storage.reset()
+    except Exception:  # pragma: no cover - non-memory storage backend
+        pass
+
+    _auth(client, admin_user.id)
+    statuses = [
+        client.post(
+            f"/api/admin/submissions/{sub.id}/comments",
+            json={"body": f"burst {i}"},
+        ).status_code
+        for i in range(7)
+    ]
+    assert 429 in statuses, statuses
+
+
+@pytest.mark.asyncio
 async def test_unauthenticated_request_returns_401(client, db_session):
     """No token on either side returns 401 from the auth layer, never 403
     or 404 — fixed reading on logs and proxies."""

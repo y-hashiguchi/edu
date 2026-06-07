@@ -2,10 +2,12 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_current_admin
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.admin import AdminCommentOut
@@ -20,7 +22,9 @@ router = APIRouter(prefix="/api/admin/submissions", tags=["admin"])
     response_model=AdminCommentOut,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(lambda: settings.admin_write_rate_limit)
 async def post_comment(
+    request: Request,  # required by slowapi key_func=get_remote_address
     submission_id: uuid.UUID,
     payload: CommentCreate,
     admin: User = Depends(get_current_admin),

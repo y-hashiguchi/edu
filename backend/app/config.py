@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     submission_rate_limit: str = "10/minute"
 
+    # Admin write rate limit (Sprint 4) — admins are 1-N humans on shared
+    # IPs but the write surface (comments + notifications) is a Claude
+    # API cost path indirectly: a runaway promote_admin script must not
+    # be able to flood a learner inbox at line speed.
+    admin_write_rate_limit: str = "60/minute"
+
     # Notifications (Sprint 4)
     notification_poll_limit: int = 50
 

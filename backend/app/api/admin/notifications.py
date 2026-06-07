@@ -1,11 +1,13 @@
 """Admin → notifications (send, list-sent)."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_current_admin
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.notification import (
@@ -26,7 +28,9 @@ class AdminNotificationListOut(BaseModel):
     response_model=NotificationOut,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(lambda: settings.admin_write_rate_limit)
 async def send_notification(
+    request: Request,  # required by slowapi key_func=get_remote_address
     payload: NotificationCreate,
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
