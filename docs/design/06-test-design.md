@@ -312,3 +312,48 @@ steps:
 ### カバレッジ目標
 
 バックエンド 80%+ を維持。フロントは vitest による論理層カバレッジを開始。E2E は golden path のみ。
+
+---
+
+## Sprint 4 追加
+
+### バックエンドテスト
+
+- `test_models_sprint4.py` — `is_admin` デフォルト / `InstructorComment` round-trip / cascade / `Notification` round-trip + 既読 null デフォルト
+- `test_deps_admin.py` — `get_current_admin` の通過 / 403 判定
+- `test_promote_admin_cli.py` — 昇格 / idempotent / 未知 email / 引数エラー
+- `test_admin_users_api.py` — 401 vs 403、ページング、`limit` 上限、aggregate 計算、404
+- `test_admin_submissions_api.py` — user/phase filter、user 列同梱、detail 全部入り、ページング、404
+- `test_admin_comments_api.py` — admin 投稿 + learner 取得、403、404、body validation、BOLA（他者の thread）、401、`admin_write_rate_limit`
+- `test_admin_notifications_api.py` — 送信、recipient 404、validation、403、outbox の sender 絞り、`admin_write_rate_limit`
+- `test_me_notifications_api.py` — inbox の owner 絞り + 新しい順、`unread_count` 計算、楽観 markRead、BOLA、`notification_poll_limit` cap、401
+- `test_csp_middleware.py` — CSP ヘッダの全レスポンス付与（200/404/file download）
+
+### 権限テストマトリクス
+
+各 API について以下 4 状況を最低 1 ケースは網羅:
+
+| 呼び出し主体 | 期待値 |
+|---|---|
+| 未認証 | 401 |
+| 非 admin（自分以外の対象） | `/admin/*` で 403、`/me/*` の他者リソースで 404 |
+| 非 admin（自分の対象） | `/me/*` で 200 |
+| admin | `/admin/*` で 200 |
+
+### フロントエンドテスト (vitest + @vue/test-utils + jsdom)
+
+- `admin.store.spec.ts` — fetchUsers の成功/失敗、postComment の楽観的追加、sendNotification の先頭追加
+- `notification.store.spec.ts` — refresh / startPolling idempotent / markRead 楽観 + ロールバック
+- `admin.router.spec.ts` — `attachAdminGuard` の non-admin bounce、admin pass、`/admin` → `/admin/users` redirect
+- `CommentThread.spec.ts` — リスト表示、empty、composer 表示、emit、validation
+- `NotificationCenter.spec.ts` — badge 表示、パネル開閉、markRead + internal link 遷移、unmount 時 polling 停止
+
+### E2E（Playwright）
+
+admin login → 受講者選択 → 提出選択 → コメント投稿 → 通知作成 → 受講者で再ログイン → ベル未読 1 → 提出物にコメント表示、の golden path 1 本（Task 22 で実施）。
+
+### カバレッジ目標（Sprint 4 末）
+
+- backend: pytest 全件 PASS、coverage 80%+ 維持
+- frontend: vitest 全件 PASS、ビルド緑
+- E2E: admin → learner の golden path 緑

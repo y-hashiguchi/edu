@@ -451,3 +451,92 @@ Sprint 2 ではバックエンドが RAG コンテキストを system prompt に
 | クールダウン中 | disabled | n秒 表示 |
 | クールダウン経過 | 有効 | — |
 | 429 を受信 | disabled | Retry-After ヘッダ秒数 |
+
+---
+
+## Sprint 4 追加
+
+### 13.1 グローバル動線
+
+| URL | 認可 | レイアウト |
+|---|---|---|
+| `/login` | 公開 | none |
+| `/` | 認証 (= 受講者ビュー) | App.vue の学習者ヘッダ |
+| `/phases/:phase` | 認証 | 学習者ヘッダ |
+| `/admin/users` | admin | AdminLayout |
+| `/admin/users/:id` | admin | AdminLayout |
+| `/admin/submissions/:id` | admin | AdminLayout |
+| `/admin/notify` | admin | AdminLayout |
+
+`router.beforeEach` は (1) 既存の認証ガードでログイン状態を確認、(2) `attachAdminGuard` で `requiresAdmin` ルートを `isAdmin` ストア getter でフィルタする。非 admin が `/admin/*` を叩くと `/` に黙ってリダイレクト（403 toast は出さない — admin URL は private、advertise しない）。
+
+### 13.2 AdminLayout
+
+学習者画面とは別配色（ダーク基調 `#0f172a` 背景 + amber の ADMIN バッジ）で「管理モードである」を視覚的に明確化。ヘッダ:
+- ブランド「AI チューター 管理」+ ADMIN バッジ
+- ナビ: 受講者一覧 / 通知作成 / 学習者ビュー (= `/` への戻り)
+- 右側に admin の表示名 + ログアウト
+
+`<RouterView />` で配下 4 ビューを切替。学習者の global header および NotificationCenter は admin route では非表示（App.vue の `isAdminRoute` 判定）。
+
+### 13.3 AdminUsersView (`/admin/users`)
+
+| 列 | 内容 |
+|---|---|
+| 名前 | `name` |
+| メール | `email` |
+| 完了 | `completed_phases / 4` |
+| 進行中 | `in_progress_phases` |
+| 登録日 | `created_at` (日付のみ) |
+| 権限 | `admin` バッジ / `受講者` バッジ |
+
+行クリックで `/admin/users/:id` に遷移。フッタにページネーション（50 件単位、`offset` で前後ページ）。
+
+### 13.4 AdminUserDetailView (`/admin/users/:id`)
+
+- 上部: 名前 + メール（+ admin バッジ）
+- 4 フェーズカード（grid、状態別色分け: completed=緑、in_progress=黄、submitted=青、locked=グレー）。各カードに最新スコア。
+- 提出物リスト（タップで `/admin/submissions/:id` へ）
+
+### 13.5 AdminSubmissionDetailView (`/admin/submissions/:id`)
+
+1 リクエストで取得した `AdminSubmissionDetail` を以下のセクションでレンダリング:
+
+1. ヘッダ（フェーズ + タスク番号、受講者名、スコア）
+2. 提出本文（`<pre>` で改行保持）
+3. 添付ファイル一覧（クリックで Blob 取得 → ローカルダウンロード、JWT は Authorization で送信）
+4. AI フィードバック（淡い indigo パネル）
+5. 採点履歴リスト（`graded` / `failed` 別の色分け）
+6. 講師コメント `CommentThread`（`can-post=true` で composer 表示）
+
+コメント投稿は `useAdminStore.postComment` を経由し、`selectedSubmission.comments` を**ローカル mutate** することで再フェッチを発生させない。
+
+### 13.6 AdminNotifyView (`/admin/notify`)
+
+シングルフォーム:
+- 宛先: `/admin/users` で取得したユーザーから admin を除外して dropdown
+- タイトル (1..200 chars)
+- 本文 (1..2000 chars)
+- リンク（任意、500 chars、内部パスまたは外部 URL）
+
+送信成功後、フォームをクリアし「最近送った通知」リスト (`adminListSentNotifications`) を更新。
+
+### 13.7 NotificationCenter（学習者側ヘッダ）
+
+学習者向け global header に常駐するベルアイコン:
+- 未読数バッジ（赤丸、`unread_count` を表示）
+- クリックでドロップダウン展開、items を新しい順に表示
+- 各通知のクリックで:
+  1. 楽観的 `markRead`（先にバッジ -1、失敗時は `refresh()` でロールバック）
+  2. 内部リンクは `router.push`、外部リンクは `<a target="_blank" rel="noopener noreferrer">`
+- mount で `startPolling()`（30 秒 interval + 即時 1 回）、unmount で `stopPolling()`
+
+### 13.8 学習者側コメント表示
+
+`TaskSubmissionCard` の `GradingHistoryAccordion` の下に「講師コメント」セクションを追加。`LearnerCommentOut[]` を `CommentThread`（`canPost` 無し）で読み取り専用表示。`submission.id` 変更時のみ refetch。
+
+### 13.9 アクセシビリティノート（差分のみ）
+
+- ベルアイコンに `aria-label="通知 {N} 件未読"` + `aria-expanded` 属性
+- ドロップダウンに `role="dialog" aria-label="通知一覧"`
+- AdminLayout の `<nav>` に `aria-label="Admin navigation"`

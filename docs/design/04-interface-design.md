@@ -533,3 +533,140 @@ RAG 失敗時はコンテキスト無し、または不完全状態で続行（r
 - `X-Content-Type-Options: nosniff`
 
 - **404:** submission または file が存在しないか、ユーザーの所有でない場合
+
+---
+
+## Sprint 4 追加
+
+Sprint 4 で導入された全エンドポイントは、Sprint 3 で導入した CSP middleware により `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'` を返す。
+
+### 認可レイヤ
+
+| Dependency | 効果 |
+|---|---|
+| `get_current_user` | 既存。JWT 未提示・無効 → 401。 |
+| `get_current_admin` | Sprint 4 新規。`get_current_user` の上に重ね、`is_admin=false` で 403 `"admin privileges required"`。 |
+
+非 admin が `/api/admin/*` を叩くと 401 vs 403 が明確に分かれる（外部リバースプロキシ側のメトリクス取得に有用）。
+
+### 管理者ロール反映
+
+#### GET /api/auth/me（拡張）
+
+`UserOut` レスポンスに `is_admin: bool` を追加。SPA はこのフラグでルートガード（`/admin/*` 進入可否）を判定する。サーバー側 endpoint は引き続き `get_current_admin` で再判定するため、SPA 状態の改竄では権限昇格できない。
+
+### Admin: 受講者管理
+
+#### GET /api/admin/users
+
+クエリ:
+- `limit` (1..200, default 50)
+- `offset` (>=0, default 0)
+
+レスポンス: `AdminUserListOut { items, total, limit, offset }`
+
+各 `AdminUserSummary` は `completed_phases` / `in_progress_phases` を含む（dashboard の N+1 を回避）。
+
+- **403:** 非 admin
+- **422:** `limit > 200`
+
+#### GET /api/admin/users/{user_id}
+
+レスポンス: `AdminUserDetail { progress[4], latest_scores: {1..4: int|null} }`
+
+`latest_scores` は phase 1..4 を必ず含む（採点済み提出がない phase は null）。
+
+- **404:** 該当 user_id なし
+
+### Admin: 提出物管理
+
+#### GET /api/admin/submissions
+
+クエリ:
+- `user_id` (UUID, 任意)
+- `phase` (1..4, 任意)
+- `limit` (1..200, default 50)
+- `offset` (>=0, default 0)
+
+レスポンス: `AdminSubmissionListOut`。各行に `user_email` / `user_name` を denormalize 同梱。
+
+#### GET /api/admin/submissions/{submission_id}
+
+レスポンス: `AdminSubmissionDetail { files, grading_history, comments }`。提出本文・採点履歴・コメントを 1 リクエストで取得（dashboard 二度問い合わせ防止）。
+
+- **404:** 該当 submission なし
+
+### Admin: コメント
+
+#### POST /api/admin/submissions/{submission_id}/comments
+
+ボディ: `CommentCreate { body: 1..2000 chars }`
+
+レスポンス: 201 `AdminCommentOut { author_name }`
+
+- **403:** 非 admin
+- **404:** submission なし
+- **422:** body validation
+- **429:** `admin_write_rate_limit`（default `60/minute` per IP）
+
+#### GET /api/admin/submissions/{submission_id}/comments
+
+レスポンス: `AdminCommentOut[]`（古い順）
+
+### Admin: 通知
+
+#### POST /api/admin/notifications
+
+ボディ: `NotificationCreate`
+```jsonc
+{
+  "recipient_user_id": "<uuid>",
+  "title": "1..200 chars",
+  "body": "1..2000 chars",
+  "link": "0..500 chars | null"
+}
+```
+
+レスポンス: 201 `NotificationOut { sender_name, read_at: null }`
+
+- **404:** `recipient_user_id` のユーザーが存在しない（FK 違反を 500 に落とさず pre-flight）
+- **422:** validation
+- **429:** `admin_write_rate_limit`
+
+#### GET /api/admin/notifications
+
+自分（admin）が送信した通知の一覧（outbox）。共同講師の outbox は見えない。
+
+### Learner: `/api/me/...`
+
+`/api/me/*` 配下のエンドポイントは全て `current_user.id` で結果をフィルタする構造ガード（BOLA 防御の系統的保証）。
+
+#### GET /api/me/submissions/{submission_id}/comments
+
+レスポンス: `LearnerCommentOut[]` — `author_user_id` を意図的に省く（講師内部 UUID を露出させない）。
+
+- **404:** submission が存在しない、または自分の提出でない（どちらの場合も同じレスポンスで BOLA-distinguishability を遮断）
+
+#### GET /api/me/notifications
+
+レスポンス:
+```jsonc
+{
+  "items": "NotificationOut[]、設定 notification_poll_limit (default 50) で cap",
+  "unread_count": "未読総数（cap 対象外、真値）"
+}
+```
+
+#### POST /api/me/notifications/{notification_id}/read
+
+冪等。既読フラグを立てる。
+
+- **404:** 通知が存在しない、または自分宛でない（同じレスポンス）
+
+### 環境変数（追加）
+
+| 変数 | デフォルト | 用途 |
+|---|---|---|
+| `NOTIFICATION_POLL_LIMIT` | `50` | `/api/me/notifications` の `items` 上限 |
+| `CSP_POLICY` | `default-src 'none'; frame-ancestors 'none'; base-uri 'none'` | CSP middleware の方針 |
+| `ADMIN_WRITE_RATE_LIMIT` | `60/minute` | admin 書き込み系のレート制限 |

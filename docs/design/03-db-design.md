@@ -343,3 +343,66 @@ INDEX:
 - `ix_grading_attempts_submission_created (submission_id, created_at DESC)`
 
 `submissions.score` / `submissions.ai_feedback` は最新 graded attempt のキャッシュとして保持される（既存 API 互換性のため）。
+
+---
+
+## Sprint 4 追加
+
+### users.is_admin
+
+既存 `users` テーブルに 1 カラム追加。RBAC は単一フラグで表現する（roles テーブル分解は YAGNI）。
+
+| Column | Type | Constraint |
+|---|---|---|
+| is_admin | BOOLEAN | NOT NULL DEFAULT false |
+
+マイグレーション (`20260606_af4220e315e6_sprint4_admin_comments_notifications.py`) は `server_default='false'` を持つため、既存全行は別 UPDATE 不要で false に backfill される。運用上の admin 化は `scripts/promote_admin.py <email>` で実施。
+
+### instructor_comments
+
+講師から提出物に対する一方向コメント（受講者からの返信は Sprint 5 以降）。
+
+| Column | Type | Constraint |
+|---|---|---|
+| id | UUID | PK |
+| submission_id | UUID | FK submissions.id **ON DELETE CASCADE** |
+| author_user_id | UUID | FK users.id **ON DELETE RESTRICT** |
+| body | TEXT | NOT NULL |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+| updated_at | TIMESTAMPTZ | NOT NULL DEFAULT now(), `onupdate` 自動更新 |
+
+INDEX: `ix_instructor_comments_submission_id (submission_id)`
+
+FK セマンティクス:
+- 提出が削除されればコメントも消える（orphan を残さない）。
+- 講師ユーザーの削除は RESTRICT — 削除前に「無名化」運用 (`author_user_id` を別の保守ユーザーに付け替える) を強制する。
+
+### notifications
+
+In-app 通知（SSE/WS なし、フロント 30 秒ポーリング）。
+
+| Column | Type | Constraint |
+|---|---|---|
+| id | UUID | PK |
+| recipient_user_id | UUID | FK users.id **ON DELETE CASCADE** |
+| sender_user_id | UUID | FK users.id **ON DELETE RESTRICT** |
+| title | VARCHAR(200) | NOT NULL |
+| body | TEXT | NOT NULL |
+| link | VARCHAR(500) | NULL |
+| read_at | TIMESTAMPTZ | NULL（既読化時のみセット） |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+
+INDEX: `ix_notifications_recipient_user_id (recipient_user_id)`
+
+`read_at IS NULL` が未読の真値。`unread_count` 集計はこの列を `WHERE read_at IS NULL` で COUNT して算出する（separate column を持たず、二重管理にしない）。
+
+### ER 図 (Sprint 4 差分)
+
+```text
+users 1 ──< instructor_comments >── 1 submissions    (author / submission)
+users 1 ──< notifications              (recipient / sender 双方向)
+```
+
+### マイグレーション ノート
+
+Sprint 3 で `ix_grading_attempts_submission_created` を migration から作っていたがモデルに `Index(...)` 宣言が無く、Sprint 4 の autogenerate が誤って drop しようとした。Sprint 4 マイグレーションで該当 drop を手で除去し、`GradingAttempt.__table_args__` に同 index を宣言して将来の `alembic check` も無音化した。
