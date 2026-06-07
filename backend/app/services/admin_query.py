@@ -10,8 +10,11 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.grading_attempt import GradingAttempt
+from app.models.instructor_comment import InstructorComment
 from app.models.progress import Progress
 from app.models.submission import Submission
+from app.models.submission_file import SubmissionFile
 from app.models.user import User
 
 
@@ -93,3 +96,98 @@ async def get_user_detail(
             latest_scores[s.phase] = s.score
 
     return user, list(progress), latest_scores
+
+
+async def count_submissions(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID | None,
+    phase: int | None,
+) -> int:
+    stmt = select(func.count()).select_from(Submission)
+    if user_id is not None:
+        stmt = stmt.where(Submission.user_id == user_id)
+    if phase is not None:
+        stmt = stmt.where(Submission.phase == phase)
+    return (await db.execute(stmt)).scalar_one()
+
+
+async def list_submissions(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID | None,
+    phase: int | None,
+    limit: int,
+    offset: int,
+) -> list[tuple[Submission, User]]:
+    """Joined Submission + User rows newest-first.
+
+    Returns paired ORM instances rather than a custom shape so the
+    router can format the response with whatever DTO it likes without
+    re-querying the user."""
+    stmt = (
+        select(Submission, User)
+        .join(User, Submission.user_id == User.id)
+    )
+    if user_id is not None:
+        stmt = stmt.where(Submission.user_id == user_id)
+    if phase is not None:
+        stmt = stmt.where(Submission.phase == phase)
+    stmt = stmt.order_by(Submission.submitted_at.desc()).limit(limit).offset(offset)
+    rows = (await db.execute(stmt)).all()
+    return [(sub, user) for sub, user in rows]
+
+
+async def get_submission_detail(
+    db: AsyncSession, submission_id: uuid.UUID
+) -> tuple[
+    Submission,
+    User,
+    list[SubmissionFile],
+    list[GradingAttempt],
+    list[tuple[InstructorComment, User]],
+] | None:
+    """Pull every piece the admin detail view needs in five queries.
+
+    Returns None when the submission row doesn't exist (router maps to
+    404). Comments are returned paired with the author User so the
+    DTO can include `author_name` without a per-comment lookup."""
+
+    pair = (
+        await db.execute(
+            select(Submission, User)
+            .join(User, Submission.user_id == User.id)
+            .where(Submission.id == submission_id)
+        )
+    ).first()
+    if pair is None:
+        return None
+    submission, learner = pair
+
+    files = (
+        await db.execute(
+            select(SubmissionFile)
+            .where(SubmissionFile.submission_id == submission_id)
+            .order_by(SubmissionFile.created_at)
+        )
+    ).scalars().all()
+
+    history = (
+        await db.execute(
+            select(GradingAttempt)
+            .where(GradingAttempt.submission_id == submission_id)
+            .order_by(GradingAttempt.created_at.desc())
+        )
+    ).scalars().all()
+
+    comment_rows = (
+        await db.execute(
+            select(InstructorComment, User)
+            .join(User, InstructorComment.author_user_id == User.id)
+            .where(InstructorComment.submission_id == submission_id)
+            .order_by(InstructorComment.created_at.asc())
+        )
+    ).all()
+    comments = [(c, a) for c, a in comment_rows]
+
+    return submission, learner, list(files), list(history), comments
