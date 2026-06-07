@@ -5,8 +5,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api import auth, curriculum, health, progress, submissions
+from app.api import auth, curriculum, health, me, progress, submissions
 from app.api import chat as chat_router
+from app.api.admin import comments as admin_comments
 from app.api.admin import submissions as admin_submissions
 from app.api.admin import users as admin_users
 from app.config import settings
@@ -73,6 +74,8 @@ def create_app() -> FastAPI:
     app.include_router(chat_router.router)
     app.include_router(admin_users.router)
     app.include_router(admin_submissions.router)
+    app.include_router(admin_comments.router)
+    app.include_router(me.router)
     return app
 
 
