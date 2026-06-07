@@ -75,6 +75,7 @@ make test-frontend             # vitest
 - Sprint 1: `docs/superpowers/plans/2026-06-02-ai-tutor-curriculum-sprint-1.md`
 - Sprint 2: `docs/superpowers/plans/2026-06-03-ai-tutor-curriculum-sprint-2.md`
 - Sprint 3: `docs/superpowers/plans/2026-06-04-ai-tutor-curriculum-sprint-3.md`
+- Sprint 4: `docs/superpowers/plans/2026-06-06-ai-tutor-curriculum-sprint-4.md`
 
 ## 実装進捗
 
@@ -82,6 +83,17 @@ make test-frontend             # vitest
 - [x] Sprint 1: PostgreSQL + JWT 認証 + 進捗管理 + 会話履歴永続化
 - [x] Sprint 2: 課題提出 + AI採点 (Claude JSON) + RAG (pgvector + fastembed)
 - [x] Sprint 3: ファイル/画像添付提出 + Claude Vision multimodal 採点 + 採点履歴 + 再採点 API
-- [ ] Sprint 4: 管理者ダッシュボード + CI/CD + 本番デプロイ + 監視
+- [ ] Sprint 4 (進行中): 管理者ダッシュボード（admin RBAC + 受講者一覧 + 提出ドリルダウン + コメント + 通知）+ Sprint 3 security MED 5 件 + CSP middleware
+
+### 管理者の昇格
+
+開発・運用環境で受講者を admin に昇格させる:
+
+```bash
+cd backend
+uv run python -m scripts.promote_admin instructor@example.com
+```
+
+冪等。既に admin の場合は `already admin` を出力して 0 を返す。
 
 詳細は `docs/superpowers/plans/` を参照。
