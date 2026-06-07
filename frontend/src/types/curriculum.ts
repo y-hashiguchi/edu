@@ -37,6 +37,8 @@ export interface UserOut {
   email: string;
   name: string;
   created_at: string;
+  /** Sprint 4: surfaced by /api/auth/me so the SPA can route admin views. */
+  is_admin: boolean;
 }
 
 export interface TokenResponse {

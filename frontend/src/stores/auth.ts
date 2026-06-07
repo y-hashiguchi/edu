@@ -11,6 +11,13 @@ export const useAuthStore = defineStore('auth', {
   state: (): State => ({ token: null, user: null }),
   getters: {
     isAuthenticated: (s) => s.token !== null,
+    /**
+     * Convenience getter used by Vue Router guards (`router/admin.ts`)
+     * and by `NotificationCenter` to render admin-only affordances.
+     * Server-side endpoints re-check `is_admin` on every admin call —
+     * this getter exists purely so the SPA can route, never to grant.
+     */
+    isAdmin: (s) => s.user?.is_admin === true,
   },
   actions: {
     async login(email: string, password: string) {

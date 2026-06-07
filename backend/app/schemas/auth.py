@@ -27,5 +27,10 @@ class UserOut(BaseModel):
     email: EmailStr
     name: str
     created_at: datetime
+    # Surfacing the admin flag here lets the SPA route /admin views via a
+    # plain getter on the auth store. It is NOT used as the RBAC source
+    # of truth — server-side endpoints enforce is_admin again on every
+    # admin-only call.
+    is_admin: bool = False
 
     model_config = {"from_attributes": True}
