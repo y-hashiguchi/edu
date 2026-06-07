@@ -9,6 +9,10 @@ const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 
+// User hydration on hard reload is handled by the router guard
+// (see router/index.ts beforeEach) — by the time any view mounts
+// it can read auth.user without a null check.
+
 const logout = async () => {
   auth.logout();
   await router.push('/login');

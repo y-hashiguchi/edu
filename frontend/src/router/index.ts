@@ -20,8 +20,19 @@ export const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
+  // Only the JWT token survives a hard reload (persist paths=['token']).
+  // Hydrate `user` before any downstream guard reads auth.isAdmin or
+  // displays auth.user.name — otherwise admins would silently bounce
+  // off /admin/* after a refresh.
+  if (auth.token && !auth.user) {
+    try {
+      await auth.fetchMe();
+    } catch {
+      auth.logout();
+    }
+  }
   if (to.meta.public !== true && !auth.isAuthenticated) {
     return { name: 'login' };
   }
