@@ -73,3 +73,41 @@ def test_main_rejects_wrong_arg_count(capsys):
     assert main(["a@b.com", "extra"]) == 2
     err = capsys.readouterr().err
     assert "usage" in err.lower()
+
+
+def test_mask_email_keeps_domain_but_redacts_local_part():
+    """MED-2 (sprint-4 security follow-up): operator scripts feed stdout
+    and stderr into CloudWatch/Datadog, which has a wider read-audience
+    than the DB. The raw learner email is PII — the CLI must mask the
+    local part before printing."""
+    from scripts.promote_admin import _mask_email
+
+    assert _mask_email("alice@example.com") == "al***@example.com"
+    # Short local parts (1 char) still get redacted: never reveal the
+    # full local.
+    assert _mask_email("a@example.com") == "a***@example.com"
+    # No-@ fallback so a malformed CLI arg can't blow up the script.
+    assert _mask_email("garbage") == "***"
+
+
+@pytest.mark.asyncio
+async def test_promote_logs_masked_email_only(db_session, capsys):
+    """End-to-end check: the success log line keeps the domain but
+    strips the local part below the first two chars. Validates the
+    mask hits the actual print path, not only the helper."""
+    from scripts.promote_admin import promote
+
+    user = User(
+        email="bob.alice@corp.example",
+        name="B",
+        password_hash=hash_password("p"),
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    rc = await promote("bob.alice@corp.example")
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "bo***@corp.example" in out
+    # Raw local part must not leak.
+    assert "bob.alice" not in out

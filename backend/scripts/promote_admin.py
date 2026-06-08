@@ -22,20 +22,33 @@ from app.db.session import SessionLocal
 from app.models.user import User
 
 
+def _mask_email(email: str) -> str:
+    """MED-2 (sprint-4 security follow-up): mask the local part before
+    emitting an email to stdout/stderr. CloudWatch/Datadog and similar
+    log sinks have a wider read-audience than the DB, so we keep the
+    domain (for ops to triage which tenant/cohort is affected) but drop
+    everything past the first two chars of the local part."""
+    local, sep, domain = email.partition("@")
+    if not sep:
+        return "***"
+    return f"{local[:2]}***@{domain}"
+
+
 async def promote(email: str) -> int:
     async with SessionLocal() as session:
         user = (
             await session.execute(select(User).where(User.email == email))
         ).scalar_one_or_none()
+        masked = _mask_email(email)
         if user is None:
-            print(f"user not found: {email}", file=sys.stderr)
+            print(f"user not found: {masked}", file=sys.stderr)
             return 1
         if user.is_admin:
-            print(f"already admin: {email}")
+            print(f"already admin: {masked}")
             return 0
         user.is_admin = True
         await session.commit()
-        print(f"promoted: {email}")
+        print(f"promoted: {masked}")
         return 0
 
 
