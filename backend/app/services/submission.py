@@ -41,7 +41,9 @@ def _validate_phase_and_task(phase: int, task_no: int) -> str:
     tasks = CURRICULUM[phase]["tasks"]
     if task_no < 1 or task_no > len(tasks):
         raise SubmissionTaskInvalidError(task_no)
-    return tasks[task_no - 1]
+    # Sprint 5: tasks are TaskItem dicts; return the human title that the
+    # grading prompt expects as `task_description`.
+    return tasks[task_no - 1]["title"]
 
 
 def _record_attempt(
