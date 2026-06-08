@@ -23,6 +23,7 @@ import type {
   NotificationListOut,
   NotificationOut,
 } from '@/types/notification';
+import type { DashboardResponse } from '@/types/dashboard';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -234,4 +235,8 @@ export const api = {
     rawRequest<LearnerCommentOut[]>(
       `/api/me/submissions/${submissionId}/comments`,
     ),
+
+  // ---- Sprint 5 personalized dashboard ----
+
+  getMyDashboard: () => rawRequest<DashboardResponse>('/api/me/dashboard'),
 };
