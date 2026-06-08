@@ -157,3 +157,39 @@ async def test_unauthenticated_returns_401(client):
     assert client.post(
         f"/api/me/notifications/{uuid_mod.uuid4()}/read"
     ).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_mark_read_rate_limited_at_high_rate(
+    client, db_session, admin_user, monkeypatch,
+):
+    """MED-4 (sprint-4 security follow-up): mark-read is idempotent so
+    state cannot be broken, but a stolen learner token must not be able
+    to flood the DB with `SELECT Notification + SELECT User` round-trips.
+    Per-IP rate limit via slowapi keeps the abuse ceiling bounded.
+
+    Patch the `settings` reference captured by `app.api.me` directly —
+    `test_file_storage` reloads `app.config` mid-suite, replacing the
+    module-level singleton, so a top-level `from app.config import
+    settings` here can hand us a different object than the route
+    decorator's lambda is reading.
+    """
+    from app.api.me import settings as me_settings
+    from app.core.limiter import limiter
+
+    learner = await _make_learner(db_session)
+    note = await _seed_notification(db_session, admin_user, learner)
+
+    monkeypatch.setattr(me_settings, "me_write_rate_limit", "5/minute")
+    monkeypatch.setattr(limiter, "enabled", True)
+    try:
+        limiter._storage.reset()
+    except Exception:  # pragma: no cover
+        pass
+
+    _auth(client, learner.id)
+    statuses = [
+        client.post(f"/api/me/notifications/{note.id}/read").status_code
+        for _ in range(7)
+    ]
+    assert 429 in statuses, statuses

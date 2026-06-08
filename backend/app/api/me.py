@@ -9,11 +9,12 @@ preserve that invariant.
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.comment import LearnerCommentOut
@@ -87,7 +88,9 @@ async def list_my_notifications(
     "/notifications/{notification_id}/read",
     response_model=NotificationOut,
 )
+@limiter.limit(lambda: settings.me_write_rate_limit)
 async def mark_my_notification_read(
+    request: Request,  # required by slowapi key_func=get_remote_address
     notification_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

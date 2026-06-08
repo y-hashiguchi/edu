@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # be able to flood a learner inbox at line speed.
     admin_write_rate_limit: str = "60/minute"
 
+    # Learner write rate limit (sprint-4 follow-up MED-4) — mark-read is
+    # idempotent so abuse cannot break state, but a stolen learner token
+    # could still loop the SELECT Notification + SELECT User round-trip.
+    me_write_rate_limit: str = "60/minute"
+
     # Notifications (Sprint 4)
     notification_poll_limit: int = 50
     # HIGH-2 (sprint-4 security review): hard cap on per-recipient
