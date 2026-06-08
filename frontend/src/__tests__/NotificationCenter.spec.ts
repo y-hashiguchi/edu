@@ -31,6 +31,12 @@ function buildRouter() {
         name: 'phase',
         component: { template: '<div>phase</div>' },
       },
+      {
+        path: '/admin/users',
+        name: 'admin-users',
+        component: { template: '<div>admin</div>' },
+        meta: { requiresAdmin: true },
+      },
     ],
   });
 }
@@ -172,6 +178,39 @@ describe('NotificationCenter', () => {
     expect(a.attributes('href')).toBe('https://example.com/help');
     expect(a.attributes('target')).toBe('_blank');
     expect(a.attributes('rel')).toBe('noopener noreferrer');
+  });
+
+  it('does not navigate to admin-only routes via internal link', async () => {
+    // MED-1 (sprint-4 security follow-up): an admin could craft a
+    // notification with `link="/admin/users"`. Without this guard the
+    // learner would flash the admin layout for a frame before
+    // attachAdminGuard kicked them back to home. The component must
+    // refuse to push admin routes outright.
+    mocked.listMyNotifications.mockResolvedValue({
+      items: [makeNote('a', '/admin/users')],
+      unread_count: 1,
+    });
+    mocked.markNotificationRead.mockResolvedValue(
+      makeNote('a', '/admin/users', false),
+    );
+    const router = buildRouter();
+    await router.push('/');
+    const pushSpy = vi.spyOn(router, 'push');
+    const w = mount(NotificationCenter, {
+      global: { plugins: [router] },
+    });
+    await vi.runOnlyPendingTimersAsync();
+    await Promise.resolve();
+
+    await w.find('.bell').trigger('click');
+    await w.find('.item').trigger('click');
+    await flushPromises();
+
+    // mark-read still fires — the learner sees a read receipt.
+    expect(mocked.markNotificationRead).toHaveBeenCalledWith('a');
+    // ...but the router never sees the admin URL.
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(router.currentRoute.value.path).toBe('/');
   });
 
   it('cleans up polling on unmount (idempotent)', async () => {

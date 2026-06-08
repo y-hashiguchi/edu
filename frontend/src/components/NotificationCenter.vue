@@ -65,7 +65,17 @@ async function onItemClick(notificationId: string, link: string | null) {
   }
   close();
   if (isInternalLink(link)) {
-    void router.push(link as string);
+    // MED-1 (sprint-4 security follow-up): resolve the link first and
+    // refuse to push routes flagged `requiresAdmin`. Without this, an
+    // admin-crafted notification with `link="/admin/users"` would
+    // briefly flash the admin layout before attachAdminGuard kicked
+    // the learner back to home. The router guard alone is enough for
+    // authorisation, but UX-wise we never want learners to see the
+    // admin chrome at all.
+    const resolved = router.resolve(link as string);
+    if (!resolved.meta?.requiresAdmin) {
+      void router.push(link as string);
+    }
   }
   // External links are handled entirely by the <a href> rendered in
   // the template (with rel="noopener noreferrer" target="_blank").
