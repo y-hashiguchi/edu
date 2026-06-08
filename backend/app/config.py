@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     # could still loop the SELECT Notification + SELECT User round-trip.
     me_write_rate_limit: str = "60/minute"
 
+    # Sprint 5 — AI nudge (lazy generation + 24h cache)
+    nudge_model: str = "claude-haiku-4-5"
+    nudge_cache_ttl_hours: int = 24
+    nudge_max_output_tokens: int = 200
+    nudge_temperature: float = 0.5
+
     # Notifications (Sprint 4)
     notification_poll_limit: int = 50
     # HIGH-2 (sprint-4 security review): hard cap on per-recipient
