@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { api, ApiCooldownError } from '@/lib/api';
+import { useDashboardStore } from '@/stores/dashboard';
 import type {
   ChatMessage,
   GradingAttempt,
@@ -113,6 +114,9 @@ export const useCurriculumStore = defineStore('curriculum', {
       else list.push(submission);
       this.submissions[phase] = list.sort((a, b) => a.task_no - b.task_no);
       this._noteCooldownIfGraded(submission);
+      // Sprint 5: any new submission shifts the dashboard's
+      // weakness/recommendation/nudge inputs, so force a re-fetch on next mount.
+      useDashboardStore().invalidate();
       await this.fetchPhasesWithProgress();
       return submission;
     },
