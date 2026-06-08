@@ -3,14 +3,24 @@
 **作成日:** 2026-06-08
 **作成者:** Claude Code（security-reviewer agent の Sprint 4 指摘を反映）
 **起点コミット:** `03bfe8e fix(sprint-4): address security-reviewer HIGH findings`
-**前提:** Sprint 4 完了時に CRITICAL 0 / HIGH × 2 は修正済み。本書は **未修正の MEDIUM × 5 + LOW × 4** を後続スプリントへ引き継ぐためのチケット集。
+**前提:** Sprint 4 完了時に CRITICAL 0 / HIGH × 2 は修正済み。本書は **MEDIUM × 5 + LOW × 4** を後続スプリントへ引き継ぐためのチケット集。
+
+**MEDIUM 5 件のステータス（2026-06-08 更新）:** すべて `feature/sprint-4-security-followups` ブランチで対応済み。下記の各チケットに完了コミットを脚注として追記。
+
+| ID | 状態 | コミット |
+|---|---|---|
+| MED-1 | ✅ 完了 | `425b2cc fix(sprint-4): block notification links to admin-only routes (MED-1)` |
+| MED-2 | ✅ 完了 | `a960426 fix(sprint-4): mask learner email in promote_admin CLI output (MED-2)` |
+| MED-3 | ✅ 完了 | `163d172 fix(sprint-4): list_for_admin 404 on missing submission (MED-3)` |
+| MED-4 | ✅ 完了 | `21f6505 fix(sprint-4): rate-limit POST /api/me/notifications/{id}/read (MED-4)` |
+| MED-5 | ✅ 完了 | `b820ea1 refactor(sprint-4): consolidate router guards into one beforeEach (MED-5)` |
 
 ---
 
 ## 取り扱い方針
 
 Sprint 3 follow-up doc と同じ運用:
-- **MEDIUM**: Sprint 5 着手時に「Sprint 5 計画書」の前提タスクとして取り込む。
+- **MEDIUM**: ~~Sprint 5 着手時に「Sprint 5 計画書」の前提タスクとして取り込む。~~ → main マージ前に独立ブランチで早期完了。
 - **LOW**: Sprint 6 以降または保守タスクとしてバックログ。
 
 各チケット項目: 観点 / 該当ファイル:行 / 攻撃シナリオ・リスク / 推奨修正 / テスト方針 / 想定コスト (S=半日, M=1〜2日, L=3日以上)。
@@ -144,10 +154,10 @@ Sprint 3 follow-up doc と同じ運用:
 
 ## Sprint 5 取り込み時の優先順位（推奨）
 
-1. **MED-4**（me/notifications/read のレート制限）— DoS 経路を塞ぐ、設定追加だけで完了。
-2. **MED-1**（router.push の admin route 防御）— UX 混乱を引き起こすため、admin ダッシュボード本格運用前に。
-3. **MED-3**（list_for_admin の 404 整合）— admin 詳細との不整合を直す。
-4. **MED-2**（promote_admin のマスク）— 運用前に。
-5. **MED-5**（guard 統合）— Sprint 4 リファクタの余裕枠で。
+1. ~~**MED-4**（me/notifications/read のレート制限）— DoS 経路を塞ぐ、設定追加だけで完了。~~ → `21f6505` で完了
+2. ~~**MED-1**（router.push の admin route 防御）— UX 混乱を引き起こすため、admin ダッシュボード本格運用前に。~~ → `425b2cc` で完了
+3. ~~**MED-3**（list_for_admin の 404 整合）— admin 詳細との不整合を直す。~~ → `163d172` で完了
+4. ~~**MED-2**（promote_admin のマスク）— 運用前に。~~ → `a960426` で完了
+5. ~~**MED-5**（guard 統合）— Sprint 4 リファクタの余裕枠で。~~ → `b820ea1` で完了
 6. **LOW-2, LOW-3, LOW-4** — Sprint 6 以降。
 7. **LOW-1**（Cookie 化）— 認証刷新タイミングまで保留。

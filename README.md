@@ -84,6 +84,7 @@ make test-frontend             # vitest
 - [x] Sprint 2: 課題提出 + AI採点 (Claude JSON) + RAG (pgvector + fastembed)
 - [x] Sprint 3: ファイル/画像添付提出 + Claude Vision multimodal 採点 + 採点履歴 + 再採点 API
 - [x] Sprint 4: 管理者ダッシュボード（admin RBAC + 受講者一覧 + 提出ドリルダウン + コメント + 通知）+ Sprint 3 security MED 5 件 + CSP middleware + per-IP rate limit (slowapi)
+- [x] Sprint 4 security follow-up: Sprint 4 review で出た MEDIUM × 5 件（learner mark-read レート制限 / admin route 通知遷移防御 / list_for_admin 404 整合 / promote_admin email マスク / router guard 統合）
 
 ### 管理者の昇格
 
