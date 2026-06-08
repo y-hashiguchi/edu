@@ -103,6 +103,23 @@ async def test_admin_comment_404_for_unknown_submission(
 
 
 @pytest.mark.asyncio
+async def test_admin_list_comments_404_for_unknown_submission(
+    client, db_session, admin_user,
+):
+    """MED-3 (sprint-4 security follow-up): GET admin comments must
+    return 404 for an unknown UUID — the same shape as the POST path
+    and as `/api/admin/submissions/{id}` detail. Returning `[]` here
+    is technically harmless (admins see everything) but creates a
+    response-status inconsistency that bites refactors and confuses
+    front-end error handling."""
+    import uuid as uuid_mod
+
+    _auth(client, admin_user.id)
+    r = client.get(f"/api/admin/submissions/{uuid_mod.uuid4()}/comments")
+    assert r.status_code == 404, r.text
+
+
+@pytest.mark.asyncio
 async def test_admin_comment_rejects_empty_or_oversized_body(
     client, db_session, admin_user,
 ):

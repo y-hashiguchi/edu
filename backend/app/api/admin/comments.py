@@ -62,7 +62,12 @@ async def list_comments(
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> list[AdminCommentOut]:
-    rows = await comment_service.list_for_admin(db, submission_id)
+    try:
+        rows = await comment_service.list_for_admin(db, submission_id)
+    except comment_service.SubmissionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+        ) from e
     return [
         AdminCommentOut(
             id=c.id,

@@ -48,10 +48,19 @@ async def list_for_admin(
 ) -> list[tuple[InstructorComment, User]]:
     """Admin-facing read: all comments joined with their author User.
 
-    Does NOT verify the submission exists — the admin landing pages already
-    deal with empty arrays, and the caller (router) returns the same shape
-    either way. An admin who hits an unknown UUID gets `[]`, which matches
-    the dashboard's expectation when filtering."""
+    MED-3 (sprint-4 security follow-up): verify the submission exists
+    and raise SubmissionNotFoundError otherwise. BOLA risk is zero
+    (admins read everything), but returning `[]` for an unknown UUID
+    broke status-code symmetry with POST and with the submission
+    detail endpoint — refactors and front-end error handling rely on
+    that symmetry."""
+    sub_id = (
+        await db.execute(
+            select(Submission.id).where(Submission.id == submission_id)
+        )
+    ).scalar_one_or_none()
+    if sub_id is None:
+        raise SubmissionNotFoundError(str(submission_id))
     rows = (
         await db.execute(
             select(InstructorComment, User)
