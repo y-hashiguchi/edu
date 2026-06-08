@@ -26,7 +26,7 @@
 
 ### 含む（Sprint 5）
 
-- `app/data/curriculum.py`（or 同等）の Task 構造に `skill_tags: list[str]` を追加し、**28 タスクすべてに 1〜2 タグを手動付与**。
+- `app/data/curriculum.py`（or 同等）の Task 構造に `skill_tags: list[str]` を追加し、**12 タスクすべてに 1〜2 タグを手動付与**。
 - 新規テーブル `user_nudges`（PK=user_id、AI 一言の 24h キャッシュ）。Alembic マイグレーション 1 リビジョン。
 - backend サービス 5 つ:
   - `services/weakness.py`
@@ -65,7 +65,7 @@
 |---|---|---|---|
 | 1 | スコープの軸 | 受講者体験（弱点 + レコメンド + ダッシュボード + AI 一言） | UX のレバレッジが最大 |
 | 2 | アーキテクチャ | 集約 API 1 本（`GET /api/me/dashboard`） | 状態管理シンプル、ドメイン整合性高い |
-| 3 | 弱点の軸 | curriculum タスクへの手動 skill_tags（5〜10 種） | 28 タスクに対して粒度が適切、追加コスト低 |
+| 3 | 弱点の軸 | curriculum タスクへの手動 skill_tags（5〜10 種） | 12 タスクに対して粒度が適切、追加コスト低 |
 | 4 | 弱点の定義 | submission ごとの最新 graded attempt の score をタグで平均、低い上位 3 | データ集計のみ、ユーザーに説明可能 |
 | 5 | コールドスタート閾値 | `MIN_SUBMISSION_THRESHOLD = 3` | 1〜2 件では信頼性のある弱点判定不能 |
 | 6 | タグ別最低提出数 | `MIN_TAG_SUBMISSIONS = 2` | 1 件提出で弱点認定はノイズ |
@@ -138,7 +138,7 @@
 
 4. 既存 API レスポンス（`GET /api/curriculum`）の後方互換性を維持するため、`PhaseSummary.tasks: list[str]` は変えず、サーバ側で `[item["title"] for item in phase["tasks"]]` に射影する。**フロント側の互換性は破壊しない**。
 
-5. タグ語彙は短い日本語名（例: `データ構造` / `アルゴリズム` / `型システム` / `関数型` / `テスト` / `デバッグ` / `設計` / `IO` / `並行性` / `セキュリティ` の 10 種前後）。Task 0 で語彙を確定し、28 タスク全件に 1〜2 タグずつ付与。
+5. タグ語彙は短い日本語名（例: `データ構造` / `アルゴリズム` / `型システム` / `関数型` / `テスト` / `デバッグ` / `設計` / `IO` / `並行性` / `セキュリティ` の 10 種前後）。Task 0 で語彙を確定し、12 タスク全件に 1〜2 タグずつ付与。
 
 ```python
 # 変更後イメージ
@@ -201,7 +201,7 @@ class UserNudge(Base):
 {
   "progress_summary": {
     "completed_tasks": 7,
-    "total_tasks": 28,
+    "total_tasks": 12,
     "average_score": 76.4,        // submission_count < 3 のとき null
     "submission_count": 9
   },
@@ -435,7 +435,7 @@ services/nudge.get_or_generate(db, user_id, weakness, recommendations, submissio
 
 **user:**
 ```
-<progress>完了: 7/28 タスク、平均スコア: 76.4</progress>
+<progress>完了: 7/12 タスク、平均スコア: 76.4</progress>
 <weakness>
 1. データ構造 (平均 58 / 3 件)
 2. アルゴリズム (平均 64 / 2 件)
@@ -555,7 +555,7 @@ export const useDashboardStore = defineStore('dashboard', {
 | ファイル | 観点 |
 |---|---|
 | `test_models_sprint5.py` | UserNudge round-trip / PK制約 / CASCADE on user delete |
-| `test_curriculum_skill_tags.py` | 28 タスク全部に skill_tags あり、`get_task(phase, task_no).skill_tags` が動く |
+| `test_curriculum_skill_tags.py` | 12 タスク全部に skill_tags あり、`get_task(phase, task_no).skill_tags` が動く |
 | `test_weakness_service.py` | コールドスタート / 通常パス上位 3 / MIN_TAG_SUBMISSIONS フィルタ / 同点時の安定ソート |
 | `test_recommendation_service.py` | 未提出フィルタ / RAG モック並び順 / 弱点空時 = [] / 未提出 < 3 のとき結果 < 3 |
 | `test_nudge_service.py` | cache miss → 生成 / 24h hit / signature 変化で再生成 / LLM 例外 → stale / コールドスタート → static |
