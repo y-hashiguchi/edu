@@ -3,7 +3,8 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
-import { adminRoutes, attachAdminGuard } from '@/router/admin';
+import { adminRoutes } from '@/router/admin';
+import { attachGuards } from '@/router';
 
 function buildRouter(): Router {
   const router = createRouter({
@@ -14,7 +15,7 @@ function buildRouter(): Router {
       ...adminRoutes,
     ],
   });
-  attachAdminGuard(router);
+  attachGuards(router);
   return router;
 }
 

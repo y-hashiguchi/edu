@@ -5,14 +5,14 @@
  * touches the learner-side route table — Task 19 fills these in but
  * the route shape is finalised here.
  *
- * `attachAdminGuard` is registered from router/index.ts alongside the
- * existing auth guard so route matching happens once and both gates
- * apply in declaration order (auth first, then admin).
+ * Guard wiring lives in router/index.ts (single combined beforeEach).
+ * Avoid re-introducing a separate `attachAdminGuard` here: the
+ * sprint-4 follow-up MED-5 collapsed the two guards into one so a
+ * future refactor cannot reorder them and accidentally allow admin
+ * bypass / cause a double-redirect.
  */
 
-import type { RouteRecordRaw, Router } from 'vue-router';
-
-import { useAuthStore } from '@/stores/auth';
+import type { RouteRecordRaw } from 'vue-router';
 
 export const adminRoutes: RouteRecordRaw[] = [
   {
@@ -44,17 +44,3 @@ export const adminRoutes: RouteRecordRaw[] = [
     ],
   },
 ];
-
-export function attachAdminGuard(router: Router): void {
-  router.beforeEach((to) => {
-    if (!to.meta.requiresAdmin) return true;
-    const auth = useAuthStore();
-    // We rely on the prior auth guard to have already redirected an
-    // unauthenticated visitor to /login. Here we only check the admin
-    // bit on an already-authenticated user — non-admins land back on
-    // the learner home with no error toast (the admin URL is private,
-    // not advertised).
-    if (!auth.isAdmin) return { name: 'home' };
-    return true;
-  });
-}
