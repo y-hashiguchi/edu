@@ -7,6 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api import auth, curriculum, health, me, progress, submissions
 from app.api import chat as chat_router
+from app.api import me_dashboard as me_dashboard_router
 from app.api.admin import comments as admin_comments
 from app.api.admin import notifications as admin_notifications
 from app.api.admin import submissions as admin_submissions
@@ -78,6 +79,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_comments.router)
     app.include_router(admin_notifications.router)
     app.include_router(me.router)
+    app.include_router(me_dashboard_router.router)
     return app
 
 
