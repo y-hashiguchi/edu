@@ -12,10 +12,10 @@ from app.data.curriculum import (
     iter_all_phase_task_pairs,
 )
 
-EXPECTED_VOCAB = {
+EXPECTED_VOCAB: frozenset[str] = frozenset({
     "Git/GitHub", "開発環境", "API基礎", "AI協調", "テスト",
     "コードレビュー", "設計", "RAG/ベクトル検索", "LLM活用", "業務応用",
-}
+})
 
 
 def test_every_task_is_task_item_with_title_and_skill_tags():
@@ -59,8 +59,19 @@ def test_get_task_title_returns_string():
     assert isinstance(title, str) and len(title) > 0
 
 
+def test_get_task_title_raises_for_invalid_phase():
+    with pytest.raises(KeyError):
+        get_task_title(99, 1)
+
+
+def test_get_task_title_raises_for_invalid_task_no():
+    with pytest.raises(KeyError):
+        get_task_title(1, 99)
+
+
 def test_iter_all_phase_task_pairs_yields_all_12_tasks():
     pairs = list(iter_all_phase_task_pairs())
     assert len(pairs) == 12
     assert {p for p, _ in pairs} == {1, 2, 3, 4}
     assert all(t >= 1 for _, t in pairs)
+    assert pairs == sorted(pairs)
