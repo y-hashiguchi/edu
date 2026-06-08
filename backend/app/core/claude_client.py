@@ -28,13 +28,17 @@ class ClaudeClient:
         system_prompt: str,
         history: list[dict[str, str]],
         max_tokens: int = 1024,
+        temperature: float | None = None,
     ) -> str:
-        response = await self._sdk.messages.create(  # type: ignore[attr-defined]
-            model=self._model,
-            max_tokens=max_tokens,
-            system=system_prompt,
-            messages=history,
-        )
+        kwargs: dict = {
+            "model": self._model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": history,
+        }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        response = await self._sdk.messages.create(**kwargs)  # type: ignore[attr-defined]
         return response.content[0].text
 
     async def complete_multimodal(
@@ -86,3 +90,10 @@ def get_claude_client() -> ClaudeClient:
     """FastAPI Dependsから利用するファクトリ。"""
     sdk = AsyncAnthropic(api_key=settings.anthropic_api_key)
     return ClaudeClient(sdk=sdk, model=settings.anthropic_model)
+
+
+def get_nudge_claude_client() -> ClaudeClient:
+    """Sprint 5: separate ClaudeClient using settings.nudge_model
+    (Haiku) so the grading client (Sonnet) stays untouched."""
+    sdk = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return ClaudeClient(sdk=sdk, model=settings.nudge_model)
