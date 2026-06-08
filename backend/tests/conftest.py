@@ -128,3 +128,39 @@ async def admin_client(client, admin_token):
     overwrite each other's header."""
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     return client
+
+
+@pytest_asyncio.fixture
+async def seed_graded_submission(db_session):
+    """Insert a Submission row + a GradingAttempt with status='graded'
+    and the given score. Returns (submission, attempt) so tests can
+    chain further mutations (e.g. re-grade, mark stale)."""
+    from datetime import UTC, datetime
+
+    from app.models.grading_attempt import GradingAttempt
+    from app.models.submission import Submission
+
+    async def _seed(user, phase, task_no, score):
+        sub = Submission(
+            user_id=user.id,
+            phase=phase,
+            task_no=task_no,
+            content=f"essay phase{phase} task{task_no}",
+            submitted_at=datetime.now(UTC),
+        )
+        db_session.add(sub)
+        await db_session.flush()
+        att = GradingAttempt(
+            submission_id=sub.id,
+            status="graded",
+            score=score,
+            feedback="ok",
+            model_name="claude-sonnet-4-5",
+        )
+        db_session.add(att)
+        await db_session.commit()
+        await db_session.refresh(sub)
+        await db_session.refresh(att)
+        return sub, att
+
+    return _seed
