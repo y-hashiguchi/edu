@@ -24,7 +24,9 @@ async def main() -> None:
         for i, skill in enumerate(phase["skills"]):
             items.append(("curriculum_skill", f"phase:{phase_no}:skill:{i}", phase_no, skill))
         for i, task in enumerate(phase["tasks"]):
-            items.append(("curriculum_task", f"phase:{phase_no}:task:{i}", phase_no, task))
+            items.append(
+                ("curriculum_task", f"phase:{phase_no}:task:{i}", phase_no, task["title"])
+            )
 
     async with SessionLocal() as db:
         await upsert_embeddings(db, client, user_id=None, items=items)
