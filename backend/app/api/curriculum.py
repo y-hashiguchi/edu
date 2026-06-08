@@ -27,7 +27,7 @@ async def list_phases(
             goal=phase["goal"],
             duration=phase["duration"],
             skills=phase["skills"],
-            tasks=phase["tasks"],
+            tasks=[item["title"] for item in phase["tasks"]],
             locked=(
                 status_by_phase.get(phase_no, ProgressStatus.LOCKED.value)
                 == ProgressStatus.LOCKED.value
