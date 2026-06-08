@@ -11,9 +11,14 @@ Immutability contract:
   used by API handlers (Task 7, Task 8).
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from types import MappingProxyType
 from typing import TypedDict
+
+
+class TaskItem(TypedDict):
+    title: str
+    skill_tags: list[str]
 
 
 class PhaseData(TypedDict):
@@ -21,7 +26,7 @@ class PhaseData(TypedDict):
     goal: str
     duration: str
     skills: list[str]
-    tasks: list[str]
+    tasks: list[TaskItem]
     system_prompt: str
 
 
@@ -37,9 +42,9 @@ CURRICULUM: Mapping[int, PhaseData] = MappingProxyType({
             "REST API基礎",
         ],
         "tasks": [
-            "Gitでブランチを切り、PythonスクリプトをプッシュしてPRを作成",
-            "VSCode拡張（GitLens・REST Client・GitHub Copilot）の導入と動作確認",
-            "curlでREST APIを叩き、JSONレスポンス構造をまとめる",
+            {"title": "Gitでブランチを切り、PythonスクリプトをプッシュしてPRを作成", "skill_tags": ["Git/GitHub"]},
+            {"title": "VSCode拡張（GitLens・REST Client・GitHub Copilot）の導入と動作確認", "skill_tags": ["開発環境"]},
+            {"title": "curlでREST APIを叩き、JSONレスポンス構造をまとめる", "skill_tags": ["API基礎"]},
         ],
         "system_prompt": (
             "あなたはAI駆動型開発を教える教育AIチューターです。\n"
@@ -64,9 +69,9 @@ CURRICULUM: Mapping[int, PhaseData] = MappingProxyType({
             "Claude活用",
         ],
         "tasks": [
-            "Cursor IDEで顧客管理API（CRUD）をゼロから作成。AIとのやり取りログを記録",
-            "同機能をGitHub Copilotでも実装し、2つのAIの違いをまとめる",
-            "ClaudeにコードレビューさせてPDCA",
+            {"title": "Cursor IDEで顧客管理API（CRUD）をゼロから作成。AIとのやり取りログを記録", "skill_tags": ["AI協調", "API基礎"]},
+            {"title": "同機能をGitHub Copilotでも実装し、2つのAIの違いをまとめる", "skill_tags": ["AI協調", "開発環境"]},
+            {"title": "ClaudeにコードレビューさせてPDCA", "skill_tags": ["AI協調", "コードレビュー"]},
         ],
         "system_prompt": (
             "あなたはAI駆動型開発を教える教育AIチューターです。\n"
@@ -91,9 +96,9 @@ CURRICULUM: Mapping[int, PhaseData] = MappingProxyType({
             "仕様書からのコード生成",
         ],
         "tasks": [
-            "Phase2で作ったAPIをAIにレビューさせ、セキュリティ・パフォーマンス・可読性の観点で整理",
-            "仕様書（箇条書き）からテストコードを自動生成し、不足ケースを3つ指摘",
-            "AIとペアで新機能（検索機能など）を実装。会話ログも提出",
+            {"title": "Phase2で作ったAPIをAIにレビューさせ、セキュリティ・パフォーマンス・可読性の観点で整理", "skill_tags": ["コードレビュー", "AI協調"]},
+            {"title": "仕様書（箇条書き）からテストコードを自動生成し、不足ケースを3つ指摘", "skill_tags": ["テスト", "AI協調"]},
+            {"title": "AIとペアで新機能（検索機能など）を実装。会話ログも提出", "skill_tags": ["AI協調", "設計"]},
         ],
         "system_prompt": (
             "あなたはAI駆動型開発を教える教育AIチューターです。\n"
@@ -118,9 +123,9 @@ CURRICULUM: Mapping[int, PhaseData] = MappingProxyType({
             "プロダクト設計",
         ],
         "tasks": [
-            "Claude APIでチャットボット作成（会話履歴保持・システムプロンプト設定）",
-            "RAGデモ作成（Python + ChromaDB + Claude API）",
-            "業務課題を解決するAIツールの企画書作成（課題・解決策・技術構成・効果試算）",
+            {"title": "Claude APIでチャットボット作成（会話履歴保持・システムプロンプト設定）", "skill_tags": ["LLM活用"]},
+            {"title": "RAGデモ作成（Python + ChromaDB + Claude API）", "skill_tags": ["RAG/ベクトル検索", "LLM活用"]},
+            {"title": "業務課題を解決するAIツールの企画書作成（課題・解決策・技術構成・効果試算）", "skill_tags": ["業務応用", "設計"]},
         ],
         "system_prompt": (
             "あなたはAI駆動型開発を教える教育AIチューターです。\n"
@@ -151,3 +156,39 @@ def get_phase(phase_no: int) -> PhaseData:
         raise KeyError(
             f"Phase {phase_no} not found. Valid phases: {valid}"
         ) from None
+
+
+def get_task_title(phase_no: int, task_no: int) -> str:
+    """Return the human-readable title for (phase, task_no).
+
+    task_no is 1-indexed (matches `submissions.task_no`). KeyError on
+    out-of-range coordinates so callers see a uniform failure mode.
+    """
+    tasks = get_phase(phase_no)["tasks"]
+    if task_no < 1 or task_no > len(tasks):
+        raise KeyError(
+            f"task_no {task_no} out of range for phase {phase_no} "
+            f"(1..{len(tasks)})"
+        )
+    return tasks[task_no - 1]["title"]
+
+
+def get_task_skill_tags(phase_no: int, task_no: int) -> list[str]:
+    """Return the skill tags for (phase, task_no). Same indexing rules
+    as get_task_title."""
+    tasks = get_phase(phase_no)["tasks"]
+    if task_no < 1 or task_no > len(tasks):
+        raise KeyError(
+            f"task_no {task_no} out of range for phase {phase_no} "
+            f"(1..{len(tasks)})"
+        )
+    return list(tasks[task_no - 1]["skill_tags"])  # defensive copy
+
+
+def iter_all_phase_task_pairs() -> Iterator[tuple[int, int]]:
+    """Yield every (phase, task_no) coordinate in stable phase-then-
+    task_no order. Used by the recommendation service to enumerate the
+    universe of curriculum tasks for the "unsubmitted" filter."""
+    for phase_no in sorted(CURRICULUM.keys()):
+        for i in range(len(CURRICULUM[phase_no]["tasks"])):
+            yield phase_no, i + 1
