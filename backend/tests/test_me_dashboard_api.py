@@ -109,3 +109,30 @@ async def test_user_a_cannot_see_user_b_dashboard(client, db_session, monkeypatc
     _auth(client, b.id)
     r2 = client.get("/api/me/dashboard")
     assert r2.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_dashboard_rate_limited_at_high_rate(
+    client, db_session, monkeypatch,
+):
+    """HIGH-1 (sprint-5 review): a stolen token must not be able to
+    loop the dashboard endpoint to drive LLM costs. Per-IP rate limit
+    via slowapi keeps the abuse ceiling bounded."""
+    from app.api.me_dashboard import settings as md_settings
+    from app.core.limiter import limiter
+
+    user = await _make_user(db_session, email="rl@e.com")
+    _stub_compose(monkeypatch, has_data=True)
+
+    monkeypatch.setattr(md_settings, "me_write_rate_limit", "5/minute")
+    monkeypatch.setattr(limiter, "enabled", True)
+    try:
+        limiter._storage.reset()
+    except Exception:  # pragma: no cover
+        pass
+
+    _auth(client, user.id)
+    statuses = [
+        client.get("/api/me/dashboard").status_code for _ in range(7)
+    ]
+    assert 429 in statuses, statuses

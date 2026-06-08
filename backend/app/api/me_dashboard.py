@@ -1,11 +1,13 @@
 """GET /api/me/dashboard — single-fetch learner dashboard (Sprint 5)."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.claude_client import get_nudge_claude_client
 from app.core.deps import get_current_user
 from app.core.embedding_client import get_embedding_client
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.dashboard import (
@@ -23,7 +25,9 @@ router = APIRouter(prefix="/api/me", tags=["me"])
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
+@limiter.limit(lambda: settings.me_write_rate_limit)
 async def get_my_dashboard(
+    request: Request,  # required by slowapi key_func=get_remote_address
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     claude=Depends(get_nudge_claude_client),

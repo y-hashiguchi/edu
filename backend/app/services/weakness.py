@@ -49,7 +49,15 @@ async def compute_weakness(
 
     tag_scores: dict[str, list[float]] = defaultdict(list)
     for _sub_id, score, phase, task_no in rows:
-        for tag in get_task_skill_tags(phase, task_no):
+        try:
+            tags = get_task_skill_tags(phase, task_no)
+        except KeyError:
+            # Legacy submission whose task no longer exists in the
+            # curriculum. Skip the row rather than raise — surfacing
+            # a 500 here would suppress weakness analysis for any
+            # learner with a single stale submission.
+            continue
+        for tag in tags:
             tag_scores[tag].append(float(score))
 
     averages = [

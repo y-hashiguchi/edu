@@ -102,3 +102,42 @@ async def test_uses_latest_graded_attempt_per_submission(
 def test_constants_match_spec():
     assert MIN_SUBMISSION_THRESHOLD == 3
     assert MIN_TAG_SUBMISSIONS == 2
+
+
+@pytest.mark.asyncio
+async def test_skips_submissions_for_removed_curriculum_tasks(
+    db_session, seed_graded_submission, monkeypatch,
+):
+    """HIGH-2 (sprint-5 review): a learner who submitted against a
+    task that has since been removed from curriculum must still get a
+    valid weakness analysis from their remaining submissions."""
+    from app.services import weakness as weakness_mod
+
+    user = await _make_user(db_session)
+    # 4 valid submissions to clear MIN_SUBMISSION_THRESHOLD comfortably
+    await seed_graded_submission(user, 1, 1, 50)
+    await seed_graded_submission(user, 1, 2, 60)
+    await seed_graded_submission(user, 1, 3, 70)
+    # A submission whose curriculum entry was "removed". We don't
+    # mutate CURRICULUM (immutable contract) — instead patch the
+    # helper to raise KeyError for one specific coordinate.
+    await seed_graded_submission(user, 2, 1, 80)
+
+    real_get_tags = weakness_mod.get_task_skill_tags
+
+    def fake_get_tags(phase, task_no):
+        if (phase, task_no) == (2, 1):
+            raise KeyError("removed in test")
+        return real_get_tags(phase, task_no)
+
+    monkeypatch.setattr(weakness_mod, "get_task_skill_tags", fake_get_tags)
+
+    result = await weakness_mod.compute_weakness(db_session, user.id)
+    # has_enough_data still True (the 4 submissions are all graded;
+    # one tag set is skipped, but the row count counts the submission)
+    assert result.has_enough_data is True
+    # No "AI協調" or "API基礎" tags from phase 2 task 1 should appear
+    # because that row was skipped — and phase 1 tasks each have only
+    # 1 submission so they fall below MIN_TAG_SUBMISSIONS too. So
+    # top_weaknesses is empty, but the call does NOT raise.
+    assert isinstance(result.top_weaknesses, list)

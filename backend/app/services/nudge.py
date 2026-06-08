@@ -113,13 +113,17 @@ async def get_or_generate(
         weakness_tags, top_recommendation_key, submission_count,
     )
 
-    # Cache lookup with row lock — two concurrent dashboard fetches for
-    # the same user serialize here, so only the first one calls the LLM.
+    # HIGH-2 (sprint-5 security review): skip_locked=True turns a
+    # concurrent caller into a cache miss instead of a blocking lock
+    # holder. The worst outcome is one redundant LLM call; the
+    # subsequent ON CONFLICT DO UPDATE keeps the final state coherent.
+    # Blocking would tie up a DB connection for the entire LLM round
+    # trip and chain into pool exhaustion at scale.
     existing = (
         await db.execute(
             select(UserNudge)
             .where(UserNudge.user_id == user_id)
-            .with_for_update()
+            .with_for_update(skip_locked=True)
         )
     ).scalar_one_or_none()
 
