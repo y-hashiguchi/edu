@@ -9,3 +9,4 @@ from app.models.progress import Progress, ProgressStatus  # noqa: F401
 from app.models.submission import Submission  # noqa: F401
 from app.models.submission_file import SubmissionFile  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.user_nudge import UserNudge  # noqa: F401
