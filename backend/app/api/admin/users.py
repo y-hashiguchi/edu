@@ -32,6 +32,11 @@ async def list_users(
     )
     total = await admin_query.count_users(db)
 
+    # Sprint 6: bulk 集計で N+1 回避
+    from app.services.weakness import compute_top_weakness_tags_bulk
+    user_ids = [u.id for u, _ in rows]
+    top_tags = await compute_top_weakness_tags_bulk(db, user_ids)
+
     items = [
         AdminUserSummary(
             id=u.id,
@@ -45,6 +50,7 @@ async def list_users(
             in_progress_phases=sum(
                 1 for p in progs if p.status == ProgressStatus.IN_PROGRESS.value
             ),
+            top_weakness_tag=top_tags.get(u.id),
         )
         for u, progs in rows
     ]

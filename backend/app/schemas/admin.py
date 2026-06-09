@@ -20,6 +20,7 @@ class AdminUserSummary(BaseModel):
     is_admin: bool
     completed_phases: int
     in_progress_phases: int
+    top_weakness_tag: str | None = None  # Sprint 6: bulk 集計で埋める
 
 
 class AdminUserListOut(BaseModel):
