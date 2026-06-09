@@ -63,7 +63,16 @@ def _build_signature(
 ) -> str:
     """16 char SHA-256 prefix. Identical inputs → identical signature.
     A change in top-3 weakness order, in the primary recommendation, or
-    in the total submission count breaks the cache deliberately."""
+    in the total submission count breaks the cache deliberately.
+
+    LOW-4 (sprint-5 follow-up): `weakness_tags[:3]` is a defensive
+    duplicate cap. `compute_weakness` already returns at most 3 tags
+    (`averages[:3]`), so this slice is redundant in current code. The
+    safeguard is kept on purpose: signatures are derived data and we
+    want this function to remain a pure SHA-256 wrapper independent of
+    the upstream invariant. A future change that lifts the top-3 cap
+    in weakness service would otherwise silently break cache stability
+    here."""
     payload = (
         f"{','.join(weakness_tags[:3])}|{top_recommendation_key or ''}"
         f"|{submission_count}"
