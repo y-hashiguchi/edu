@@ -11,6 +11,7 @@
 import { computed } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 
+import NotificationCenter from '@/components/NotificationCenter.vue';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
@@ -39,6 +40,7 @@ function logout() {
         <RouterLink to="/">学習者ビュー</RouterLink>
       </nav>
       <div class="who">
+        <NotificationCenter />
         <span class="name">{{ adminName }}</span>
         <button type="button" @click="logout">ログアウト</button>
       </div>
