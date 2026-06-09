@@ -3,13 +3,23 @@
 **作成日:** 2026-06-09
 **作成者:** Claude Code（code-reviewer + security-reviewer の Sprint 5 指摘を反映）
 **起点コミット:** `c5d49b3 fix(sprint-5): address review HIGH findings`
-**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の MEDIUM × 2 + LOW × 6** を後続スプリントへ引き継ぐためのチケット集。
+**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の MEDIUM × 1 + LOW × 6** を後続スプリントへ引き継ぐためのチケット集。
 
 加えて、Sprint 5 で本来予定していた **Playwright E2E 1 本** はインフラ未導入のため実施せず、本書末尾の「インフラ tickets」に記載する。
+
+**ステータス（2026-06-09 更新）:**
+
+| ID | 状態 | コミット |
+|---|---|---|
+| MED-2 | ✅ 完了 | `e2fbf87 fix(sprint-5): transitional-state guard prevents LLM hallucination (MED-2)` |
+| MED-1 | 未着手 | — |
+| LOW-1〜6 | 未着手 | — |
+| INFRA-1, 2 | 未着手 | — |
 
 **更新履歴:**
 - 2026-06-09 初版（code-reviewer / security-reviewer 指摘の MEDIUM × 1 + LOW × 6 + INFRA × 2 を記録）
 - 2026-06-09 追記: ローカル動作確認で **MED-2**（コールドスタート脱出直後の LLM ハルシネート）を発見、チケット化
+- 2026-06-09 **MED-2 完了**: `feature/sprint-5-followup-med-2` ブランチで transitional state ガード追加、4 件テスト追加、main マージ
 
 ---
 
@@ -157,7 +167,7 @@ Sprint 3 / Sprint 4 follow-up doc と同じ運用:
 
 ## Sprint 6 取り込み時の優先順位（推奨）
 
-1. **MED-2**（コールドスタート脱出直後 transitional state の static 文）— UX 影響が直接 visible、ローカル検証で実害確認済み、実装 S
+1. ~~**MED-2**（コールドスタート脱出直後 transitional state の static 文）— UX 影響が直接 visible、ローカル検証で実害確認済み、実装 S~~ → `e2fbf87` で完了
 2. **LOW-2**（regrade invalidate）— UX 一貫性、submit 側と同じ修正で済む
 3. **LOW-1**（computed 化）— Vue 反応性のベストプラクティス
 4. **MED-1**（RAG クエリ長ガード）— curriculum 編集機能と同時に必要になる前提
