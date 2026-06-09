@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { ProgressSummary } from '@/types/dashboard';
 
 const props = defineProps<{ data: ProgressSummary }>();
 const COLD_START_THRESHOLD = 3;
-const belowThreshold = props.data.submission_count < COLD_START_THRESHOLD;
+// LOW-1 (sprint-5 follow-up): computed so this stays reactive if
+// the same component instance is fed a new `data` prop without
+// remount (any future surface that mutates dashboard.data in place
+// rather than via HomeView's v-if remount).
+const belowThreshold = computed(
+  () => props.data.submission_count < COLD_START_THRESHOLD,
+);
 </script>
 
 <template>

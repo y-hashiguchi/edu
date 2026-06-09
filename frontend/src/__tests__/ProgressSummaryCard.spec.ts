@@ -40,4 +40,30 @@ describe('ProgressSummaryCard', () => {
     });
     expect(w.text()).toContain('3 件提出');
   });
+
+  it('reactively hides the hint when submission_count rises across the threshold (LOW-1)', async () => {
+    // The setup() body captured belowThreshold as a plain boolean
+    // before this fix. The component lived behind HomeView's
+    // v-if="dashboard.data" so a remount masked the bug. The
+    // regression test fixes belowThreshold as a computed by
+    // exercising prop reactivity directly.
+    const w = mount(ProgressSummaryCard, {
+      props: {
+        data: {
+          completed_tasks: 1, total_tasks: 12,
+          submission_count: 1, average_score: null,
+        },
+      },
+    });
+    expect(w.text()).toContain('3 件提出');
+
+    await w.setProps({
+      data: {
+        completed_tasks: 4, total_tasks: 12,
+        submission_count: 4, average_score: 70,
+      },
+    });
+    expect(w.text()).not.toContain('3 件提出');
+    expect(w.text()).toContain('70');
+  });
 });
