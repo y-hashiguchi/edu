@@ -6,20 +6,27 @@
  * learner's submissions. Each submission row links into the submission
  * detail view (where comments and grading history live).
  */
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import ProgressSummaryCard from '@/components/ProgressSummaryCard.vue';
+import RecommendationsCard from '@/components/RecommendationsCard.vue';
+import WeaknessCard from '@/components/WeaknessCard.vue';
 import { useAdminStore } from '@/stores/admin';
+import type { AdminDashboardResponse } from '@/types/admin';
 
 const route = useRoute();
 const router = useRouter();
 const store = useAdminStore();
 
 const userId = computed(() => String(route.params.id));
+const dashboard = ref<AdminDashboardResponse | null>(null);
 
 async function load() {
   await store.fetchUserDetail(userId.value);
   await store.fetchSubmissions({ user_id: userId.value });
+  // Sprint 6: 受講者ダッシュボード (nudge なし)
+  dashboard.value = await store.fetchUserDashboard(userId.value);
 }
 
 onMounted(load);
@@ -77,6 +84,18 @@ function phaseStatusLabel(status: string): string {
               </strong>
             </p>
           </article>
+        </div>
+      </section>
+
+      <section v-if="dashboard" class="user-dashboard-section">
+        <h2>受講者のダッシュボード</h2>
+        <div class="dash-grid">
+          <ProgressSummaryCard :data="dashboard.progress_summary" />
+          <WeaknessCard :data="dashboard.weakness" />
+          <RecommendationsCard
+            :items="dashboard.recommendations.items"
+            @select="() => {}"
+          />
         </div>
       </section>
 
@@ -193,4 +212,9 @@ h2 {
 .sub-head .phase-no { font-weight: 600; color: #4f46e5; }
 .sub-head .score { color: #1f2937; font-variant-numeric: tabular-nums; }
 .submissions time { font-size: 0.78rem; color: #6b7280; }
+.user-dashboard-section .dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
 </style>
