@@ -3,9 +3,13 @@
 **作成日:** 2026-06-09
 **作成者:** Claude Code（code-reviewer + security-reviewer の Sprint 5 指摘を反映）
 **起点コミット:** `c5d49b3 fix(sprint-5): address review HIGH findings`
-**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の MEDIUM × 1 + LOW × 6** を後続スプリントへ引き継ぐためのチケット集。
+**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の MEDIUM × 2 + LOW × 6** を後続スプリントへ引き継ぐためのチケット集。
 
 加えて、Sprint 5 で本来予定していた **Playwright E2E 1 本** はインフラ未導入のため実施せず、本書末尾の「インフラ tickets」に記載する。
+
+**更新履歴:**
+- 2026-06-09 初版（code-reviewer / security-reviewer 指摘の MEDIUM × 1 + LOW × 6 + INFRA × 2 を記録）
+- 2026-06-09 追記: ローカル動作確認で **MED-2**（コールドスタート脱出直後の LLM ハルシネート）を発見、チケット化
 
 ---
 
@@ -21,6 +25,50 @@ Sprint 3 / Sprint 4 follow-up doc と同じ運用:
 ---
 
 ## MEDIUM
+
+### MED-2: コールドスタート脱出直後の空コンテキストで LLM がハルシネート
+
+- **観点:** UX / LLM コスト無駄打ち
+- **該当:** `backend/app/services/nudge.py:140-168`（`get_or_generate` の cold-start 判定〜LLM 呼び出し）, `backend/app/services/nudge.py:71-93`（`_build_prompt`）
+- **現状:** `submission_count >= MIN_SUBMISSION_THRESHOLD` だが `weakness_tags=[]` AND `recommendation_titles=[]` の中間状態に入る学習者が存在する。具体的には、Phase 1 の 3 タスクをそれぞれ違うタグ（Git/GitHub / 開発環境 / API基礎）で 1 件ずつ提出した直後がこれに該当する：weakness service は `MIN_TAG_SUBMISSIONS=2` でタグを除外し `top_weaknesses=[]`、recommendation service は `top_weakness_tags=[]` で空配列を返す。
+
+  この状態で `_build_prompt` は:
+  ```
+  <weakness>（まだ十分なデータがありません）</weakness>
+  <recommendations>- （該当なし）</recommendations>
+  ```
+  という実質コンテキストゼロのプロンプトを Haiku に投げ、LLM が curriculum と無関係な「タスク4：基礎文法の動詞活用」のようなテキストをハルシネートする（2026-06-09 ローカル検証で実際に確認）。
+- **リスク:** UX の信頼性低下（curriculum に存在しないタスクを推奨）+ 1 ユーザーあたり最大 1 回/日の無駄な Haiku 呼び出し。コスト影響は小さいが、UX 影響は visible で本番想定では複数学習者に同じ現象が出る。
+- **推奨修正:** `get_or_generate` の cold-start チェック直後に **transitional state** チェックを追加し、LLM を呼ばずに static テキストを返す:
+
+  ```python
+  TRANSITIONAL_BODY = (
+      "提出が貯まり始めましたね。"
+      "同じタグのタスクを 2 件以上こなすと、あなた専用の分析が始まります。"
+      "まずは Phase 1 を進めてみましょう。"
+  )
+
+  async def get_or_generate(...):
+      if submission_count < MIN_SUBMISSION_THRESHOLD:
+          return NudgeResult(body=COLD_START_BODY, ...)
+      # MED-2: weakness と recommendations が両方空 = 集計に足るタグ提出が
+      # まだない transitional state。LLM はコンテキストなしでハルシネートする
+      # ので呼ばずに transitional テキストを返す。
+      if not weakness_tags and not (recommendation_titles or []):
+          return NudgeResult(
+              body=TRANSITIONAL_BODY,
+              generated_at=datetime.now(UTC),
+              is_fresh=True,
+          )
+      # ...以降は既存通り
+  ```
+
+  `is_fresh=True` で返し、DB には保存しない（cold-start と同じ扱い）。学習者が同タグの 2 件目を提出した瞬間に weakness が出始め、本来の LLM パスに復帰する。
+- **テスト方針:** `test_nudge_service.py` に 2 ケース追加:
+  1. `submission_count=5` + `weakness_tags=[]` + `recommendation_titles=[]` で TRANSITIONAL_BODY が返り、`claude.complete` が呼ばれず、`user_nudges` 行が作られないこと。
+  2. 既存の `test_cache_miss_generates_and_persists` がカバーしている「weakness と recommendations のいずれかが非空」のケースは引き続き LLM 経路に行くこと（回帰防止）。
+- **想定コスト:** S（コア 1 ブランチ + テスト 2 件 + コミット 1 本）
+- **優先度:** Sprint 6 最初のタスク候補。実装が小さく、UX 影響が直接的。
 
 ### MED-1: RAG クエリ長のガード未実装
 
@@ -109,10 +157,11 @@ Sprint 3 / Sprint 4 follow-up doc と同じ運用:
 
 ## Sprint 6 取り込み時の優先順位（推奨）
 
-1. **MED-1**（RAG クエリ長ガード）— curriculum 編集機能と同時に必要になる前提
+1. **MED-2**（コールドスタート脱出直後 transitional state の static 文）— UX 影響が直接 visible、ローカル検証で実害確認済み、実装 S
 2. **LOW-2**（regrade invalidate）— UX 一貫性、submit 側と同じ修正で済む
 3. **LOW-1**（computed 化）— Vue 反応性のベストプラクティス
-4. **LOW-3, LOW-4, LOW-5** — 保守として S サイズ
-5. **LOW-6**（prompt injection 防御）— curriculum 編集機能着手と同タイミング
-6. **INFRA-1**（Playwright）— Sprint 6 か Sprint 7 で本セット
-7. **INFRA-2**（手動確認）— 次セッション開始直後に実施
+4. **MED-1**（RAG クエリ長ガード）— curriculum 編集機能と同時に必要になる前提
+5. **LOW-3, LOW-4, LOW-5** — 保守として S サイズ
+6. **LOW-6**（prompt injection 防御）— curriculum 編集機能着手と同タイミング
+7. **INFRA-1**（Playwright）— Sprint 6 か Sprint 7 で本セット
+8. **INFRA-2**（手動確認）— 次セッション開始直後に実施
