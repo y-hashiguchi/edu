@@ -17,10 +17,16 @@ from app.core.deps import get_current_user
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.comment import LearnerCommentOut
+from app.schemas.comment import CommentCreate, LearnerCommentOut
 from app.schemas.notification import NotificationListOut, NotificationOut
 from app.services import comment as comment_service
 from app.services import notification as notification_service
+from app.services.comment import (
+    InvalidParentError,
+    SubmissionNotFoundError,
+    UnauthorizedThreadError,
+    post_reply,
+)
 
 router = APIRouter(prefix="/api/me", tags=["me"])
 
@@ -50,9 +56,62 @@ async def list_my_submission_comments(
             author_name=author.name,
             body=c.body,
             created_at=c.created_at,
+            parent_id=c.parent_id,
         )
         for c, author in rows
     ]
+
+
+@router.post(
+    "/submissions/{submission_id}/comments",
+    response_model=LearnerCommentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit(lambda: settings.me_write_rate_limit)
+async def post_my_submission_reply(
+    request: Request,
+    submission_id: uuid.UUID,
+    payload: CommentCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> LearnerCommentOut:
+    if payload.parent_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="parent_id is required (learners may only reply to existing comments)",
+        )
+    try:
+        reply = await post_reply(
+            db=db,
+            submission_id=submission_id,
+            learner_user_id=user.id,
+            parent_id=payload.parent_id,
+            body=payload.body,
+        )
+    except InvalidParentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="parent comment does not belong to this submission",
+        ) from e
+    except SubmissionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="submission not found",
+        ) from e
+    except UnauthorizedThreadError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="thread is not anchored to an instructor comment",
+        ) from e
+
+    await db.commit()
+    return LearnerCommentOut(
+        id=reply.id,
+        author_name=user.name,
+        body=reply.body,
+        created_at=reply.created_at,
+        parent_id=reply.parent_id,
+    )
 
 
 @router.get("/notifications", response_model=NotificationListOut)
