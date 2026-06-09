@@ -77,6 +77,7 @@ make test-frontend             # vitest
 - Sprint 3: `docs/superpowers/plans/2026-06-04-ai-tutor-curriculum-sprint-3.md`
 - Sprint 4: `docs/superpowers/plans/2026-06-06-ai-tutor-curriculum-sprint-4.md`
 - Sprint 5: `docs/superpowers/plans/2026-06-08-ai-tutor-curriculum-sprint-5.md`
+- Sprint 6: `docs/superpowers/plans/2026-06-09-ai-tutor-curriculum-sprint-6.md`
 
 ## 実装進捗
 
@@ -87,6 +88,7 @@ make test-frontend             # vitest
 - [x] Sprint 4: 管理者ダッシュボード（admin RBAC + 受講者一覧 + 提出ドリルダウン + コメント + 通知）+ Sprint 3 security MED 5 件 + CSP middleware + per-IP rate limit (slowapi)
 - [x] Sprint 4 security follow-up: Sprint 4 review で出た MEDIUM × 5 件（learner mark-read レート制限 / admin route 通知遷移防御 / list_for_admin 404 整合 / promote_admin email マスク / router guard 統合）
 - [x] Sprint 5: 受講者ダッシュボード（弱点分析 + レコメンド + AI 一言 + 進捗サマリ）+ TaskItem skill_tags 拡張 + curriculum_task 用 RAG ヘルパー `search_curriculum_tasks` + `user_nudges` キャッシュテーブル + Sprint 5 review で出た HIGH × 3 件同梱修正
+- [x] Sprint 6: 受講者×講師の双方向コミュニケーション（コメント返信スレッド + admin NotificationCenter 統合 + admin 受講者 dashboard + admin users 一覧の「もう一押し」column）+ Sprint 6 review で出た HIGH × 3 件同梱修正
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 
