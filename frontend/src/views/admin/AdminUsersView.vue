@@ -54,6 +54,7 @@ function gotoUser(userId: string) {
           <th>メール</th>
           <th class="num">完了</th>
           <th class="num">進行中</th>
+          <th>もう一押し</th>
           <th>登録日</th>
           <th>権限</th>
         </tr>
@@ -64,6 +65,10 @@ function gotoUser(userId: string) {
           <td>{{ u.email }}</td>
           <td class="num">{{ u.completed_phases }} / 4</td>
           <td class="num">{{ u.in_progress_phases }}</td>
+          <td>
+            <span v-if="u.top_weakness_tag" class="tag">{{ u.top_weakness_tag }}</span>
+            <span v-else class="muted">—</span>
+          </td>
           <td>{{ new Date(u.created_at).toLocaleDateString('ja-JP') }}</td>
           <td>
             <span v-if="u.is_admin" class="badge admin">admin</span>
@@ -166,6 +171,17 @@ tbody tr:hover {
 .badge.learner {
   background: #e0e7ff;
   color: #3730a3;
+}
+.tag {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.muted {
+  color: #9ca3af;
 }
 .pager {
   margin-top: 1.2rem;
