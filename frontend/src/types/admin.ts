@@ -16,6 +16,7 @@ export interface AdminUserSummary {
   is_admin: boolean;
   completed_phases: number;
   in_progress_phases: number;
+  top_weakness_tag: string | null;  // Sprint 6
 }
 
 export interface AdminUserListOut {
@@ -67,6 +68,7 @@ export interface AdminCommentOut {
   body: string;
   created_at: string;
   updated_at: string;
+  parent_id: string | null;  // Sprint 6: thread structure
 }
 
 export interface AdminSubmissionDetail {
@@ -88,6 +90,7 @@ export interface AdminSubmissionDetail {
 
 export interface CommentCreatePayload {
   body: string;
+  parent_id?: string | null;  // Sprint 6: required for learner replies, optional for admin trunk/reply
 }
 
 /**
@@ -99,6 +102,16 @@ export interface LearnerCommentOut {
   author_name: string;
   body: string;
   created_at: string;
+  parent_id: string | null;  // Sprint 6: thread structure
+}
+
+// Sprint 6: admin per-learner dashboard payload (no nudge)
+import type { ProgressSummary, Weakness, RecommendationsBlock } from './dashboard';
+
+export interface AdminDashboardResponse {
+  progress_summary: ProgressSummary;
+  weakness: Weakness;
+  recommendations: RecommendationsBlock;
 }
 
 export interface AdminSubmissionListFilters {

@@ -18,6 +18,7 @@ import { defineStore } from 'pinia';
 import { api } from '@/lib/api';
 import type {
   AdminCommentOut,
+  AdminDashboardResponse,
   AdminSubmissionDetail,
   AdminSubmissionListFilters,
   AdminSubmissionSummary,
@@ -134,6 +135,18 @@ export const useAdminStore = defineStore('admin', {
     async fetchSentNotifications() {
       const res = await api.adminListSentNotifications();
       this.sentNotifications = res.items;
+    },
+
+    /**
+     * Sprint 6: admin が任意受講者の Sprint 5 dashboard (nudge 無し) を
+     * 取得する。エラー時は null を返し、view 側で空 UI に倒す。
+     */
+    async fetchUserDashboard(userId: string): Promise<AdminDashboardResponse | null> {
+      try {
+        return await api.getAdminUserDashboard(userId);
+      } catch {
+        return null;
+      }
     },
   },
 });

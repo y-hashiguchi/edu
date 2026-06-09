@@ -9,6 +9,7 @@ const sample = [
     author_name: '講師',
     body: 'よくできました',
     created_at: '2026-06-06T03:00:00Z',
+    parent_id: null,
   },
 ];
 

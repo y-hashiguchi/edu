@@ -9,6 +9,7 @@ import type {
 } from '@/types/curriculum';
 import type {
   AdminCommentOut,
+  AdminDashboardResponse,
   AdminSubmissionDetail,
   AdminSubmissionListFilters,
   AdminSubmissionListOut,
@@ -239,4 +240,24 @@ export const api = {
   // ---- Sprint 5 personalized dashboard ----
 
   getMyDashboard: () => rawRequest<DashboardResponse>('/api/me/dashboard'),
+
+  // ---- Sprint 6 bidirectional comm + admin dashboard ----
+
+  postMyReply: (
+    submissionId: string,
+    parentId: string,
+    body: string,
+  ): Promise<LearnerCommentOut> =>
+    rawRequest<LearnerCommentOut>(
+      `/api/me/submissions/${submissionId}/comments`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ parent_id: parentId, body }),
+      },
+    ),
+
+  getAdminUserDashboard: (userId: string): Promise<AdminDashboardResponse> =>
+    rawRequest<AdminDashboardResponse>(
+      `/api/admin/users/${userId}/dashboard`,
+    ),
 };
