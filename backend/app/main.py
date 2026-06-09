@@ -11,6 +11,7 @@ from app.api import me_dashboard as me_dashboard_router
 from app.api.admin import comments as admin_comments
 from app.api.admin import notifications as admin_notifications
 from app.api.admin import submissions as admin_submissions
+from app.api.admin import user_dashboard as admin_user_dashboard
 from app.api.admin import users as admin_users
 from app.config import settings
 from app.core.csp import CSPMiddleware
@@ -78,6 +79,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_submissions.router)
     app.include_router(admin_comments.router)
     app.include_router(admin_notifications.router)
+    app.include_router(admin_user_dashboard.router)
     app.include_router(me.router)
     app.include_router(me_dashboard_router.router)
     return app

@@ -53,3 +53,13 @@ class DashboardResponse(BaseModel):
     weakness: WeaknessOut
     recommendations: RecommendationsBlock
     nudge: NudgeOut
+
+
+class AdminDashboardResponse(BaseModel):
+    """Admin-facing dashboard payload (Sprint 6). Same shape as
+    DashboardResponse minus the nudge block — the AI nudge is
+    learner-private."""
+
+    progress_summary: ProgressSummaryOut
+    weakness: WeaknessOut
+    recommendations: RecommendationsBlock
