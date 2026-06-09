@@ -221,3 +221,44 @@ async def test_unauthenticated_request_returns_401(client, db_session):
     r2 = client.get(f"/api/me/submissions/{sub.id}/comments")
     assert r1.status_code == 401
     assert r2.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_admin_can_post_reply_to_existing_trunk(client, db_session, admin_user):
+    """Admin が trunk または既存 reply に対して返信できる。parent_id を渡せる (Sprint 6)."""
+    learner, sub = await _seed_learner_with_sub(db_session)
+
+    _auth(client, admin_user.id)
+    r1 = client.post(
+        f"/api/admin/submissions/{sub.id}/comments",
+        json={"body": "trunk"},
+    )
+    assert r1.status_code == 201, r1.text
+    trunk_id = r1.json()["id"]
+    assert r1.json()["parent_id"] is None
+
+    r2 = client.post(
+        f"/api/admin/submissions/{sub.id}/comments",
+        json={"body": "follow-up", "parent_id": trunk_id},
+    )
+    assert r2.status_code == 201, r2.text
+    assert r2.json()["parent_id"] == trunk_id
+
+
+@pytest.mark.asyncio
+async def test_admin_comment_list_returns_parent_id_field(
+    client, db_session, admin_user,
+):
+    learner, sub = await _seed_learner_with_sub(db_session)
+
+    _auth(client, admin_user.id)
+    client.post(
+        f"/api/admin/submissions/{sub.id}/comments",
+        json={"body": "trunk"},
+    )
+    r = client.get(f"/api/admin/submissions/{sub.id}/comments")
+    assert r.status_code == 200
+    items = r.json()
+    assert len(items) >= 1
+    assert "parent_id" in items[0]
+    assert items[0]["parent_id"] is None

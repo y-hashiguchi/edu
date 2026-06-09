@@ -36,10 +36,16 @@ async def post_comment(
             submission_id=submission_id,
             author_user_id=admin.id,
             body=payload.body,
+            parent_id=payload.parent_id,
         )
     except comment_service.SubmissionNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+        ) from e
+    except comment_service.InvalidParentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="parent comment does not belong to this submission",
         ) from e
 
     return AdminCommentOut(
@@ -50,6 +56,7 @@ async def post_comment(
         body=comment.body,
         created_at=comment.created_at,
         updated_at=comment.updated_at,
+        parent_id=comment.parent_id,
     )
 
 
@@ -77,6 +84,7 @@ async def list_comments(
             body=c.body,
             created_at=c.created_at,
             updated_at=c.updated_at,
+            parent_id=c.parent_id,
         )
         for c, author in rows
     ]

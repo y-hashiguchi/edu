@@ -23,6 +23,7 @@ async def create_comment(
     submission_id: uuid.UUID,
     author_user_id: uuid.UUID,
     body: str,
+    parent_id: uuid.UUID | None = None,
 ) -> InstructorComment:
     sub = (
         await db.execute(
@@ -32,10 +33,21 @@ async def create_comment(
     if sub is None:
         raise SubmissionNotFoundError(str(submission_id))
 
+    # Sprint 6: parent_id 指定時は同 submission に属するか検証
+    if parent_id is not None:
+        parent = (
+            await db.execute(
+                select(InstructorComment).where(InstructorComment.id == parent_id)
+            )
+        ).scalar_one_or_none()
+        if parent is None or parent.submission_id != submission_id:
+            raise InvalidParentError(str(parent_id))
+
     comment = InstructorComment(
         submission_id=submission_id,
         author_user_id=author_user_id,
         body=body,
+        parent_id=parent_id,
     )
     db.add(comment)
     await db.commit()
