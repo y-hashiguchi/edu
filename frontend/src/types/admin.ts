@@ -103,6 +103,11 @@ export interface LearnerCommentOut {
   body: string;
   created_at: string;
   parent_id: string | null;  // Sprint 6: thread structure
+  // Sprint 6: explicit flag so the UI can decide whether to render the
+  // reply button without leaking author_user_id. The previous duck-type
+  // check on author_user_id presence always evaluated false on learner
+  // views and silently hid the reply button on every comment.
+  is_admin_authored: boolean;
 }
 
 // Sprint 6: admin per-learner dashboard payload (no nudge)

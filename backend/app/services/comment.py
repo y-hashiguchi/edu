@@ -50,8 +50,13 @@ async def create_comment(
         parent_id=parent_id,
     )
     db.add(comment)
-    await db.commit()
-    await db.refresh(comment)
+    # Sprint 6 (HIGH-1, code-review): commit ownership moved to the
+    # router. Keeping db.commit() here would race with future
+    # side-effects (notifications, audit log, etc.) that the caller
+    # may want to enlist in the same transaction — the comment would
+    # commit but the side-effect rollback would leave a half-state.
+    # Pattern now matches post_reply: service flushes, caller commits.
+    await db.flush()
     return comment
 
 
@@ -201,16 +206,43 @@ async def post_reply(
     db.add(reply)
     await db.flush()
 
-    # 5. Sprint 6: スレッド参加 admin 全員宛に Notification をファンアウト
-    from app.models.notification import Notification
+    # 5. Sprint 6: fan out via notification_service.send so the per-
+    # recipient unread cap (settings.notification_unread_cap, default
+    # 200) from Sprint 4 actually applies. Directly constructing
+    # Notification rows here would bypass the cap and let a learner
+    # with N admins in a thread emit N × me_write_rate_limit
+    # admin-facing notifications per minute, defeating the Sprint 4
+    # anti-flood defense (HIGH-1, sprint-6 security review).
+    #
+    # Note: notification_service.send() commits internally (one commit
+    # per recipient). That is acceptable here — every successful send
+    # IS persisted independently, and the reply row itself was already
+    # flushed at step 4. RecipientInboxFullError / RecipientNotFoundError
+    # are skipped so a single full inbox or a vanished admin does not
+    # abort the whole fanout (or the reply itself); the caller's outer
+    # commit in api/me.py then becomes a no-op for the reply if nothing
+    # else changed.
+    from app.services import notification as notification_service
+
     admin_ids = await _thread_admin_authors(db, parent_id)
     for admin_id in admin_ids:
-        db.add(Notification(
-            recipient_user_id=admin_id,
-            sender_user_id=learner_user_id,
-            title="返信が届きました",
-            body=body[:120],
-            link=f"/admin/submissions/{submission_id}",
-        ))
-    await db.flush()
+        try:
+            await notification_service.send(
+                db=db,
+                sender_id=learner_user_id,
+                recipient_id=admin_id,
+                title="返信が届きました",
+                body=body[:120],
+                link=f"/admin/submissions/{submission_id}",
+            )
+        except notification_service.RecipientInboxFullError:
+            # Admin inbox at cap — skip silently. The reply itself
+            # still succeeds; missing this one ping is preferable to
+            # 500-ing the learner's POST.
+            pass
+        except notification_service.RecipientNotFoundError:
+            # Race: admin row disappeared between the CTE lookup and
+            # the send. Skip rather than abort.
+            pass
+
     return reply

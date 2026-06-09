@@ -48,6 +48,13 @@ async def post_comment(
             detail="parent comment does not belong to this submission",
         ) from e
 
+    # Sprint 6 (HIGH-1, code-review): the service now flushes only —
+    # commit ownership lives here to match post_my_submission_reply's
+    # caller-commits pattern. This keeps future side-effects (admin
+    # notifications, audit log) in the same transaction as the comment.
+    await db.commit()
+    await db.refresh(comment)
+
     return AdminCommentOut(
         id=comment.id,
         submission_id=comment.submission_id,

@@ -10,6 +10,9 @@ const sample = [
     body: 'よくできました',
     created_at: '2026-06-06T03:00:00Z',
     parent_id: null,
+    // Sprint 6: LearnerCommentOut now requires is_admin_authored so
+    // the UI can show the reply button without leaking author_user_id.
+    is_admin_authored: true,
   },
 ];
 
@@ -54,6 +57,11 @@ describe('CommentThread', () => {
 });
 
 describe('CommentThread (Sprint 6 ツリー)', () => {
+  // Sprint 6 fix: admin nodes carry is_admin_authored=true (matches the
+  // new LearnerCommentOut flag); the legacy field-presence fallback also
+  // works because they still carry author_user_id (AdminCommentOut shape).
+  // The learner reply uses the LearnerCommentOut shape with the flag set
+  // to false, exercising the new flag-based code path.
   const treeSample = [
     {
       id: 'a',
@@ -64,6 +72,7 @@ describe('CommentThread (Sprint 6 ツリー)', () => {
       created_at: '2026-06-09T00:00:00Z',
       updated_at: '2026-06-09T00:00:00Z',
       parent_id: null,
+      is_admin_authored: true,
     },
     {
       id: 'b',
@@ -71,6 +80,7 @@ describe('CommentThread (Sprint 6 ツリー)', () => {
       body: 'reply 1',
       created_at: '2026-06-09T00:05:00Z',
       parent_id: 'a',
+      is_admin_authored: false,
     },
     {
       id: 'c',
@@ -81,6 +91,7 @@ describe('CommentThread (Sprint 6 ツリー)', () => {
       created_at: '2026-06-09T00:10:00Z',
       updated_at: '2026-06-09T00:10:00Z',
       parent_id: 'b',
+      is_admin_authored: true,
     },
   ];
 
@@ -113,12 +124,12 @@ describe('CommentThread (Sprint 6 ツリー)', () => {
     expect(events[0]).toEqual([{ parentId: 'a', body: 'my reply' }]);
   });
 
-  it('hides reply button on learner-authored comments (no author_user_id)', () => {
+  it('hides reply button on learner-authored comments (is_admin_authored=false)', () => {
     const w = mount(CommentThread, {
       props: { comments: treeSample, canReply: true, canPost: false },
     });
-    // learner reply ('b') has no author_user_id (LearnerCommentOut shape) →
-    // its node should NOT show a reply button. Only admin nodes get it.
+    // learner reply ('b') has is_admin_authored=false → its node should
+    // NOT show a reply button. Only the two admin nodes do.
     const replyBtns = w.findAll('button.reply');
     expect(replyBtns.length).toBe(2);
   });

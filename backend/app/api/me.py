@@ -57,6 +57,7 @@ async def list_my_submission_comments(
             body=c.body,
             created_at=c.created_at,
             parent_id=c.parent_id,
+            is_admin_authored=author.is_admin,
         )
         for c, author in rows
     ]
@@ -111,6 +112,7 @@ async def post_my_submission_reply(
         body=reply.body,
         created_at=reply.created_at,
         parent_id=reply.parent_id,
+        is_admin_authored=False,  # The learner just posted this reply.
     )
 
 

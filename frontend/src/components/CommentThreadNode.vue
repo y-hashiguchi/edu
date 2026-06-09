@@ -33,7 +33,18 @@ const localError = ref<string | null>(null);
 // 受講者は admin author を先祖に持つ comment にだけ返信可能。UI 簡略化
 // として "current comment が admin 投稿か" を canReply と組み合わせて
 // 判定する。完全な先祖チェックはサーバ側で行うため、UI はベストエフォート。
-const isAdminAuthored = 'author_user_id' in props.node.comment;
+//
+// Sprint 6: rely on the explicit is_admin_authored flag from the server
+// (LearnerCommentOut), not on schema-level field presence. The previous
+// `'author_user_id' in comment` duck-type check broke when
+// LearnerCommentOut (correctly) omitted author_user_id for PII reasons
+// — every learner view evaluated false and the reply button never
+// rendered. The fallback to the field-presence check keeps admin views
+// (AdminCommentOut still carries author_user_id) working unchanged.
+const isAdminAuthored =
+  'is_admin_authored' in props.node.comment
+    ? (props.node.comment as { is_admin_authored: boolean }).is_admin_authored
+    : 'author_user_id' in props.node.comment;
 const canShowReplyButton = props.canReply && isAdminAuthored;
 
 function open() {
