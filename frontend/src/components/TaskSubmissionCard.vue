@@ -72,6 +72,19 @@ async function loadComments(submissionId: string) {
   }
 }
 
+async function onReply(payload: { parentId: string; body: string }) {
+  // Sprint 6: 受講者から admin スレッドへの返信。投稿後にコメント一覧を
+  // 再取得して、ベルアイコンと連動するつもりで楽観表示はしない。
+  if (!props.submission) return;
+  try {
+    await api.postMyReply(props.submission.id, payload.parentId, payload.body);
+    await loadComments(props.submission.id);
+  } catch (e) {
+    commentsError.value =
+      e instanceof Error ? e.message : '返信の送信に失敗しました';
+  }
+}
+
 watch(
   () => props.submission?.id,
   (id) => {
@@ -188,7 +201,11 @@ defineExpose({ clearFilesAfterSubmit });
     <section v-if="submission" class="comments">
       <h4>講師コメント</h4>
       <p v-if="commentsError" class="error">{{ commentsError }}</p>
-      <CommentThread :comments="comments" />
+      <CommentThread
+        :comments="comments"
+        :can-reply="true"
+        @reply="onReply"
+      />
     </section>
   </article>
 </template>
