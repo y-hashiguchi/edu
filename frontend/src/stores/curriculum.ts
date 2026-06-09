@@ -130,6 +130,12 @@ export const useCurriculumStore = defineStore('curriculum', {
         this._mergeAttempt(phase, submissionId, attempt);
         if (attempt.status === 'graded') {
           this.cooldownUntil[submissionId] = Date.now() + 60_000;
+          // LOW-2 (sprint-5 follow-up): a successful regrade shifts
+          // the cached graded score, which feeds weakness / average /
+          // nudge signature on the dashboard. submitTask already does
+          // this; mirror it here so the learner doesn't see stale
+          // dashboard state until the next navigation.
+          useDashboardStore().invalidate();
         }
         return attempt;
       } catch (e) {
