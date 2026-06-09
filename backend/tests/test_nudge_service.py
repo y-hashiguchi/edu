@@ -19,7 +19,7 @@ from app.core.security import hash_password
 from app.models.user import User
 from app.models.user_nudge import UserNudge
 from app.services.nudge import (
-    _build_signature, get_or_generate, COLD_START_BODY,
+    _build_signature, get_or_generate, COLD_START_BODY, TRANSITIONAL_BODY,
 )
 
 
@@ -202,3 +202,90 @@ def test_signature_changes_when_inputs_change():
     assert _build_signature(["API基礎"], "2:1", 5) != base
     assert _build_signature(["AI協調"], "3:1", 5) != base
     assert _build_signature(["AI協調"], "2:1", 6) != base
+
+
+@pytest.mark.asyncio
+async def test_transitional_state_returns_static_without_calling_llm(db_session):
+    """MED-2 (sprint-5 follow-up): just past cold-start (submission_count
+    >= 3) but no tag has hit MIN_TAG_SUBMISSIONS=2 yet, so weakness=[]
+    and recommendations=[]. The XML prompt would be empty enough that
+    Haiku hallucinates curriculum-irrelevant tasks (locally observed:
+    "タスク4：基礎文法の動詞活用"). Skip the LLM and return a
+    transitional static body; the cache row is NOT created so the
+    next state transition (a 2nd tag-mate submission) gets an honest
+    cache miss instead of stale transitional text."""
+    user = await _make_user(db_session)
+    claude = _fake_claude("UNUSED")
+
+    out = await get_or_generate(
+        db_session, claude=claude, user_id=user.id,
+        weakness_tags=[], top_recommendation_key=None,
+        submission_count=5,
+        recommendation_titles=[],
+    )
+    assert out.body == TRANSITIONAL_BODY
+    assert out.is_fresh is True
+    claude.complete.assert_not_called()
+    row = (
+        await db_session.execute(
+            select(UserNudge).where(UserNudge.user_id == user.id)
+        )
+    ).first()
+    assert row is None
+
+
+@pytest.mark.asyncio
+async def test_transitional_state_recommendation_titles_none_also_short_circuits(
+    db_session,
+):
+    """recommendation_titles defaults to None when callers omit it;
+    the transitional guard must treat that as empty too."""
+    user = await _make_user(db_session)
+    claude = _fake_claude("UNUSED")
+
+    out = await get_or_generate(
+        db_session, claude=claude, user_id=user.id,
+        weakness_tags=[], top_recommendation_key=None,
+        submission_count=5,
+        # recommendation_titles intentionally omitted
+    )
+    assert out.body == TRANSITIONAL_BODY
+    claude.complete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_weakness_present_bypasses_transitional_state(db_session):
+    """Regression: as soon as a single weakness tag is computed, the
+    nudge path goes back to the LLM. The transitional guard must not
+    swallow well-formed inputs."""
+    user = await _make_user(db_session)
+    claude = _fake_claude("Phase 2 task 1 をやろう")
+
+    out = await get_or_generate(
+        db_session, claude=claude, user_id=user.id,
+        weakness_tags=["AI協調"], top_recommendation_key=None,
+        submission_count=5,
+        recommendation_titles=[],
+    )
+    assert out.body == "Phase 2 task 1 をやろう"
+    claude.complete.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_recommendation_titles_present_bypasses_transitional_state(
+    db_session,
+):
+    """Symmetric to the previous test: a non-empty recommendation set
+    is enough context for the LLM, so we must not short-circuit even
+    if weakness happens to be empty."""
+    user = await _make_user(db_session)
+    claude = _fake_claude("二分探索木に挑戦しよう")
+
+    out = await get_or_generate(
+        db_session, claude=claude, user_id=user.id,
+        weakness_tags=[], top_recommendation_key="2:1",
+        submission_count=5,
+        recommendation_titles=["二分探索木の実装"],
+    )
+    assert out.body == "二分探索木に挑戦しよう"
+    claude.complete.assert_called_once()

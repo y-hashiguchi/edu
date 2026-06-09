@@ -32,6 +32,16 @@ COLD_START_BODY = (
 )
 """Submission count < MIN_SUBMISSION_THRESHOLD のとき出す固定文。"""
 
+TRANSITIONAL_BODY = (
+    "提出が貯まり始めましたね。"
+    "同じタグのタスクを 2 件以上こなすと、あなた専用の分析が始まります。"
+    "まずは Phase 1 を進めてみましょう。"
+)
+"""MED-2 (sprint-5 follow-up): submission_count >= threshold だが
+weakness も recommendations も空の transitional state で出す固定文。
+LLM を呼ぶとコンテキスト不足で curriculum-irrelevant な内容を
+ハルシネートするため (ローカル検証で実害確認)、ここで短絡する。"""
+
 LLM_FAILURE_FALLBACK = (
     "今日も学習を続けましょう。"
     "提出を 1 件積むごとに、次の一歩が見えてきます。"
@@ -107,6 +117,19 @@ async def get_or_generate(
     if submission_count < MIN_SUBMISSION_THRESHOLD:
         return NudgeResult(
             body=COLD_START_BODY, generated_at=datetime.now(UTC), is_fresh=True,
+        )
+
+    # MED-2 (sprint-5 follow-up): transitional state past cold-start but
+    # before any tag has hit MIN_TAG_SUBMISSIONS. Empty weakness AND empty
+    # recommendations means the XML prompt has no real context for the
+    # LLM to ground on — Haiku then hallucinates curriculum-irrelevant
+    # tasks. Skip the LLM, return the transitional text, do NOT persist
+    # so the next state transition gets a real cache miss.
+    if not weakness_tags and not (recommendation_titles or []):
+        return NudgeResult(
+            body=TRANSITIONAL_BODY,
+            generated_at=datetime.now(UTC),
+            is_fresh=True,
         )
 
     signature = _build_signature(
