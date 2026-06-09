@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     nudge_max_output_tokens: int = 200
     nudge_temperature: float = 0.5
 
+    # MED-1 (sprint-5 follow-up): hard cap on RAG query length before
+    # embedding. The MiniLM model silently truncates at 512 tokens;
+    # this guard prevents a pathologically long query from tying up
+    # asyncio.to_thread for proportionally long. Applied to both
+    # `search_context` (chat surface) and `search_curriculum_tasks`
+    # (dashboard surface).
+    embed_query_max_chars: int = 512
+
     # Notifications (Sprint 4)
     notification_poll_limit: int = 50
     # HIGH-2 (sprint-4 security review): hard cap on per-recipient

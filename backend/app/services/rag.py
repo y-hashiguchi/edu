@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.embedding_client import EmbeddingClient
 from app.models.embedding import Embedding
 
@@ -36,6 +37,9 @@ async def search_context(
     """
     if not query.strip():
         return []
+    # MED-1 (sprint-5 follow-up): cap before embedding to bound the
+    # asyncio.to_thread call duration.
+    query = query[: settings.embed_query_max_chars]
     vectors = await client.embed([query])
     qvec = vectors[0]
 
@@ -105,6 +109,10 @@ async def search_curriculum_tasks(
     """
     if not query.strip():
         return []
+    # MED-1 (sprint-5 follow-up): same query cap as `search_context`;
+    # symmetric defense in case curriculum becomes admin-editable and
+    # learner-facing flows feed user input here.
+    query = query[: settings.embed_query_max_chars]
     vectors = await client.embed([query])
     qvec = vectors[0]
 

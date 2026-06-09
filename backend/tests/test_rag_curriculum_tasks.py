@@ -73,3 +73,77 @@ async def test_search_skips_malformed_source_ref(db_session, client):
     hits = await search_curriculum_tasks(db_session, client, query="形式", limit=5)
     assert any(h.phase == 1 and h.task_no == 1 for h in hits)
     assert all(h.phase == 1 for h in hits)
+
+
+@pytest.mark.asyncio
+async def test_oversized_query_is_truncated_before_embedding(db_session):
+    """MED-1 (sprint-5 follow-up): the query passed to fastembed must be
+    capped at `settings.embed_query_max_chars` so a deliberately long
+    payload cannot tie up the asyncio.to_thread pool. Verifies the cap
+    by capturing what `client.embed` actually receives."""
+    from app.config import settings
+    from app.services.rag import search_curriculum_tasks
+
+    captured: list[list[str]] = []
+
+    class CapturingClient:
+        async def embed(self, texts):
+            captured.append(list(texts))
+            # 384-dim zero vector — distance becomes 1.0, results
+            # ordering is irrelevant for this assertion.
+            return [[0.0] * 384 for _ in texts]
+
+    cap = settings.embed_query_max_chars
+    long_query = "あ" * (cap + 200)
+
+    await search_curriculum_tasks(
+        db_session, CapturingClient(), query=long_query, limit=3,
+    )
+    assert len(captured) == 1
+    assert len(captured[0][0]) == cap
+
+
+@pytest.mark.asyncio
+async def test_normal_length_query_passes_through_unchanged(db_session):
+    """Regression: queries below the cap are forwarded verbatim. Prevents
+    accidentally truncating short Japanese queries on a future config
+    change."""
+    from app.services.rag import search_curriculum_tasks
+
+    captured: list[list[str]] = []
+
+    class CapturingClient:
+        async def embed(self, texts):
+            captured.append(list(texts))
+            return [[0.0] * 384 for _ in texts]
+
+    short = "Git/GitHub を扱うタスク"
+    await search_curriculum_tasks(
+        db_session, CapturingClient(), query=short, limit=3,
+    )
+    assert captured[0][0] == short
+
+
+@pytest.mark.asyncio
+async def test_search_context_also_truncates_oversized_query(db_session, auth_user):
+    """search_context (the conversational RAG entry point) must apply
+    the same cap. It is the more exposed endpoint — its query comes
+    directly from user-controlled chat input."""
+    from app.config import settings
+    from app.services.rag import search_context
+
+    captured: list[list[str]] = []
+
+    class CapturingClient:
+        async def embed(self, texts):
+            captured.append(list(texts))
+            return [[0.0] * 384 for _ in texts]
+
+    cap = settings.embed_query_max_chars
+    long_query = "x" * (cap + 50)
+
+    await search_context(
+        db_session, CapturingClient(),
+        user_id=auth_user.id, phase=1, query=long_query, top_k=4,
+    )
+    assert len(captured[0][0]) == cap
