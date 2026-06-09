@@ -56,6 +56,7 @@ class AdminCommentOut(BaseModel):
     body: str
     created_at: datetime
     updated_at: datetime
+    parent_id: uuid.UUID | None = None  # Sprint 6: thread structure
 
 
 class AdminSubmissionSummary(BaseModel):
