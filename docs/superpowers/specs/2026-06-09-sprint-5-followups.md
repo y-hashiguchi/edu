@@ -3,7 +3,7 @@
 **作成日:** 2026-06-09
 **作成者:** Claude Code（code-reviewer + security-reviewer の Sprint 5 指摘を反映）
 **起点コミット:** `c5d49b3 fix(sprint-5): address review HIGH findings`
-**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の LOW × 4** を後続スプリントへ引き継ぐためのチケット集（MED 2 件は 2026-06-09 に完了済み）。
+**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の LOW × 1**（LOW-6 のみ）を後続スプリントへ引き継ぐためのチケット集（MED 2 件 + LOW 5 件は 2026-06-09 に完了済み）。
 
 加えて、Sprint 5 で本来予定していた **Playwright E2E 1 本** はインフラ未導入のため実施せず、本書末尾の「インフラ tickets」に記載する。
 
@@ -15,7 +15,10 @@
 | LOW-2 | ✅ 完了 | `9c01c69 fix(sprint-5): invalidate dashboard after successful regrade (LOW-2)` |
 | LOW-1 | ✅ 完了 | `7340c4c fix(sprint-5): ProgressSummaryCard belowThreshold as computed (LOW-1)` |
 | MED-1 | ✅ 完了 | `e349ee5 fix(sprint-5): cap RAG query length before embedding (MED-1)` |
-| LOW-3〜6 | 未着手 | — |
+| LOW-3 | ✅ 完了 | `9ffc454 fix(sprint-5): explicit length check in source_ref parser (LOW-3)` |
+| LOW-4 | ✅ 完了 | `59b8ff7 docs(sprint-5): document _build_signature double-cap intent (LOW-4)` |
+| LOW-5 | ✅ 完了 | `2f3a63a fix(sprint-5): drop unused ix_user_nudges_generated_at index (LOW-5)` |
+| LOW-6 | 未着手 | — |
 | INFRA-1, 2 | 未着手 | — |
 
 **更新履歴:**
@@ -25,6 +28,10 @@
 - 2026-06-09 **LOW-2 完了**: `feature/sprint-5-followup-low-2` ブランチで regrade 成功時の `dashboard.invalidate()` 追加、2 件テスト追加（graded で invalidate / failed で no-op）、main マージ
 - 2026-06-09 **LOW-1 完了**: `feature/sprint-5-followup-low-1` ブランチで `ProgressSummaryCard.belowThreshold` を `computed()` 化、setProps 越境テスト 1 件追加、main マージ
 - 2026-06-09 **MED-1 完了**: `feature/sprint-5-followup-med-1` ブランチで `embed_query_max_chars=512` を `app.config` に追加、`search_curriculum_tasks` / `search_context` の入口で query を truncate、テスト +3 件、.env.example 追記、main マージ
+- 2026-06-09 **LOW-3/4/5 完了**: `feature/sprint-5-followup-low-3to5` ブランチでまとめて修正、main マージ
+  - LOW-3 (`9ffc454`): `source_ref` 分割を tuple-unpack から明示的長さチェックに変更、5 セグメント形式テスト +1 件
+  - LOW-4 (`59b8ff7`): `_build_signature` の `weakness_tags[:3]` 二重 cap 意図を docstring に記載（防御的・upstream 不変に依存しない設計理由）
+  - LOW-5 (`2f3a63a`): 未使用の `ix_user_nudges_generated_at` インデックスを削除、Alembic migration 追加、data-minimization 改善
 
 ---
 
@@ -176,7 +183,7 @@ Sprint 3 / Sprint 4 follow-up doc と同じ運用:
 2. ~~**LOW-2**（regrade invalidate）— UX 一貫性、submit 側と同じ修正で済む~~ → `9c01c69` で完了
 3. ~~**LOW-1**（computed 化）— Vue 反応性のベストプラクティス~~ → `7340c4c` で完了
 4. ~~**MED-1**（RAG クエリ長ガード）— curriculum 編集機能と同時に必要になる前提~~ → `e349ee5` で完了
-5. **LOW-3, LOW-4, LOW-5** — 保守として S サイズ
+5. ~~**LOW-3, LOW-4, LOW-5** — 保守として S サイズ~~ → `9ffc454` / `59b8ff7` / `2f3a63a` で完了
 6. **LOW-6**（prompt injection 防御）— curriculum 編集機能着手と同タイミング
 7. **INFRA-1**（Playwright）— Sprint 6 か Sprint 7 で本セット
 8. **INFRA-2**（手動確認）— 次セッション開始直後に実施
