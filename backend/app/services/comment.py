@@ -188,4 +188,17 @@ async def post_reply(
     )
     db.add(reply)
     await db.flush()
+
+    # 5. Sprint 6: スレッド参加 admin 全員宛に Notification をファンアウト
+    from app.models.notification import Notification
+    admin_ids = await _thread_admin_authors(db, parent_id)
+    for admin_id in admin_ids:
+        db.add(Notification(
+            recipient_user_id=admin_id,
+            sender_user_id=learner_user_id,
+            title="返信が届きました",
+            body=body[:120],
+            link=f"/admin/submissions/{submission_id}",
+        ))
+    await db.flush()
     return reply
