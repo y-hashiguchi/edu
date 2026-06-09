@@ -97,3 +97,69 @@ async def _latest_graded_scores(
     )
     rows = (await db.execute(stmt)).all()
     return [(r[0], r[1], r[2], r[3]) for r in rows]
+
+
+async def compute_top_weakness_tags_bulk(
+    db: AsyncSession, user_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, str | None]:
+    """1 クエリで全 user の latest graded scores を取得し、user 別に
+    タグ平均を計算して上位 1 つを返す。admin users 一覧の column 用。
+
+    Sprint 5 の compute_weakness とは違い、MIN_SUBMISSION_THRESHOLD は
+    適用しない: 一覧 column では「データがあるなら出す」方が UX の見える
+    機会が増える。MIN_TAG_SUBMISSIONS を満たすタグがあればその中で最低平均
+    のタグを返し、無ければ単発タグも含めて最低平均タグを返す（タグ名で
+    タイブレーク）。提出 0 件のユーザーのみ None を返す。"""
+    if not user_ids:
+        return {}
+
+    stmt = (
+        select(
+            Submission.user_id,
+            Submission.id,
+            GradingAttempt.score,
+            Submission.phase,
+            Submission.task_no,
+        )
+        .join(GradingAttempt, GradingAttempt.submission_id == Submission.id)
+        .where(
+            Submission.user_id.in_(user_ids),
+            GradingAttempt.status == "graded",
+        )
+        .order_by(
+            Submission.user_id,
+            Submission.id,
+            GradingAttempt.created_at.desc(),
+        )
+        .distinct(Submission.user_id, Submission.id)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    by_user: dict[uuid.UUID, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for user_id, _sub_id, score, phase, task_no in rows:
+        try:
+            tags = get_task_skill_tags(phase, task_no)
+        except KeyError:
+            continue
+        for tag in tags:
+            by_user[user_id][tag].append(float(score))
+
+    out: dict[uuid.UUID, str | None] = {}
+    for uid in user_ids:
+        tag_scores = by_user.get(uid, {})
+        if not tag_scores:
+            out[uid] = None
+            continue
+        eligible = {
+            t: s for t, s in tag_scores.items()
+            if len(s) >= MIN_TAG_SUBMISSIONS
+        }
+        pool = eligible if eligible else tag_scores
+        worst = min(
+            pool.items(),
+            key=lambda kv: (mean(kv[1]), kv[0]),
+        )
+        out[uid] = worst[0]
+    return out

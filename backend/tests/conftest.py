@@ -164,3 +164,34 @@ async def seed_graded_submission(db_session):
         return sub, att
 
     return _seed
+
+
+@pytest_asyncio.fixture
+async def seed_multiple_learners_with_submissions(db_session, seed_graded_submission):
+    """Spawn N learners each with M graded submissions.
+
+    Returns a list of (User, list[(phase, task_no, score)]) for the
+    bulk weakness aggregation tests."""
+    from app.core.security import hash_password
+    from app.models.user import User
+    from app.services.progress import initialize_progress
+
+    async def _seed(specs):
+        """specs: list of (email, list[(phase, task_no, score)])."""
+        out = []
+        for email, subs in specs:
+            user = User(
+                email=email, name=email[:2],
+                password_hash=hash_password("p"),
+            )
+            db_session.add(user)
+            await db_session.flush()
+            await initialize_progress(db_session, user.id)
+            await db_session.commit()
+            await db_session.refresh(user)
+            for phase, task_no, score in subs:
+                await seed_graded_submission(user, phase, task_no, score)
+            out.append((user, subs))
+        return out
+
+    return _seed
