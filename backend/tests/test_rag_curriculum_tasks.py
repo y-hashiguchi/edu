@@ -147,3 +147,31 @@ async def test_search_context_also_truncates_oversized_query(db_session, auth_us
         user_id=auth_user.id, phase=1, query=long_query, top_k=4,
     )
     assert len(captured[0][0]) == cap
+
+
+@pytest.mark.asyncio
+async def test_source_ref_with_extra_segments_is_dropped(db_session, client):
+    """LOW-3 (sprint-5 follow-up): a 5-segment source_ref (e.g. a future
+    A/B-variant schema like phase:1:task:0:variant:a) must be silently
+    dropped, NOT yielded as a partial CurriculumTaskHit. The previous
+    tuple-unpack would have raised ValueError on the unpack and dropped
+    it the same way, but only by accident — an explicit length check
+    makes the contract clear and survives a future schema with exactly
+    4 colons in a non-phase form."""
+    items = [
+        ("curriculum_task", "phase:1:task:0:variant:a", 1, "5 セグメント形式"),
+        ("curriculum_task", "phase:1:task:0", 1, "正しい形式"),
+        # 3 segments — neither old nor expected new shape
+        ("curriculum_task", "phase:1:task", 1, "3 セグメント形式"),
+        # not "phase" prefix
+        ("curriculum_task", "skill:1:task:0", 1, "間違った prefix"),
+    ]
+    await upsert_embeddings(db_session, client, user_id=None, items=items)
+    await db_session.commit()
+
+    hits = await search_curriculum_tasks(
+        db_session, client, query="形式", limit=10,
+    )
+    # Only the well-formed row survives.
+    coords = [(h.phase, h.task_no) for h in hits]
+    assert coords == [(1, 1)]

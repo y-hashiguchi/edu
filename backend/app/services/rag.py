@@ -133,13 +133,21 @@ async def search_curriculum_tasks(
         # Anything else is legacy data we silently drop — the
         # alternative (raising) would bubble through the recommendation
         # service and replace a dashboard section with a 500.
+        #
+        # LOW-3 (sprint-5 follow-up): explicit length check instead of
+        # tuple-unpack so a future source_ref schema with ≥5 segments
+        # (e.g. "phase:1:task:0:variant:a" for A/B-tested tasks) drops
+        # cleanly here instead of leaking past the iter as a partial
+        # value.
         try:
-            tag, p_str, _, i_str = r.source_ref.split(":")
-            if tag != "phase":
+            if not isinstance(r.source_ref, str):
                 continue
-            phase = int(p_str)
-            task_no = int(i_str) + 1
-        except (ValueError, AttributeError):
+            parts = r.source_ref.split(":")
+            if len(parts) != 4 or parts[0] != "phase" or parts[2] != "task":
+                continue
+            phase = int(parts[1])
+            task_no = int(parts[3]) + 1
+        except ValueError:
             continue
         out.append(
             CurriculumTaskHit(
