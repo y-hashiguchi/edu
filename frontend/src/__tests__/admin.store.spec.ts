@@ -14,6 +14,7 @@ vi.mock('@/lib/api', async () => {
       adminPostComment: vi.fn(),
       adminSendNotification: vi.fn(),
       adminListSentNotifications: vi.fn(),
+      getAdminUserDashboard: vi.fn(),
     },
   };
 });
@@ -110,5 +111,12 @@ describe('admin store', () => {
       recipient_user_id: 'u1', title: 't', body: 'b', link: null,
     });
     expect(store.sentNotifications.map((n) => n.id)).toEqual(['n1', 'n0']);
+  });
+
+  it('fetchUserDashboard returns null on api failure (Sprint 6)', async () => {
+    mocked.getAdminUserDashboard.mockRejectedValue(new Error('boom'));
+    const store = useAdminStore();
+    const out = await store.fetchUserDashboard('u1');
+    expect(out).toBeNull();
   });
 });
