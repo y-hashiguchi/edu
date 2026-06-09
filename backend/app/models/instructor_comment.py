@@ -37,3 +37,8 @@ class InstructorComment(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("instructor_comments.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
