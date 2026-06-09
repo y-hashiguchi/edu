@@ -13,8 +13,9 @@
 |---|---|---|
 | MED-2 | ✅ 完了 | `e2fbf87 fix(sprint-5): transitional-state guard prevents LLM hallucination (MED-2)` |
 | LOW-2 | ✅ 完了 | `9c01c69 fix(sprint-5): invalidate dashboard after successful regrade (LOW-2)` |
+| LOW-1 | ✅ 完了 | `7340c4c fix(sprint-5): ProgressSummaryCard belowThreshold as computed (LOW-1)` |
 | MED-1 | 未着手 | — |
-| LOW-1, 3〜6 | 未着手 | — |
+| LOW-3〜6 | 未着手 | — |
 | INFRA-1, 2 | 未着手 | — |
 
 **更新履歴:**
@@ -22,6 +23,7 @@
 - 2026-06-09 追記: ローカル動作確認で **MED-2**（コールドスタート脱出直後の LLM ハルシネート）を発見、チケット化
 - 2026-06-09 **MED-2 完了**: `feature/sprint-5-followup-med-2` ブランチで transitional state ガード追加、4 件テスト追加、main マージ
 - 2026-06-09 **LOW-2 完了**: `feature/sprint-5-followup-low-2` ブランチで regrade 成功時の `dashboard.invalidate()` 追加、2 件テスト追加（graded で invalidate / failed で no-op）、main マージ
+- 2026-06-09 **LOW-1 完了**: `feature/sprint-5-followup-low-1` ブランチで `ProgressSummaryCard.belowThreshold` を `computed()` 化、setProps 越境テスト 1 件追加、main マージ
 
 ---
 
@@ -171,7 +173,7 @@ Sprint 3 / Sprint 4 follow-up doc と同じ運用:
 
 1. ~~**MED-2**（コールドスタート脱出直後 transitional state の static 文）— UX 影響が直接 visible、ローカル検証で実害確認済み、実装 S~~ → `e2fbf87` で完了
 2. ~~**LOW-2**（regrade invalidate）— UX 一貫性、submit 側と同じ修正で済む~~ → `9c01c69` で完了
-3. **LOW-1**（computed 化）— Vue 反応性のベストプラクティス
+3. ~~**LOW-1**（computed 化）— Vue 反応性のベストプラクティス~~ → `7340c4c` で完了
 4. **MED-1**（RAG クエリ長ガード）— curriculum 編集機能と同時に必要になる前提
 5. **LOW-3, LOW-4, LOW-5** — 保守として S サイズ
 6. **LOW-6**（prompt injection 防御）— curriculum 編集機能着手と同タイミング
