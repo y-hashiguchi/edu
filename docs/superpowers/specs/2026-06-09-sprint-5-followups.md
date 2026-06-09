@@ -3,7 +3,7 @@
 **作成日:** 2026-06-09
 **作成者:** Claude Code（code-reviewer + security-reviewer の Sprint 5 指摘を反映）
 **起点コミット:** `c5d49b3 fix(sprint-5): address review HIGH findings`
-**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の MEDIUM × 1 + LOW × 6** を後続スプリントへ引き継ぐためのチケット集。
+**前提:** Sprint 5 完了時に CRITICAL 0 / HIGH × 3 は修正済み。本書は **未修正の LOW × 4** を後続スプリントへ引き継ぐためのチケット集（MED 2 件は 2026-06-09 に完了済み）。
 
 加えて、Sprint 5 で本来予定していた **Playwright E2E 1 本** はインフラ未導入のため実施せず、本書末尾の「インフラ tickets」に記載する。
 
