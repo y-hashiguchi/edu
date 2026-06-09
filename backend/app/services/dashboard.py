@@ -100,3 +100,57 @@ async def compose_dashboard(
         progress_summary=progress, weakness=weakness,
         recommendations=recs, nudge=nudge,
     )
+
+
+@dataclass(frozen=True)
+class AdminDashboardData:
+    """Sprint 6: admin が任意の受講者の dashboard を見るときのデータ形。
+    Sprint 5 の DashboardData から nudge を除外したもの。AI 一言は
+    受講者プライベートなので admin には surface しない。"""
+
+    progress_summary: ProgressSummary
+    weakness: WeaknessResult
+    recommendations: list[Recommendation]
+
+
+async def compose_dashboard_for_admin(
+    db: AsyncSession,
+    *,
+    embedding_client,
+    user_id: uuid.UUID,
+) -> AdminDashboardData:
+    """Admin-facing dashboard composer (Sprint 6).
+
+    Mirrors `compose_dashboard` but never calls the nudge service —
+    the AI one-liner is private feedback to the learner, not
+    surveillance material for the instructor. Each sub-service still
+    degrades to its empty form on failure so a single sub-service
+    exception does not 500 the entire admin dashboard."""
+    try:
+        progress = await compute_progress_summary(db, user_id)
+    except Exception:
+        logger.exception("progress_summary failed (admin)")
+        progress = ProgressSummary(
+            completed_tasks=0, total_tasks=12,
+            submission_count=0, average_score=None,
+        )
+
+    try:
+        weakness = await compute_weakness(db, user_id)
+    except Exception:
+        logger.exception("weakness failed (admin)")
+        weakness = WeaknessResult(has_enough_data=False, top_weaknesses=[])
+
+    top_tags = [w.tag for w in weakness.top_weaknesses]
+    try:
+        recs = await compute_recommendations(
+            db, embedding_client,
+            user_id=user_id, top_weakness_tags=top_tags,
+        )
+    except Exception:
+        logger.exception("recommendations failed (admin)")
+        recs = []
+
+    return AdminDashboardData(
+        progress_summary=progress, weakness=weakness, recommendations=recs,
+    )
