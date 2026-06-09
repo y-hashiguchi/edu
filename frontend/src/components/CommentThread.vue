@@ -1,43 +1,83 @@
 <script setup lang="ts">
 /**
- * CommentThread — shared comment listing used by admin and learner.
+ * CommentThread — comment listing with nested replies (Sprint 6).
  *
- * Read-only by default. Pass `can-post` to render the composer at the
- * bottom; the parent owns the post action via the `post` emit so the
- * thread component never imports the api client directly.
+ * Builds a tree from a flat comments array by parent_id, then renders
+ * each branch via CommentThreadNode (recursive). The parent owns both
+ * the trunk-post emit ('post') and the reply emit ('reply') so this
+ * component never imports the api client directly.
+ *
+ * `canPost` (legacy Sprint 4 prop name) is admin's trunk composer.
+ * `canReply` is the Sprint 6 addition for the learner reply button on
+ * admin-authored comments.
  */
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import type { AdminCommentOut, LearnerCommentOut } from '@/types/admin';
+import CommentThreadNode from '@/components/CommentThreadNode.vue';
 
 type Comment = AdminCommentOut | LearnerCommentOut;
+
+interface TreeNode {
+  comment: Comment;
+  children: TreeNode[];
+}
 
 const props = defineProps<{
   comments: Comment[];
   canPost?: boolean;
+  canReply?: boolean;
   busy?: boolean;
 }>();
 
 const emit = defineEmits<{
   post: [body: string];
+  reply: [payload: { parentId: string; body: string }];
 }>();
+
+function buildTree(items: Comment[]): TreeNode[] {
+  const byId = new Map<string, TreeNode>();
+  for (const c of items) byId.set(c.id, { comment: c, children: [] });
+  const roots: TreeNode[] = [];
+  for (const node of byId.values()) {
+    const pid = node.comment.parent_id;
+    if (pid && byId.has(pid)) byId.get(pid)!.children.push(node);
+    else roots.push(node);
+  }
+  const sortRecursive = (nodes: TreeNode[]) => {
+    nodes.sort(
+      (a, b) =>
+        new Date(a.comment.created_at).getTime() -
+        new Date(b.comment.created_at).getTime(),
+    );
+    for (const n of nodes) sortRecursive(n.children);
+  };
+  sortRecursive(roots);
+  return roots;
+}
+
+const tree = computed(() => buildTree(props.comments));
 
 const draft = ref('');
 const localError = ref<string | null>(null);
 
-function submit() {
-  const trimmed = draft.value.trim();
-  if (trimmed.length === 0) {
+function submitTrunk() {
+  const t = draft.value.trim();
+  if (t.length === 0) {
     localError.value = '本文を入力してください';
     return;
   }
-  if (trimmed.length > 2000) {
+  if (t.length > 2000) {
     localError.value = '2000 文字以内で入力してください';
     return;
   }
   localError.value = null;
-  emit('post', trimmed);
+  emit('post', t);
   draft.value = '';
+}
+
+function onReply(payload: { parentId: string; body: string }) {
+  emit('reply', payload);
 }
 </script>
 
@@ -46,15 +86,15 @@ function submit() {
     <h2 v-if="comments.length === 0 && !canPost" class="empty">
       まだコメントはありません
     </h2>
-    <ul v-if="comments.length > 0" class="list">
-      <li v-for="c in comments" :key="c.id" class="row">
-        <div class="head">
-          <span class="who">{{ c.author_name }}</span>
-          <time>{{ new Date(c.created_at).toLocaleString('ja-JP') }}</time>
-        </div>
-        <p class="body">{{ c.body }}</p>
-      </li>
-    </ul>
+
+    <CommentThreadNode
+      v-for="node in tree"
+      :key="node.comment.id"
+      :node="node"
+      :depth="0"
+      :can-reply="canReply"
+      @reply="onReply"
+    />
 
     <div v-if="canPost" class="composer">
       <label for="thread-body" class="sr-only">コメント本文</label>
@@ -67,7 +107,7 @@ function submit() {
       />
       <div class="actions">
         <span v-if="localError" class="error">{{ localError }}</span>
-        <button type="button" :disabled="busy" @click="submit">
+        <button type="button" :disabled="busy" @click="submitTrunk">
           {{ busy ? '送信中…' : 'コメントを送る' }}
         </button>
       </div>
@@ -79,46 +119,13 @@ function submit() {
 .thread {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 .empty {
   color: #6b7280;
   font-size: 0.9rem;
   font-weight: 400;
   margin: 0;
-}
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-.row {
-  background: #f3f4f6;
-  border-radius: 10px;
-  padding: 0.7rem 0.9rem;
-}
-.head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: #4b5563;
-}
-.who {
-  font-weight: 600;
-  color: #1f2937;
-}
-time {
-  font-variant-numeric: tabular-nums;
-}
-.body {
-  margin: 0.4rem 0 0;
-  font-size: 0.92rem;
-  white-space: pre-wrap;
 }
 .composer {
   display: flex;
