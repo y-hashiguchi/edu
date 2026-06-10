@@ -5,7 +5,14 @@
 **起点コミット:** `7ddd63a fix(sprint-6): address review HIGH findings`
 **前提:** Sprint 6 完了時に CRITICAL 0 / HIGH × 3 修正済み（Sec MED-2 = LearnerCommentOut の `is_admin_authored` 追加、Sec HIGH-1 = Notification fanout を `notification_service.send` 経由化、Code HIGH-1 = `create_comment` の commit 責務を caller へ）。
 
-本書は **未修正の HIGH × 1 + MEDIUM × 6 + LOW × 5** を後続スプリントへ引き継ぐためのチケット集。
+本書は **未修正の MEDIUM × 5 + LOW × 5** を後続スプリントへ引き継ぐためのチケット集（HIGH-3 + MED-1 は 2026-06-10 に完了）。
+
+| ID | 状態 | コミット |
+|---|---|---|
+| HIGH-3 | ✅ 完了 | `1c36856 fix(sprint-6): tree-wide fanout + CTE depth cap + self-loop guard (HIGH-3, MED-1)` |
+| MED-1 | ✅ 完了 | `1c36856`（HIGH-3 と同梱） |
+| MED-2 〜 MED-6 | 未着手 | — |
+| LOW-1 〜 5 | 未着手 | — |
 
 ---
 
@@ -149,8 +156,8 @@ Sprint 4 / Sprint 5 follow-up doc と同じ運用:
 
 ## Sprint 7 取り込み時の優先順位（推奨）
 
-1. **MED-1**（CTE depth cap + cycle guard）— DoS 経路を塞ぐ、Alembic 1 リビジョン + コードのみで S
-2. **HIGH-3**（Notification fanout を tree-wide 化）— 複数 admin スレッドの UX を直す
+1. ~~**MED-1**（CTE depth cap + cycle guard）~~ → `1c36856` で完了
+2. ~~**HIGH-3**（Notification fanout を tree-wide 化）~~ → `1c36856` で完了
 3. **MED-2**（bulk weakness 閾値の明文化）— Sprint 5 との非対称解消
 4. **MED-4**（dashboard fetch エラー surface）— admin UX
 5. **MED-5**（reply busy state + commentsError クリア）— 受講者 UX
