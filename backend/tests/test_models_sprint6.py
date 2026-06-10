@@ -104,3 +104,27 @@ async def test_instructor_comment_self_fk_cascades_on_parent_delete(db_session):
         )
     ).first()
     assert leftover is None
+
+
+@pytest.mark.asyncio
+async def test_instructor_comment_self_loop_rejected(db_session):
+    """MED-1 (sprint-6 follow-up): direct self-parent (id == parent_id) is
+    rejected by CHECK constraint. The recursive CTE depth cap defends
+    against indirect cycles; this constraint catches the simplest case
+    at write time so it surfaces as IntegrityError rather than a silent
+    query truncation."""
+    from sqlalchemy.exc import IntegrityError
+
+    admin = await _make_user(db_session, email="a@e.com", is_admin=True)
+    owner = await _make_user(db_session, email="o@e.com")
+    sub = await _make_submission(db_session, owner)
+
+    c = InstructorComment(
+        submission_id=sub.id, author_user_id=admin.id, body="self-loop",
+    )
+    db_session.add(c)
+    await db_session.flush()
+    c.parent_id = c.id
+
+    with pytest.raises(IntegrityError):
+        await db_session.commit()

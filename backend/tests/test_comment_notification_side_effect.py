@@ -135,3 +135,52 @@ async def test_reply_notification_body_truncates_long_text(db_session):
         )
     ).scalar_one()
     assert len(note.body) <= 120
+
+
+@pytest.mark.asyncio
+async def test_reply_notifies_sibling_branch_admin(db_session):
+    """HIGH-3 (sprint-6 follow-up): admin B が trunk へ直接返信 (sibling branch)
+    した状態で、学習者が trunk へ返信したとき、admin B にも通知が届くこと。
+
+    Before fix: ancestor-only traversal only walked up from the learner's
+    chosen parent (trunk). admin B's reply is a sibling — not on that
+    ancestor path — so admin B was silently missed.
+
+    After fix: traversal walks the entire thread tree from root, so any
+    admin who participated anywhere in the thread is notified."""
+    admin_a = await _make_user(db_session, "a@e.com", is_admin=True)
+    admin_b = await _make_user(db_session, "b@e.com", is_admin=True)
+    learner = await _make_user(db_session, "l@e.com")
+    sub = await _make_submission(db_session, learner)
+
+    # admin A's trunk
+    trunk = InstructorComment(
+        submission_id=sub.id, author_user_id=admin_a.id, body="A trunk",
+    )
+    db_session.add(trunk)
+    await db_session.flush()
+    # admin B replies directly to trunk (sibling to whatever learner posts)
+    sibling = InstructorComment(
+        submission_id=sub.id, author_user_id=admin_b.id,
+        body="B sibling", parent_id=trunk.id,
+    )
+    db_session.add(sibling)
+    await db_session.commit()
+    await db_session.refresh(trunk)
+
+    # Learner replies to trunk (NOT to sibling). Old traversal would miss B.
+    await post_reply(
+        db=db_session, submission_id=sub.id,
+        learner_user_id=learner.id, parent_id=trunk.id,
+        body="learner reply to trunk",
+    )
+
+    rcpts = set(
+        (
+            await db_session.execute(
+                select(Notification.recipient_user_id)
+            )
+        ).scalars().all()
+    )
+    assert admin_a.id in rcpts, "admin A (trunk author) should be notified"
+    assert admin_b.id in rcpts, "admin B (sibling branch) should also be notified"

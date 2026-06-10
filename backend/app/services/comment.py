@@ -119,17 +119,27 @@ class UnauthorizedThreadError(Exception):
     """先祖を辿って admin author に辿り着けないスレッドへの返信。Router は 403 にマップ。"""
 
 
+MAX_THREAD_DEPTH = 50
+"""MED-1 (sprint-6 follow-up): WITH RECURSIVE の hard cap。FK CASCADE で
+構造的サイクルは作れないが、DB 直操作で生まれたサイクルや悪意的に深い
+スレッドを防御。50 は人間の対話として現実的な最大深度の余裕分。"""
+
+
 async def _ancestor_has_admin(db: AsyncSession, comment_id: uuid.UUID) -> bool:
     """WITH RECURSIVE で先祖を辿り、author_user_id に is_admin=True の
-    User が存在するか判定する。1 クエリで完結。"""
-    stmt = text("""
+    User が存在するか判定する。1 クエリで完結。
+
+    MED-1: depth カウンタで MAX_THREAD_DEPTH を超えたら停止。サイクルや
+    悪意ある深いスレッドで CTE が無限再帰するのを防ぐ。"""
+    stmt = text(f"""
         WITH RECURSIVE ancestors AS (
-            SELECT id, parent_id, author_user_id
+            SELECT id, parent_id, author_user_id, 1 AS depth
             FROM instructor_comments WHERE id = :start
             UNION ALL
-            SELECT c.id, c.parent_id, c.author_user_id
+            SELECT c.id, c.parent_id, c.author_user_id, a.depth + 1
             FROM instructor_comments c
             JOIN ancestors a ON c.id = a.parent_id
+            WHERE a.depth < {MAX_THREAD_DEPTH}
         )
         SELECT 1 FROM ancestors a
         JOIN users u ON u.id = a.author_user_id
@@ -142,18 +152,42 @@ async def _ancestor_has_admin(db: AsyncSession, comment_id: uuid.UUID) -> bool:
 async def _thread_admin_authors(
     db: AsyncSession, parent_comment_id: uuid.UUID,
 ) -> set[uuid.UUID]:
-    """同じスレッドに参加している admin author 全員の id を返す (重複なし)."""
-    stmt = text("""
-        WITH RECURSIVE ancestors AS (
-            SELECT id, parent_id, author_user_id
+    """同じスレッド (root から全 descendants) に参加している admin author
+    全員の id を返す。
+
+    HIGH-3 (sprint-6 follow-up): 以前は parent_id を辿る ancestor 走査だけ
+    で、sibling 枝に居る admin (e.g. admin B が trunk に直接返信した状態)
+    が学習者の通知ファンアウトから漏れていた。本実装は (1) 学習者が選んだ
+    parent から root へ歩いて root を見つけ、(2) root から descendants を
+    全方向に辿って参加 admin を全員集める 2 段階 CTE。
+
+    MED-1: 両方向の走査に depth カウンタを入れ、MAX_THREAD_DEPTH 超過で
+    停止。サイクルや悪意ある深いスレッドでの無限再帰を防ぐ。"""
+    stmt = text(f"""
+        WITH RECURSIVE ancestor_walk AS (
+            SELECT id, parent_id, 1 AS depth
             FROM instructor_comments WHERE id = :start
             UNION ALL
-            SELECT c.id, c.parent_id, c.author_user_id
+            SELECT c.id, c.parent_id, aw.depth + 1
             FROM instructor_comments c
-            JOIN ancestors a ON c.id = a.parent_id
+            JOIN ancestor_walk aw ON c.id = aw.parent_id
+            WHERE aw.depth < {MAX_THREAD_DEPTH}
+        ),
+        root AS (
+            SELECT id FROM ancestor_walk WHERE parent_id IS NULL LIMIT 1
+        ),
+        descendants AS (
+            SELECT id, parent_id, author_user_id, 1 AS depth
+            FROM instructor_comments
+            WHERE id = (SELECT id FROM root)
+            UNION ALL
+            SELECT c.id, c.parent_id, c.author_user_id, d.depth + 1
+            FROM instructor_comments c
+            JOIN descendants d ON c.parent_id = d.id
+            WHERE d.depth < {MAX_THREAD_DEPTH}
         )
-        SELECT DISTINCT a.author_user_id FROM ancestors a
-        JOIN users u ON u.id = a.author_user_id
+        SELECT DISTINCT d.author_user_id FROM descendants d
+        JOIN users u ON u.id = d.author_user_id
         WHERE u.is_admin = TRUE
     """)
     rows = (await db.execute(stmt, {"start": parent_comment_id})).all()
