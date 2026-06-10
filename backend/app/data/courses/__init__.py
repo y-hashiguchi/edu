@@ -10,7 +10,7 @@ Public API:
 """
 
 from app.data.courses.ai_driven_dev import AI_DRIVEN_DEV_COURSE
-# from app.data.courses.ai_era_se import AI_ERA_SE_COURSE  # Task 3 で有効化
+from app.data.courses.ai_era_se import AI_ERA_SE_COURSE
 from app.data.courses.types import CourseData, PhaseData, TaskItem
 
 
@@ -31,7 +31,7 @@ DEFAULT_COURSE_SLUG: str = "ai-driven-dev"
 
 COURSE_REGISTRY: dict[str, CourseData] = {
     AI_DRIVEN_DEV_COURSE.slug: AI_DRIVEN_DEV_COURSE,
-    # AI_ERA_SE_COURSE.slug: AI_ERA_SE_COURSE,  # Task 3 で有効化
+    AI_ERA_SE_COURSE.slug: AI_ERA_SE_COURSE,
 }
 
 

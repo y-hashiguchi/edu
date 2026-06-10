@@ -62,3 +62,38 @@ def test_course_data_is_frozen():
     c = get_course("ai-driven-dev")
     with pytest.raises(Exception):
         c.title = "mutated"  # type: ignore[misc]
+
+
+def test_ai_era_se_course_present():
+    c = get_course("ai-era-se")
+    assert c.slug == "ai-era-se"
+    assert c.id == uuid.UUID("00000000-0000-4000-8000-000000000002")
+    assert c.sort_order == 1
+    # Pilot: Phase 1 only, 8 tasks
+    assert len(c.phases) == 1
+    p = c.phases[0]
+    assert p.phase == 1
+    assert len(p.tasks) == 8
+
+
+def test_ai_era_se_phase1_system_prompt_contains_ai_usage_rules():
+    p = get_phase("ai-era-se", 1)
+    # 5 rules, literal text from syllabus
+    assert "コピペ禁止" in p.system_prompt
+    assert "動けばOKは禁止" in p.system_prompt
+    assert "プロンプトはバージョン管理" in p.system_prompt
+    assert "AIが見逃した問題" in p.system_prompt
+    assert "毎週の作業ログ" in p.system_prompt
+
+
+def test_ai_era_se_phase1_task_titles_match_syllabus():
+    p = get_phase("ai-era-se", 1)
+    titles = [t.title for t in p.tasks]
+    assert "Git・ターミナル・VS Code 基礎" in titles[0]
+    assert "PHPフレームワーク比較" in titles[1]
+    assert "HTTP・API・DB" in titles[2]
+    assert "業務DB読解" in titles[3]
+    assert "Docker・ローカル環境構築" in titles[4]
+    assert "AWSインフラ概念" in titles[5]
+    assert "SQL実践" in titles[6]
+    assert "フェーズ1振り返り" in titles[7]
