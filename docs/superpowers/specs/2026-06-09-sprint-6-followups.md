@@ -5,14 +5,20 @@
 **起点コミット:** `7ddd63a fix(sprint-6): address review HIGH findings`
 **前提:** Sprint 6 完了時に CRITICAL 0 / HIGH × 3 修正済み（Sec MED-2 = LearnerCommentOut の `is_admin_authored` 追加、Sec HIGH-1 = Notification fanout を `notification_service.send` 経由化、Code HIGH-1 = `create_comment` の commit 責務を caller へ）。
 
-本書は **未修正の MEDIUM × 5 + LOW × 5** を後続スプリントへ引き継ぐためのチケット集（HIGH-3 + MED-1 は 2026-06-10 に完了）。
+本書は **未修正の MEDIUM × 2 + LOW × 2** を後続スプリントへ引き継ぐためのチケット集。残:
+- MED-2 (bulk weakness 閾値の明文化) — 判断保留
+- MED-6 (admin-on-admin dashboard threat model) — 判断保留
+- LOW-4 (vitest CVE upgrade)
+- LOW-5 (Sprint 5 INFRA carry-over)
 
 | ID | 状態 | コミット |
 |---|---|---|
 | HIGH-3 | ✅ 完了 | `1c36856 fix(sprint-6): tree-wide fanout + CTE depth cap + self-loop guard (HIGH-3, MED-1)` |
 | MED-1 | ✅ 完了 | `1c36856`（HIGH-3 と同梱） |
-| MED-2 〜 MED-6 | 未着手 | — |
-| LOW-1 〜 5 | 未着手 | — |
+| MED-3 / MED-4 / MED-5 | ✅ 完了 | `89ca06f fix(sprint-6): batch follow-ups (MED-3/4/5 + LOW-1/2/3)` |
+| MED-2 / MED-6 | 未着手（判断保留） | — |
+| LOW-1 / LOW-2 / LOW-3 | ✅ 完了 | `89ca06f` |
+| LOW-4 / LOW-5 | 未着手 | — |
 
 ---
 
