@@ -4,16 +4,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
+from app.data.courses import COURSE_REGISTRY, get_course
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
-from app.services.progress import initialize_progress
+from app.services.enrollment import (
+    AlreadyEnrolledError,
+    CourseNotFoundError,
+    _get_course_by_slug,
+    enroll_user,
+)
+from app.services.progress import initialize_progress_for_course
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> UserOut:
+async def register(
+    payload: RegisterRequest, db: AsyncSession = Depends(get_db)
+) -> UserOut:
+    if payload.course_slug not in COURSE_REGISTRY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown course_slug: {payload.course_slug!r}",
+        )
+
     existing = await db.execute(select(User).where(User.email == payload.email))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -27,10 +42,25 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     )
     db.add(user)
     await db.flush()
-    await initialize_progress(db, user.id)
+
+    try:
+        await enroll_user(db, user_id=user.id, course_slug=payload.course_slug)
+    except (CourseNotFoundError, AlreadyEnrolledError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        ) from e
+
+    course_data = get_course(payload.course_slug)
+    db_course = await _get_course_by_slug(db, payload.course_slug)
+    await initialize_progress_for_course(
+        db,
+        user.id,
+        db_course.id,
+        [p.phase for p in course_data.phases],
+    )
+
     await db.commit()
     await db.refresh(user)
-
     return UserOut.model_validate(user)
 
 

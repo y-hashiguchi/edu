@@ -23,22 +23,48 @@ class PhaseNotFoundError(Exception):
         self.phase = phase
 
 
-async def initialize_progress(db: AsyncSession, user_id: uuid.UUID) -> None:
-    """Seed progress rows for a freshly-created user."""
+async def initialize_progress_for_course(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    phase_numbers: list[int],
+) -> None:
+    """Seed progress rows for (user, course). The first phase in
+    ``phase_numbers`` is unlocked; the rest start LOCKED."""
     now = datetime.now(UTC)
-    for phase_no in sorted(CURRICULUM.keys()):
-        is_first = phase_no == 1
+    sorted_phases = sorted(phase_numbers)
+    for i, phase_no in enumerate(sorted_phases):
+        is_first = i == 0
         db.add(
             Progress(
                 user_id=user_id,
+                course_id=course_id,
                 phase=phase_no,
                 status=(
-                    ProgressStatus.IN_PROGRESS.value if is_first else ProgressStatus.LOCKED.value
+                    ProgressStatus.IN_PROGRESS.value
+                    if is_first
+                    else ProgressStatus.LOCKED.value
                 ),
                 started_at=now if is_first else None,
             )
         )
     await db.flush()
+
+
+async def initialize_progress(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Legacy single-course shim — seeds against DEFAULT_COURSE_SLUG.
+
+    Kept for code paths that still call the old signature. New callers
+    should use ``initialize_progress_for_course``."""
+    from app.data.courses import DEFAULT_COURSE_SLUG, get_course
+    from app.services.enrollment import _get_course_by_slug
+
+    course_data = get_course(DEFAULT_COURSE_SLUG)
+    db_course = await _get_course_by_slug(db, DEFAULT_COURSE_SLUG)
+    phase_numbers = [p.phase for p in course_data.phases]
+    await initialize_progress_for_course(
+        db, user_id, db_course.id, phase_numbers
+    )
 
 
 async def list_progress(db: AsyncSession, user_id: uuid.UUID) -> list[Progress]:

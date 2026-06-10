@@ -1,0 +1,88 @@
+"""Sprint 7 — auth.register must require course_slug."""
+
+import pytest
+from sqlalchemy import select
+
+from app.models.course import Course
+from app.models.enrollment import Enrollment
+from app.models.progress import Progress
+from app.models.user import User
+
+
+async def _seed_courses(db):
+    a = Course(slug="ai-driven-dev", title="AI Dev", sort_order=0)
+    b = Course(slug="ai-era-se", title="SE", sort_order=1)
+    db.add_all([a, b])
+    await db.commit()
+    return a, b
+
+
+@pytest.mark.asyncio
+async def test_register_requires_course_slug(client, db_session):
+    await _seed_courses(db_session)
+    res = client.post(
+        "/api/auth/register",
+        json={
+            "email": "x@e.com", "name": "X",
+            "password": "password123",
+        },
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_register_rejects_unknown_slug(client, db_session):
+    await _seed_courses(db_session)
+    res = client.post(
+        "/api/auth/register",
+        json={
+            "email": "x@e.com", "name": "X",
+            "password": "password123",
+            "course_slug": "nope",
+        },
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_register_creates_enrollment(client, db_session):
+    a, _ = await _seed_courses(db_session)
+    res = client.post(
+        "/api/auth/register",
+        json={
+            "email": "x@e.com", "name": "X",
+            "password": "password123",
+            "course_slug": "ai-era-se",
+        },
+    )
+    assert res.status_code == 201
+    user_id = res.json()["id"]
+
+    enr = (
+        await db_session.execute(
+            select(Enrollment).where(Enrollment.user_id == user_id)
+        )
+    ).scalar_one()
+    assert enr.status == "active"
+
+
+@pytest.mark.asyncio
+async def test_register_seeds_progress_for_chosen_course(client, db_session):
+    a, b = await _seed_courses(db_session)
+    res = client.post(
+        "/api/auth/register",
+        json={
+            "email": "x@e.com", "name": "X",
+            "password": "password123",
+            "course_slug": "ai-era-se",
+        },
+    )
+    user_id = res.json()["id"]
+    rows = (
+        await db_session.execute(
+            select(Progress).where(Progress.user_id == user_id)
+        )
+    ).scalars().all()
+    # ai-era-se has 1 phase (Phase 1 pilot)
+    assert {r.phase for r in rows} == {1}
+    assert all(r.course_id == b.id for r in rows)
