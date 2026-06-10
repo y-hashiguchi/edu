@@ -7,6 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api import auth, curriculum, health, me, progress, submissions
 from app.api import chat as chat_router
+from app.api import courses as courses_router
 from app.api import me_dashboard as me_dashboard_router
 from app.api.admin import comments as admin_comments
 from app.api.admin import notifications as admin_notifications
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.include_router(health.router)
+    app.include_router(courses_router.router)
     app.include_router(auth.router)
     app.include_router(curriculum.router)
     app.include_router(progress.router)
