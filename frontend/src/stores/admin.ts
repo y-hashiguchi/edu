@@ -37,6 +37,10 @@ interface State {
   sentNotifications: NotificationOut[];
   loading: boolean;
   error: string | null;
+  // MED-4 (sprint-6 follow-up): dedicated field so the dashboard
+  // section can show "load failed" without disturbing the rest of
+  // the user-detail view.
+  dashboardError: string | null;
 }
 
 function errString(e: unknown): string {
@@ -54,6 +58,7 @@ export const useAdminStore = defineStore('admin', {
     sentNotifications: [],
     loading: false,
     error: null,
+    dashboardError: null,
   }),
   actions: {
     async fetchUsers(limit = 50, offset = 0) {
@@ -139,12 +144,22 @@ export const useAdminStore = defineStore('admin', {
 
     /**
      * Sprint 6: admin が任意受講者の Sprint 5 dashboard (nudge 無し) を
-     * 取得する。エラー時は null を返し、view 側で空 UI に倒す。
+     * 取得する。
+     *
+     * MED-4 (sprint-6 follow-up): エラーは store.dashboardError に
+     * 残し、view が「データなし」と「読み込み失敗」を区別できるようにする。
+     * silently null を返すと admin が「この受講者はまだ何もしていない」と
+     * 誤認するため。
      */
     async fetchUserDashboard(userId: string): Promise<AdminDashboardResponse | null> {
+      this.dashboardError = null;
       try {
         return await api.getAdminUserDashboard(userId);
-      } catch {
+      } catch (e) {
+        this.dashboardError =
+          e instanceof Error
+            ? `受講者ダッシュボードの読み込みに失敗しました: ${e.message}`
+            : '受講者ダッシュボードの読み込みに失敗しました';
         return null;
       }
     },

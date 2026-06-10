@@ -93,6 +93,7 @@ function onReply(payload: { parentId: string; body: string }) {
       :node="node"
       :depth="0"
       :can-reply="canReply"
+      :busy="busy"
       @reply="onReply"
     />
 

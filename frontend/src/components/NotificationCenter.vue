@@ -1,7 +1,12 @@
 <script setup lang="ts">
 /**
- * NotificationCenter — the bell icon + dropdown panel that lives in
- * the global header for logged-in learners.
+ * NotificationCenter — the bell icon + dropdown panel.
+ *
+ * Sprint 6: shared between the learner-facing `App.vue` header (only on
+ * non-admin routes, guarded by v-else) and `AdminLayout.vue` (admins
+ * see their own inbox of learner-reply notifications). The notification
+ * store filters by `recipient_user_id = current_user.id`, so the same
+ * mount works in both contexts without leaking cross-role data.
  *
  * Polling lifecycle is owned here (not in App.vue) so the component
  * always has a consistent state at mount/unmount even when slotted

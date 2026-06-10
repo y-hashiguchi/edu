@@ -98,6 +98,9 @@ function phaseStatusLabel(status: string): string {
           />
         </div>
       </section>
+      <p v-else-if="store.dashboardError" class="dash-error">
+        {{ store.dashboardError }}
+      </p>
 
       <section class="submissions">
         <h2>提出物</h2>
@@ -216,5 +219,14 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.9rem;
+}
+.dash-error {
+  margin: 1.4rem 0 0;
+  padding: 0.8rem 1rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
 </style>

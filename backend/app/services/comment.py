@@ -17,6 +17,14 @@ class SubmissionNotFoundError(Exception):
     response status alone (BOLA-distinguishability)."""
 
 
+class InvalidParentError(Exception):
+    """parent_id が同じ submission に属さない場合に投げる。Router は 400 にマップ。"""
+
+
+class UnauthorizedThreadError(Exception):
+    """先祖を辿って admin author に辿り着けないスレッドへの返信。Router は 403 にマップ。"""
+
+
 async def create_comment(
     *,
     db: AsyncSession,
@@ -109,14 +117,6 @@ async def list_for_owner(
     if sub is None:
         raise SubmissionNotFoundError(str(submission_id))
     return await list_for_admin(db, submission_id)
-
-
-class InvalidParentError(Exception):
-    """parent_id が同じ submission に属さない場合に投げる。Router は 400 にマップ。"""
-
-
-class UnauthorizedThreadError(Exception):
-    """先祖を辿って admin author に辿り着けないスレッドへの返信。Router は 403 にマップ。"""
 
 
 MAX_THREAD_DEPTH = 50

@@ -14,6 +14,7 @@ const downloadError = ref<string | null>(null);
 // submission id changes.
 const comments = ref<LearnerCommentOut[]>([]);
 const commentsError = ref<string | null>(null);
+const replyBusy = ref(false);
 
 async function downloadFile(
   submissionId: string,
@@ -75,13 +76,23 @@ async function loadComments(submissionId: string) {
 async function onReply(payload: { parentId: string; body: string }) {
   // Sprint 6: 受講者から admin スレッドへの返信。投稿後にコメント一覧を
   // 再取得して、ベルアイコンと連動するつもりで楽観表示はしない。
+  //
+  // MED-5 (sprint-6 follow-up): clear any stale error at the top so
+  // the previous failure does not appear to apply to the new attempt.
+  // The replyBusy ref disables the submit button down the tree so a
+  // double-tap cannot post two replies before the first round-trip
+  // resolves.
   if (!props.submission) return;
+  commentsError.value = null;
+  replyBusy.value = true;
   try {
     await api.postMyReply(props.submission.id, payload.parentId, payload.body);
     await loadComments(props.submission.id);
   } catch (e) {
     commentsError.value =
       e instanceof Error ? e.message : '返信の送信に失敗しました';
+  } finally {
+    replyBusy.value = false;
   }
 }
 
@@ -204,6 +215,7 @@ defineExpose({ clearFilesAfterSubmit });
       <CommentThread
         :comments="comments"
         :can-reply="true"
+        :busy="replyBusy"
         @reply="onReply"
       />
     </section>

@@ -20,6 +20,7 @@ const props = defineProps<{
   node: TreeNode;
   depth: number;
   canReply?: boolean;
+  busy?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -80,7 +81,11 @@ function bubbleReply(payload: { parentId: string; body: string }) {
 </script>
 
 <template>
-  <div class="node" :style="{ paddingLeft: `${depth * 16}px` }">
+  <!-- MED-3 (sprint-6 follow-up): cap indent at depth 6 (96px). Deeper
+       nodes are still rendered but stop indenting so a 50-deep thread
+       doesn't push the body past the viewport. Server-side depth cap
+       lives in services/comment.py:MAX_THREAD_DEPTH. -->
+  <div class="node" :style="{ paddingLeft: `${Math.min(depth, 6) * 16}px` }">
     <div class="row">
       <div class="head">
         <span class="who">{{ node.comment.author_name }}</span>
@@ -105,8 +110,13 @@ function bubbleReply(payload: { parentId: string; body: string }) {
           <button type="button" class="reply-cancel" @click="cancel">
             キャンセル
           </button>
-          <button type="button" class="reply-submit" @click="submit">
-            送信
+          <button
+            type="button"
+            class="reply-submit"
+            :disabled="busy"
+            @click="submit"
+          >
+            {{ busy ? '送信中…' : '送信' }}
           </button>
         </div>
       </div>
@@ -118,6 +128,7 @@ function bubbleReply(payload: { parentId: string; body: string }) {
       :node="child"
       :depth="depth + 1"
       :can-reply="canReply"
+      :busy="busy"
       @reply="bubbleReply"
     />
   </div>
@@ -201,6 +212,10 @@ button.reply {
   padding: 0.3rem 0.7rem;
   font: inherit;
   cursor: pointer;
+}
+.reply-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .error {
   color: #b91c1c;

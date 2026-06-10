@@ -10,6 +10,7 @@ preserve that invariant.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -169,7 +170,6 @@ async def mark_my_notification_read(
         ) from e
     # Round-trip the sender display name to keep the response shape
     # symmetric with the list endpoint.
-    from sqlalchemy import select
     sender = (
         await db.execute(select(User).where(User.id == note.sender_user_id))
     ).scalar_one()
