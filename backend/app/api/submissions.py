@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.claude_client import ClaudeClient, get_claude_client
+from app.core.course_deps import CourseContext, get_course_context
 from app.core.deps import get_current_user
 from app.core.file_storage import (
     FileStorageError,
@@ -82,6 +83,7 @@ async def create_submission(
     content: str = Form(..., min_length=1, max_length=10_000),
     files: list[UploadFile] = File(default_factory=list),
     current_user: User = Depends(get_current_user),
+    ctx: CourseContext = Depends(get_course_context),
     claude: ClaudeClient = Depends(get_claude_client),
     db: AsyncSession = Depends(get_db),
 ) -> SubmissionOut:
@@ -101,6 +103,8 @@ async def create_submission(
             db=db,
             claude=claude,
             user_id=current_user.id,
+            course_id=ctx.course.id,
+            course_slug=ctx.course.slug,
             phase=phase,
             task_no=task_no,
             content=content,
@@ -157,6 +161,7 @@ async def create_submission(
 async def regrade(
     submission_id: uuid.UUID = Path(...),
     current_user: User = Depends(get_current_user),
+    ctx: CourseContext = Depends(get_course_context),
     claude: ClaudeClient = Depends(get_claude_client),
     db: AsyncSession = Depends(get_db),
 ) -> GradingAttemptOut:
@@ -165,6 +170,7 @@ async def regrade(
             db=db,
             claude=claude,
             user_id=current_user.id,
+            course_slug=ctx.course.slug,
             submission_id=submission_id,
         )
     except SubmissionNotFoundError as e:
@@ -187,8 +193,13 @@ async def download_file(
     submission_id: uuid.UUID,
     file_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
+    ctx: CourseContext = Depends(get_course_context),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
+    # NOTE: ctx is injected for ?course= enrollment check. The file lookup
+    # is keyed by submission_id (which already pins one course), so we do
+    # not need to thread course_id into the query.
+    _ = ctx
     submission = (
         await db.execute(
             select(Submission).where(
@@ -240,6 +251,7 @@ async def download_file(
 async def list_my_submissions(
     phase: int = Path(ge=1, le=4),
     current_user: User = Depends(get_current_user),
+    ctx: CourseContext = Depends(get_course_context),
     db: AsyncSession = Depends(get_db),
 ) -> list[SubmissionOut]:
     if not await is_phase_unlocked(db, current_user.id, phase):
@@ -248,6 +260,9 @@ async def list_my_submissions(
             detail=f"phase {phase} is locked",
         )
     rows = await list_user_submissions(db, current_user.id, phase)
+    # Filter to current course in-route (service still returns all-course rows
+    # for backward compat — narrow here):
+    rows = [r for r in rows if r.course_id == ctx.course.id]
     out: list[SubmissionOut] = []
     for row in rows:
         files_rows = await file_storage_service.list_submission_files(

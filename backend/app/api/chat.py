@@ -3,9 +3,10 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.claude_client import ClaudeClient, get_claude_client
+from app.core.course_deps import CourseContext, get_course_context
 from app.core.deps import get_current_user
 from app.core.embedding_client import EmbeddingClient, get_embedding_client
-from app.data.curriculum import CURRICULUM
+from app.data.courses import PhaseNotFoundError, get_phase
 from app.memory.chat_store import SqlChatStore, get_chat_store
 from app.models.user import User
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
@@ -17,12 +18,14 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 async def _ensure_phase_accessible(
-    user: User, phase: int, store: SqlChatStore
+    user: User, ctx: CourseContext, phase: int, store: SqlChatStore
 ) -> None:
-    if phase not in CURRICULUM:
+    try:
+        get_phase(ctx.course.slug, phase)
+    except PhaseNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"phase {phase} not found"
-        )
+        ) from e
     unlocked = await is_phase_unlocked(store.db, user.id, phase)
     if not unlocked:
         raise HTTPException(
@@ -34,13 +37,14 @@ async def _ensure_phase_accessible(
 async def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_user),
+    ctx: CourseContext = Depends(get_course_context),
     claude: ClaudeClient = Depends(get_claude_client),
     store: SqlChatStore = Depends(get_chat_store),
     embedder: EmbeddingClient = Depends(get_embedding_client),
 ) -> ChatResponse:
-    await _ensure_phase_accessible(current_user, request.phase, store)
+    await _ensure_phase_accessible(current_user, ctx, request.phase, store)
 
-    history = await store.get_history(current_user.id, request.phase)
+    history = await store.get_history(current_user.id, ctx.course.id, request.phase)
     next_history = history + [{"role": "user", "content": request.message}]
 
     # RAG: retrieve top-K relevant context
@@ -52,7 +56,8 @@ async def chat(
         query=request.message,
         top_k=4,
     )
-    system_prompt = CURRICULUM[request.phase]["system_prompt"]
+    phase_def = get_phase(ctx.course.slug, request.phase)
+    system_prompt = phase_def.system_prompt
     context_block = format_context(hits)
     if context_block:
         system_prompt = system_prompt + "\n\n" + context_block
@@ -64,8 +69,12 @@ async def chat(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="upstream LLM error"
         ) from e
 
-    await store.append(current_user.id, request.phase, "user", request.message)
-    await store.append(current_user.id, request.phase, "assistant", reply)
+    await store.append(
+        current_user.id, ctx.course.id, request.phase, "user", request.message
+    )
+    await store.append(
+        current_user.id, ctx.course.id, request.phase, "assistant", reply
+    )
 
     # Embed this round of conversation for future RAG hits
     now_iso = datetime.now(UTC).isoformat()
@@ -94,7 +103,9 @@ async def chat(
 
     await store.db.commit()
 
-    full_history = await store.get_history(current_user.id, request.phase)
+    full_history = await store.get_history(
+        current_user.id, ctx.course.id, request.phase
+    )
     return ChatResponse(
         reply=reply, history=[ChatMessage(**m) for m in full_history]
     )
@@ -104,8 +115,9 @@ async def chat(
 async def get_chat_history(
     phase: int = Path(ge=1, le=4),
     current_user: User = Depends(get_current_user),
+    ctx: CourseContext = Depends(get_course_context),
     store: SqlChatStore = Depends(get_chat_store),
 ) -> list[ChatMessage]:
-    await _ensure_phase_accessible(current_user, phase, store)
-    history = await store.get_history(current_user.id, phase)
+    await _ensure_phase_accessible(current_user, ctx, phase, store)
+    history = await store.get_history(current_user.id, ctx.course.id, phase)
     return [ChatMessage(**m) for m in history]
