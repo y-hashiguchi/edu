@@ -10,6 +10,8 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.course import Course
+from app.models.enrollment import Enrollment
 from app.models.grading_attempt import GradingAttempt
 from app.models.instructor_comment import InstructorComment
 from app.models.progress import Progress
@@ -24,15 +26,57 @@ async def count_users(db: AsyncSession) -> int:
     ).scalar_one()
 
 
+async def resolve_primary_courses(
+    db: AsyncSession,
+    user_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Pick each user's "primary" course for the admin dashboard.
+
+    Defined as the active enrollment with the smallest `Course.sort_order`
+    (ties broken by `Course.id` via the natural SQL order, which is stable
+    enough for an admin dashboard). Users with no active enrollment are
+    omitted from the result — the caller decides whether to show empty
+    counts / `None` weakness tag for them.
+
+    Sprint 7: introduced so admin aggregates (weakness tag, phase counts)
+    can be scoped to a single course instead of summing across every
+    course the user has ever touched.
+    """
+    if not user_ids:
+        return {}
+    rows = (await db.execute(
+        select(Enrollment.user_id, Enrollment.course_id, Course.sort_order)
+        .join(Course, Enrollment.course_id == Course.id)
+        .where(
+            Enrollment.user_id.in_(user_ids),
+            Enrollment.status == "active",
+        )
+        .order_by(Enrollment.user_id, Course.sort_order, Course.id)
+    )).all()
+    primary: dict[uuid.UUID, uuid.UUID] = {}
+    for uid, cid, _so in rows:
+        primary.setdefault(uid, cid)
+    return primary
+
+
 async def list_users_with_progress(
     db: AsyncSession, *, limit: int, offset: int
-) -> list[tuple[User, list[Progress]]]:
-    """Newest-first user page joined with their progress rows.
+) -> list[tuple[User, list[Progress], uuid.UUID | None]]:
+    """Newest-first user page joined with their primary-course progress.
 
     Loads progress in a single follow-up query (N=1 per page, not N=1
     per user) so the dashboard scales linearly with page size, not with
     the user-count column. Returns rows in the page-stable order — the
     caller can build summary objects without re-sorting.
+
+    Sprint 7: progress rows are filtered to each user's primary active
+    course (see `resolve_primary_courses`) so `completed_phases` /
+    `in_progress_phases` reflect a single course rather than summing
+    across every course the learner has ever interacted with — keeping
+    the column consistent with the course-scoped `top_weakness_tag`.
+    Users with no active enrollment get an empty progress list and a
+    `None` primary-course id (caller passes the id straight back into
+    the weakness bulk query).
     """
     users = (
         await db.execute(
@@ -46,26 +90,44 @@ async def list_users_with_progress(
         return []
 
     user_ids = [u.id for u in users]
-    progress_rows = (
-        await db.execute(
-            select(Progress).where(Progress.user_id.in_(user_ids))
-        )
-    ).scalars().all()
+    primary = await resolve_primary_courses(db, user_ids)
 
     grouped: dict[uuid.UUID, list[Progress]] = {u.id: [] for u in users}
-    for p in progress_rows:
-        grouped[p.user_id].append(p)
-    return [(u, grouped[u.id]) for u in users]
+    course_ids = list({cid for cid in primary.values()})
+    if primary and course_ids:
+        progress_rows = (
+            await db.execute(
+                select(Progress).where(
+                    Progress.user_id.in_(list(primary.keys())),
+                    Progress.course_id.in_(course_ids),
+                )
+            )
+        ).scalars().all()
+        # Keep only rows that match each user's own primary course —
+        # without this filter a user with primary=A would also collect
+        # another user's primary=B progress.
+        for p in progress_rows:
+            if primary.get(p.user_id) == p.course_id:
+                grouped[p.user_id].append(p)
+
+    return [(u, grouped[u.id], primary.get(u.id)) for u in users]
 
 
 async def get_user_detail(
     db: AsyncSession, user_id: uuid.UUID
-) -> tuple[User, list[Progress], dict[int, int | None]] | None:
+) -> tuple[
+    User, list[Progress], dict[int, int | None], list[tuple[Enrollment, Course]]
+] | None:
     """Drill-down for one learner. Returns None if the user doesn't
     exist (caller maps to 404). `latest_scores` is keyed by phase number
     and represents the cached `submissions.score` — i.e. the latest
     graded score per (user, phase). Phases with no graded submission
-    map to None so the frontend can render an empty cell."""
+    map to None so the frontend can render an empty cell.
+
+    Sprint 7: also returns every enrollment (any status) paired with its
+    Course row so the router can build `AdminUserDetail.enrollments`
+    without a second round-trip. Ordered by `Course.sort_order` so the
+    admin UI's course selector is stable."""
 
     user = (
         await db.execute(select(User).where(User.id == user_id))
@@ -95,7 +157,19 @@ async def get_user_detail(
         if current is None or s.score > current:
             latest_scores[s.phase] = s.score
 
-    return user, list(progress), latest_scores
+    enrollment_rows = (
+        await db.execute(
+            select(Enrollment, Course)
+            .join(Course, Enrollment.course_id == Course.id)
+            .where(Enrollment.user_id == user_id)
+            .order_by(Course.sort_order, Course.id)
+        )
+    ).all()
+    enrollments: list[tuple[Enrollment, Course]] = [
+        (e, c) for e, c in enrollment_rows
+    ]
+
+    return user, list(progress), latest_scores, enrollments
 
 
 async def count_submissions(

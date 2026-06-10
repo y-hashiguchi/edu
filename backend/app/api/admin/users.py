@@ -14,6 +14,7 @@ from app.schemas.admin import (
     AdminUserListOut,
     AdminUserSummary,
 )
+from app.schemas.course import EnrollmentOut
 from app.schemas.progress import ProgressOut
 from app.services import admin_query
 
@@ -33,9 +34,15 @@ async def list_users(
     total = await admin_query.count_users(db)
 
     # Sprint 6: bulk 集計で N+1 回避
+    # Sprint 7: weakness は (user_id, course_id) のペアで集計。primary course
+    # が無い (active enrollment ゼロの) ユーザーは tag = None として残す。
     from app.services.weakness import compute_top_weakness_tags_bulk
-    user_ids = [u.id for u, _ in rows]
-    top_tags = await compute_top_weakness_tags_bulk(db, user_ids)
+    user_course_pairs = [
+        (u.id, primary_course_id)
+        for u, _progs, primary_course_id in rows
+        if primary_course_id is not None
+    ]
+    top_tags = await compute_top_weakness_tags_bulk(db, user_course_pairs)
 
     items = [
         AdminUserSummary(
@@ -52,7 +59,7 @@ async def list_users(
             ),
             top_weakness_tag=top_tags.get(u.id),
         )
-        for u, progs in rows
+        for u, progs, _primary_course_id in rows
     ]
     return AdminUserListOut(items=items, total=total, limit=limit, offset=offset)
 
@@ -68,7 +75,16 @@ async def get_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
         )
-    user, progress, latest_scores = found
+    user, progress, latest_scores, enrollment_rows = found
+    enrollments = [
+        EnrollmentOut(
+            course_slug=c.slug,
+            course_title=c.title,
+            status=e.status,
+            enrolled_at=e.enrolled_at,
+        )
+        for e, c in enrollment_rows
+    ]
     return AdminUserDetail(
         id=user.id,
         email=user.email,
@@ -77,4 +93,5 @@ async def get_user(
         is_admin=user.is_admin,
         progress=[ProgressOut.model_validate(p) for p in progress],
         latest_scores=latest_scores,
+        enrollments=enrollments,
     )
