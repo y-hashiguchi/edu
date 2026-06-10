@@ -243,6 +243,42 @@ edu/
 - `admin_user` (is_admin=True), `admin_token`, `admin_client`
 - 上記すべてに **Sprint 7 で `course_id` バックフィルが必要**
 
+### Cursor プロトタイプから引き継いだ既知の落とし穴（必読）
+
+ハンドオフメモ `docs/superpowers/plans/2026-06-09-sprint-7-multi-course-handoff.md` で得られた経験則。Task 6 / Task 16 / それ以降の実装で参照すること:
+
+**よくある失敗パターン:**
+
+| 症状 | 対処 |
+|---|---|
+| `null value in column "course_id"` | テスト内の `Submission` / `ChatHistory` / `Progress` / `UserNudge` / `Embedding` 直接生成箇所に `course_id=default_course_id` を必ず追加 |
+| `CourseNotFoundError` | conftest の courses seed が commit される前に API 呼び出し。`db_session` fixture 内 truncate 直後に courses を再 seed する順序を厳守 |
+| `IntegrityError` on enrollments (user_id, course_id) | conftest の `auth_user` / `admin_user` が enroll 後に再 enroll されるパス。`enroll_user` 呼び出しを 1 回だけにする |
+| pytest が 15 分以上ハング | **pytest を同時に複数起動しない**（`TRUNCATE` / `DROP TABLE` がデッドロック）。`pytest -q` の単一プロセスのみ |
+| 無効 phase で 422 ではなく 404 | コース定義にない phase は `PhaseNotFoundError` → HTTP 404。Pydantic で弾かない（コースごとに上限が異なる） |
+| activeSlug が null のまま fetch で 401/403 | フロント `router.beforeEach` で `course.hydrateActiveFromStorage()` → `fetchMyCourses()` 待機 → 判定の順を厳守 |
+
+**特定の修正済み test:**
+
+- `tests/test_comment_thread_service.py` (Sprint 6 で追加) の `sub_b` 直接生成箇所に `course_id=default_course_id` を付与必要 — Task 16 で明示的に修正対象
+- その他 `tests/test_*` 配下で `Submission(`, `Progress(`, `ChatHistory(`, `UserNudge(`, `Embedding(` を直接生成しているテストは grep で洗い出して同じ修正を適用
+
+**検証コマンドの厳守事項:**
+
+```bash
+# 並行実行を避ける。並行で起動するとデッドロックする。
+docker compose up -d postgres
+cd backend && uv run pytest -q
+```
+
+**ハンドオフメモ自体の扱い:**
+
+- 起点: Cursor IDE で別セッションが実施した未コミットの設計実装メモ
+- 本 Sprint 中は参考のみ、現 main HEAD = `94837f3` を **唯一の真実**
+- Task 22 で `docs/superpowers/plans/2026-06-09-sprint-7-multi-course-handoff.md` を `git rm` 削除
+
+---
+
 ### CRITICAL ANTI-HALLUCINATION GUARDS（subagent 全 Task 共通）
 
 Sprint 6 Task 4 で subagent が `courses` テーブル / `Submission.course_id` 等を仕様外で書き換える事故が発生。各 Task の subagent プロンプトに以下を **必ず** 明記すること:
@@ -2020,6 +2056,8 @@ Expected: `3 passed`。
 
 - [ ] **Step 5: マイグレーションを開発 DB に適用**
 
+**重要:** pytest を別ターミナルで同時に走らせない（`TRUNCATE` / `DROP TABLE` がデッドロックする — ハンドオフメモで確認済みの落とし穴）。
+
 ```bash
 cd /Volumes/Seagate3TB/projects/edu/backend && set -a && . ../.env && set +a && \
   DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_tutor \
@@ -3770,14 +3808,18 @@ async def auth_user(db_session, default_course_id):
 
 - [ ] **Step 4: 既存テストの一部が壊れる箇所を直接修正**
 
-`backend/tests/` 配下で `Submission(...)`, `ChatHistory(...)`, `Progress(...)`, `UserNudge(...)`, `Embedding(...)` を直接生成しているテストファイルを grep:
+ハンドオフメモが特定した既知の修正対象:
+
+- `tests/test_comment_thread_service.py` の `sub_b` 直接生成箇所に `course_id=default_course_id` を **必ず**付与（プロトタイプで遭遇済みのパターン）
+
+その他ファイルは grep で網羅的に洗い出す:
 
 ```bash
 cd /Volumes/Seagate3TB/projects/edu/backend
 grep -rln "Submission(\|ChatHistory(\|Progress(\|UserNudge(\|Embedding(" tests/
 ```
 
-各ファイルでコンストラクタ呼び出しに `course_id=default_course_id` を追加（fixture 引数も追加）。多数あるので 1 ファイルずつ修正。
+各ファイルでコンストラクタ呼び出しに `course_id=default_course_id` を追加（fixture 引数も追加）。多数あるので 1 ファイルずつ修正。同時に `chat_store.get_history(user_id, phase)` / `chat_store.append(user_id, phase, ...)` 呼び出しは `chat_store.get_history(user_id, course_id, phase)` / `chat_store.append(user_id, course_id, phase, ...)` に書き換える。
 
 具体例 (`tests/test_admin_users_api.py` を仮定):
 
