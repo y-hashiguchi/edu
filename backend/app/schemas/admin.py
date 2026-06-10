@@ -5,13 +5,20 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.course import EnrollmentOut
 from app.schemas.grading import GradingAttemptOut
 from app.schemas.progress import ProgressOut
 from app.schemas.submission import SubmissionFileOut
 
 
 class AdminUserSummary(BaseModel):
-    """One row in the dashboard list."""
+    """One row in the admin users index.
+
+    Sprint 7: top_weakness_tag is computed from submissions in the
+    user's primary active enrollment (the course with the lowest
+    sort_order among status='active' rows). Older code wrote this
+    field assuming a single course.
+    """
 
     id: uuid.UUID
     email: str
@@ -33,7 +40,11 @@ class AdminUserListOut(BaseModel):
 class AdminUserDetail(BaseModel):
     """Single-learner drill-down. Keys of `latest_scores` are phase
     numbers serialised as strings (JSON object keys cannot be ints) —
-    consumers should `int(k)` if they need numeric keys."""
+    consumers should `int(k)` if they need numeric keys.
+
+    Sprint 7: includes enrollments so the admin UI can render a course
+    selector for the dashboard section.
+    """
 
     id: uuid.UUID
     email: str
@@ -42,6 +53,7 @@ class AdminUserDetail(BaseModel):
     is_admin: bool
     progress: list[ProgressOut]
     latest_scores: dict[int, int | None]
+    enrollments: list[EnrollmentOut] = []
 
 
 class AdminCommentOut(BaseModel):

@@ -10,6 +10,10 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     name: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=8, max_length=128)
+    # Sprint 7: course selection is mandatory at registration. The
+    # actual slug-existence check happens in the auth route — a
+    # Pydantic-level enum would create a circular import.
+    course_slug: str = Field(min_length=1, max_length=64)
 
 
 class LoginRequest(BaseModel):

@@ -7,7 +7,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    phase: int = Field(ge=1, le=4)
+    phase: int = Field(ge=1)
     message: str = Field(min_length=1, max_length=4000)
 
 
