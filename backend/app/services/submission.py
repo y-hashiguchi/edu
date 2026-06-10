@@ -1,4 +1,5 @@
-"""Submission domain service (Sprint 3: files + grading_attempts + regrade)."""
+"""Submission domain service (Sprint 3: files + grading_attempts + regrade;
+Sprint 7: course-aware write paths)."""
 
 import uuid
 from datetime import UTC, datetime
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.claude_client import ClaudeClient
-from app.data.curriculum import CURRICULUM
+from app.data.courses import get_course
 from app.models.grading_attempt import GradingAttempt, GradingStatus
 from app.models.submission import Submission
 from app.schemas.grading import GradingResult, GradingResultStatus
@@ -25,6 +26,22 @@ class SubmissionTaskInvalidError(Exception):
     pass
 
 
+# Sprint 7 aliases preferred by new course-aware callers. The historical
+# *Invalid* names remain for backwards compatibility with existing route
+# imports (Task 12 will migrate them).
+class PhaseNotFoundError(SubmissionPhaseInvalidError):
+    def __init__(self, phase: int) -> None:
+        super().__init__(phase)
+        self.phase = phase
+
+
+class TaskNotFoundError(SubmissionTaskInvalidError):
+    def __init__(self, phase: int, task_no: int) -> None:
+        super().__init__(f"task_no {task_no} not found in phase {phase}")
+        self.phase = phase
+        self.task_no = task_no
+
+
 class SubmissionNotFoundError(Exception):
     pass
 
@@ -35,15 +52,22 @@ class RegradeCooldownError(Exception):
         self.retry_after_seconds = retry_after_seconds
 
 
-def _validate_phase_and_task(phase: int, task_no: int) -> str:
-    if phase not in CURRICULUM:
-        raise SubmissionPhaseInvalidError(phase)
-    tasks = CURRICULUM[phase]["tasks"]
-    if task_no < 1 or task_no > len(tasks):
-        raise SubmissionTaskInvalidError(task_no)
-    # Sprint 5: tasks are TaskItem dicts; return the human title that the
-    # grading prompt expects as `task_description`.
-    return tasks[task_no - 1]["title"]
+def _validate_phase_and_task(course_slug: str, phase: int, task_no: int) -> str:
+    """Course-aware phase/task validation.
+
+    Returns the human task title for prompt construction. Raises
+    ``PhaseNotFoundError`` / ``TaskNotFoundError`` (subclasses of the
+    legacy *Invalid* names) so existing callers keep working until Task 12
+    migrates them."""
+    try:
+        phase_def = next(
+            p for p in get_course(course_slug).phases if p.phase == phase
+        )
+    except StopIteration:
+        raise PhaseNotFoundError(phase) from None
+    if task_no < 1 or task_no > len(phase_def.tasks):
+        raise TaskNotFoundError(phase, task_no)
+    return phase_def.tasks[task_no - 1].title
 
 
 def _record_attempt(
@@ -85,17 +109,20 @@ async def upsert_and_grade(
     db: AsyncSession,
     claude: ClaudeClient,
     user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    course_slug: str,
     phase: int,
     task_no: int,
     content: str,
     uploads: list[tuple[str, bytes]],
 ) -> Submission:
-    task_description = _validate_phase_and_task(phase, task_no)
+    task_description = _validate_phase_and_task(course_slug, phase, task_no)
 
     existing = (
         await db.execute(
             select(Submission).where(
                 Submission.user_id == user_id,
+                Submission.course_id == course_id,
                 Submission.phase == phase,
                 Submission.task_no == task_no,
             )
@@ -106,6 +133,7 @@ async def upsert_and_grade(
     if existing is None:
         row = Submission(
             user_id=user_id,
+            course_id=course_id,
             phase=phase,
             task_no=task_no,
             content=content,
@@ -142,7 +170,10 @@ async def upsert_and_grade(
     _record_attempt(db, row.id, result)
     _apply_result_to_submission(row, result, now=now)
 
-    tasks_total = len(CURRICULUM[phase]["tasks"])
+    phase_def = next(
+        p for p in get_course(course_slug).phases if p.phase == phase
+    )
+    tasks_total = len(phase_def.tasks)
     await maybe_mark_submitted(db, user_id, phase, required_task_count=tasks_total)
 
     await db.commit()
@@ -193,6 +224,7 @@ async def regrade_submission(
     db: AsyncSession,
     claude: ClaudeClient,
     user_id: uuid.UUID,
+    course_slug: str,
     submission_id: uuid.UUID,
 ) -> GradingAttempt:
     row = await _load_owned_submission(db, user_id, submission_id, lock=True)
@@ -205,7 +237,7 @@ async def regrade_submission(
         if remaining > 0:
             raise RegradeCooldownError(retry_after_seconds=remaining)
 
-    task_description = _validate_phase_and_task(row.phase, row.task_no)
+    task_description = _validate_phase_and_task(course_slug, row.phase, row.task_no)
     files = await file_storage_service.list_submission_files(
         db=db, submission_id=row.id
     )
