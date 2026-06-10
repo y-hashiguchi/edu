@@ -18,10 +18,14 @@ from app.db.base import Base
 
 class Submission(Base):
     __tablename__ = "submissions"
+    # Sprint 7: course_id added, UNIQUE expanded, task_no CHECK removed
+    # (ai-era-se has 8 tasks; per-course bounds enforced in service layer).
     __table_args__ = (
-        UniqueConstraint("user_id", "phase", "task_no", name="uq_submissions_user_phase_task"),
+        UniqueConstraint(
+            "user_id", "course_id", "phase", "task_no",
+            name="uq_submissions_user_course_phase_task",
+        ),
         CheckConstraint("phase BETWEEN 1 AND 4", name="ck_submissions_phase"),
-        CheckConstraint("task_no BETWEEN 1 AND 5", name="ck_submissions_task_no"),
         CheckConstraint(
             "score IS NULL OR score BETWEEN 0 AND 100", name="ck_submissions_score"
         ),
@@ -30,6 +34,11 @@ class Submission(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("courses.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     phase: Mapped[int] = mapped_column(Integer)
     task_no: Mapped[int] = mapped_column(Integer)

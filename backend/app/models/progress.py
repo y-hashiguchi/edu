@@ -20,12 +20,20 @@ class ProgressStatus(StrEnum):
 class Progress(Base):
     __tablename__ = "progress"
     __table_args__ = (
-        UniqueConstraint("user_id", "phase", name="uq_progress_user_phase"),
+        UniqueConstraint(
+            "user_id", "course_id", "phase",
+            name="uq_progress_user_course_phase",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("courses.id", ondelete="RESTRICT"),
+        nullable=False,
         index=True,
     )
     phase: Mapped[int] = mapped_column(Integer)

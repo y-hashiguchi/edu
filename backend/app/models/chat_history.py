@@ -12,12 +12,20 @@ from app.db.base import Base
 class ChatHistory(Base):
     __tablename__ = "chat_history"
     __table_args__ = (
-        Index("ix_chat_history_user_phase_created", "user_id", "phase", "created_at"),
+        Index(
+            "ix_chat_history_user_course_phase_created",
+            "user_id", "course_id", "phase", "created_at",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("courses.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     phase: Mapped[int] = mapped_column(Integer)
     role: Mapped[str] = mapped_column(String(20))
