@@ -38,6 +38,8 @@ async def compose_dashboard(
     claude,
     embedding_client,
     user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    course_slug: str,
 ) -> DashboardData:
     # progress_summary and weakness share an underlying query
     # (_latest_graded_scores) but we don't pre-cache it here — the cost
@@ -45,16 +47,18 @@ async def compose_dashboard(
     # cache through 4 service interfaces. Revisit if dashboard p99
     # latency becomes a complaint.
     try:
-        progress = await compute_progress_summary(db, user_id)
+        progress = await compute_progress_summary(
+            db, user_id, course_id, course_slug,
+        )
     except Exception:
         logger.exception("progress_summary failed")
         progress = ProgressSummary(
-            completed_tasks=0, total_tasks=12,
+            completed_tasks=0, total_tasks=0,
             submission_count=0, average_score=None,
         )
 
     try:
-        weakness = await compute_weakness(db, user_id)
+        weakness = await compute_weakness(db, user_id, course_id)
     except Exception:
         logger.exception("weakness failed")
         weakness = WeaknessResult(has_enough_data=False, top_weaknesses=[])
@@ -63,7 +67,10 @@ async def compose_dashboard(
     try:
         recs = await compute_recommendations(
             db, embedding_client,
-            user_id=user_id, top_weakness_tags=top_tags,
+            user_id=user_id,
+            course_id=course_id,
+            course_slug=course_slug,
+            top_weakness_tags=top_tags,
         )
     except Exception:
         logger.exception("recommendations failed")
@@ -82,6 +89,7 @@ async def compose_dashboard(
     try:
         nudge = await get_or_generate(
             db, claude=claude, user_id=user_id,
+            course_id=course_id,
             weakness_tags=top_tags,
             top_recommendation_key=top_rec_key,
             submission_count=progress.submission_count,
@@ -118,6 +126,8 @@ async def compose_dashboard_for_admin(
     *,
     embedding_client,
     user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    course_slug: str,
 ) -> AdminDashboardData:
     """Admin-facing dashboard composer (Sprint 6).
 
@@ -127,16 +137,18 @@ async def compose_dashboard_for_admin(
     degrades to its empty form on failure so a single sub-service
     exception does not 500 the entire admin dashboard."""
     try:
-        progress = await compute_progress_summary(db, user_id)
+        progress = await compute_progress_summary(
+            db, user_id, course_id, course_slug,
+        )
     except Exception:
         logger.exception("progress_summary failed (admin)")
         progress = ProgressSummary(
-            completed_tasks=0, total_tasks=12,
+            completed_tasks=0, total_tasks=0,
             submission_count=0, average_score=None,
         )
 
     try:
-        weakness = await compute_weakness(db, user_id)
+        weakness = await compute_weakness(db, user_id, course_id)
     except Exception:
         logger.exception("weakness failed (admin)")
         weakness = WeaknessResult(has_enough_data=False, top_weaknesses=[])
@@ -145,7 +157,10 @@ async def compose_dashboard_for_admin(
     try:
         recs = await compute_recommendations(
             db, embedding_client,
-            user_id=user_id, top_weakness_tags=top_tags,
+            user_id=user_id,
+            course_id=course_id,
+            course_slug=course_slug,
+            top_weakness_tags=top_tags,
         )
     except Exception:
         logger.exception("recommendations failed (admin)")

@@ -12,9 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.embedding_client import EmbeddingClient
-from app.data.curriculum import (
-    get_task_skill_tags, get_task_title, iter_all_phase_task_pairs,
-)
+from app.data.courses import get_course
 from app.models.submission import Submission
 from app.services.rag import CurriculumTaskHit, search_curriculum_tasks
 
@@ -34,19 +32,32 @@ async def compute_recommendations(
     client: EmbeddingClient,
     *,
     user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    course_slug: str,
     top_weakness_tags: list[str],
 ) -> list[Recommendation]:
     if not top_weakness_tags:
         return []
 
-    submitted = await _user_submitted_phase_task_pairs(db, user_id)
+    submitted = await _user_submitted_phase_task_pairs(db, user_id, course_id)
+    course = get_course(course_slug)
+    course_task_lookup: dict[tuple[int, int], tuple[str, list[str]]] = {
+        (p.phase, t.task_no): (t.title, list(t.skill_tags))
+        for p in course.phases
+        for t in p.tasks
+    }
     unsubmitted_keys: set[tuple[int, int]] = {
-        (p, t) for p, t in iter_all_phase_task_pairs() if (p, t) not in submitted
+        key for key in course_task_lookup if key not in submitted
     }
     if not unsubmitted_keys:
         return []
 
     primary = top_weakness_tags[0]
+    # NOTE: search_curriculum_tasks does not yet filter Embedding rows on
+    # course_id (rag.py is out of scope for Task 11). Cross-course
+    # contamination is contained by the course_task_lookup gate below —
+    # any (phase, task_no) that does not exist in the active course is
+    # dropped before becoming a Recommendation.
     hits: list[CurriculumTaskHit] = await search_curriculum_tasks(
         db, client, query=f"{primary} を扱うタスク", limit=8,
     )
@@ -58,11 +69,10 @@ async def compute_recommendations(
         if key not in unsubmitted_keys or key in seen:
             continue
         seen.add(key)
-        try:
-            tags = get_task_skill_tags(hit.phase, hit.task_no)
-            title = get_task_title(hit.phase, hit.task_no)
-        except KeyError:
-            continue  # legacy embeddings beyond current curriculum
+        lookup = course_task_lookup.get(key)
+        if lookup is None:
+            continue  # legacy embeddings beyond current course
+        title, tags = lookup
         out.append(Recommendation(
             phase=hit.phase, task_no=hit.task_no, title=title,
             skill_tags=tags,
@@ -75,10 +85,13 @@ async def compute_recommendations(
 
 
 async def _user_submitted_phase_task_pairs(
-    db: AsyncSession, user_id: uuid.UUID,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
 ) -> set[tuple[int, int]]:
     stmt = select(Submission.phase, Submission.task_no).where(
         Submission.user_id == user_id,
+        Submission.course_id == course_id,
     )
     rows = (await db.execute(stmt)).all()
     return {(r[0], r[1]) for r in rows}

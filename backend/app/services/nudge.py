@@ -57,6 +57,7 @@ class NudgeResult:
 
 
 def _build_signature(
+    course_id: uuid.UUID,
     weakness_tags: list[str],
     top_recommendation_key: str | None,
     submission_count: int,
@@ -64,6 +65,12 @@ def _build_signature(
     """16 char SHA-256 prefix. Identical inputs → identical signature.
     A change in top-3 weakness order, in the primary recommendation, or
     in the total submission count breaks the cache deliberately.
+
+    Sprint 7: course_id is folded into the payload so a learner who
+    switches courses (and whose UserNudge PK now includes course_id)
+    sees a clean cache miss instead of a stale signature collision
+    if two courses ever happen to produce the same weakness/rec/count
+    triple within the TTL window.
 
     LOW-4 (sprint-5 follow-up): `weakness_tags[:3]` is a defensive
     duplicate cap. `compute_weakness` already returns at most 3 tags
@@ -74,8 +81,8 @@ def _build_signature(
     in weakness service would otherwise silently break cache stability
     here."""
     payload = (
-        f"{','.join(weakness_tags[:3])}|{top_recommendation_key or ''}"
-        f"|{submission_count}"
+        f"{course_id}|{','.join(weakness_tags[:3])}|"
+        f"{top_recommendation_key or ''}|{submission_count}"
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
@@ -116,6 +123,7 @@ async def get_or_generate(
     *,
     claude,
     user_id: uuid.UUID,
+    course_id: uuid.UUID,
     weakness_tags: list[str],
     top_recommendation_key: str | None,
     submission_count: int,
@@ -142,7 +150,7 @@ async def get_or_generate(
         )
 
     signature = _build_signature(
-        weakness_tags, top_recommendation_key, submission_count,
+        course_id, weakness_tags, top_recommendation_key, submission_count,
     )
 
     # HIGH-2 (sprint-5 security review): skip_locked=True turns a
@@ -154,7 +162,10 @@ async def get_or_generate(
     existing = (
         await db.execute(
             select(UserNudge)
-            .where(UserNudge.user_id == user_id)
+            .where(
+                UserNudge.user_id == user_id,
+                UserNudge.course_id == course_id,
+            )
             .with_for_update(skip_locked=True)
         )
     ).scalar_one_or_none()
@@ -206,11 +217,11 @@ async def get_or_generate(
 
     now = datetime.now(UTC)
     stmt = pg_insert(UserNudge.__table__).values(
-        user_id=user_id, body=body, generated_at=now,
+        user_id=user_id, course_id=course_id, body=body, generated_at=now,
         input_signature=signature,
     )
     stmt = stmt.on_conflict_do_update(
-        index_elements=["user_id"],
+        index_elements=["user_id", "course_id"],
         set_={"body": body, "generated_at": now, "input_signature": signature},
     )
     await db.execute(stmt)

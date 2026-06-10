@@ -13,7 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from statistics import mean
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.curriculum import get_task_skill_tags
@@ -41,9 +41,11 @@ class WeaknessResult:
 
 
 async def compute_weakness(
-    db: AsyncSession, user_id: uuid.UUID,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
 ) -> WeaknessResult:
-    rows = await _latest_graded_scores(db, user_id)
+    rows = await _latest_graded_scores(db, user_id, course_id)
     if len(rows) < MIN_SUBMISSION_THRESHOLD:
         return WeaknessResult(has_enough_data=False, top_weaknesses=[])
 
@@ -75,7 +77,9 @@ async def compute_weakness(
 
 
 async def _latest_graded_scores(
-    db: AsyncSession, user_id: uuid.UUID,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
 ) -> list[tuple[uuid.UUID, float, int, int]]:
     """`SELECT DISTINCT ON (s.id)` で submission ごとに最新 graded attempt
     のスコアを返す。phase / task_no は Python 側で curriculum lookup する
@@ -90,6 +94,7 @@ async def _latest_graded_scores(
         .join(GradingAttempt, GradingAttempt.submission_id == Submission.id)
         .where(
             Submission.user_id == user_id,
+            Submission.course_id == course_id,
             GradingAttempt.status == "graded",
         )
         .order_by(Submission.id, GradingAttempt.created_at.desc())
@@ -100,19 +105,27 @@ async def _latest_graded_scores(
 
 
 async def compute_top_weakness_tags_bulk(
-    db: AsyncSession, user_ids: list[uuid.UUID],
+    db: AsyncSession,
+    user_course_pairs: list[tuple[uuid.UUID, uuid.UUID]],
 ) -> dict[uuid.UUID, str | None]:
-    """1 クエリで全 user の latest graded scores を取得し、user 別に
-    タグ平均を計算して上位 1 つを返す。admin users 一覧の column 用。
+    """1 クエリで全 (user, course) の latest graded scores を取得し、
+    user 別にタグ平均を計算して上位 1 つを返す。admin users 一覧の
+    column 用。Sprint 7 で course-scoped に拡張。
 
     Sprint 5 の compute_weakness とは違い、MIN_SUBMISSION_THRESHOLD は
     適用しない: 一覧 column では「データがあるなら出す」方が UX の見える
     機会が増える。MIN_TAG_SUBMISSIONS を満たすタグがあればその中で最低平均
     のタグを返し、無ければ単発タグも含めて最低平均タグを返す（タグ名で
-    タイブレーク）。提出 0 件のユーザーのみ None を返す。"""
-    if not user_ids:
+    タイブレーク）。提出 0 件のユーザーのみ None を返す。
+
+    Sprint 7: input は (user_id, course_id) のタプル列。同じ user が
+    複数 course を持つケースは admin 一覧では想定しない（admin 側で
+    course を 1 つに固定して呼ぶ）。戻り値は user_id でキー付けし、
+    重複 user_id を渡すと最後の (uid, cid) ペアで上書きされる。"""
+    if not user_course_pairs:
         return {}
 
+    user_ids = [u for u, _ in user_course_pairs]
     stmt = (
         select(
             Submission.user_id,
@@ -123,7 +136,9 @@ async def compute_top_weakness_tags_bulk(
         )
         .join(GradingAttempt, GradingAttempt.submission_id == Submission.id)
         .where(
-            Submission.user_id.in_(user_ids),
+            tuple_(Submission.user_id, Submission.course_id).in_(
+                user_course_pairs
+            ),
             GradingAttempt.status == "graded",
         )
         .order_by(
