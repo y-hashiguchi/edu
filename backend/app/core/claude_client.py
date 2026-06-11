@@ -86,14 +86,23 @@ class ClaudeClient:
         return response.content[0].text
 
 
+def _build_sdk() -> _SDKLike:
+    """Return either the real Anthropic SDK or the stub (E2E only).
+
+    Stub mode is gated by ``settings.claude_stub_mode`` and intended for
+    Playwright E2E so the dashboard journey is deterministic and free."""
+    if settings.claude_stub_mode:
+        from app.core.claude_stub import StubAsyncAnthropic
+        return StubAsyncAnthropic()
+    return AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+
 def get_claude_client() -> ClaudeClient:
     """FastAPI Dependsから利用するファクトリ。"""
-    sdk = AsyncAnthropic(api_key=settings.anthropic_api_key)
-    return ClaudeClient(sdk=sdk, model=settings.anthropic_model)
+    return ClaudeClient(sdk=_build_sdk(), model=settings.anthropic_model)
 
 
 def get_nudge_claude_client() -> ClaudeClient:
     """Sprint 5: separate ClaudeClient using settings.nudge_model
     (Haiku) so the grading client (Sonnet) stays untouched."""
-    sdk = AsyncAnthropic(api_key=settings.anthropic_api_key)
-    return ClaudeClient(sdk=sdk, model=settings.nudge_model)
+    return ClaudeClient(sdk=_build_sdk(), model=settings.nudge_model)

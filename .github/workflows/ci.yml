@@ -85,6 +85,10 @@ jobs:
       GRADING_ASYNC_ENABLED: "false"
       RATE_LIMIT_ENABLED: "false"
       BCRYPT_ROUNDS: "4"
+      # Stub Claude so the dashboard golden path is reproducible without
+      # spending API tokens. Maps stub:weak / stub:ok / stub:great inside
+      # the submission body to deterministic grading scores.
+      CLAUDE_STUB_MODE: "true"
       CORS_ALLOW_ORIGINS: http://localhost:4173
       VITE_API_BASE_URL: http://localhost:8000
       PLAYWRIGHT_BASE_URL: http://localhost:4173

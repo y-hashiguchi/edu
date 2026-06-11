@@ -37,6 +37,10 @@ test-frontend:
 
 test-e2e:
 	docker compose up -d postgres backend
+	# Backend must run with CLAUDE_STUB_MODE=true so dashboard.spec.ts
+	# gets deterministic grading scores; docker-compose.yml sets this
+	# for the backend service. For host-side backend, use:
+	#   CLAUDE_STUB_MODE=true uv run uvicorn app.main:app --port 8001
 	cd frontend && npm run test:e2e
 
 lint:

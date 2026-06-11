@@ -158,7 +158,7 @@ defineExpose({ clearFilesAfterSubmit });
 </script>
 
 <template>
-  <article class="task-card">
+  <article class="task-card" :data-test="`task-card-${taskNo}`">
     <header>
       <span class="num">Task {{ taskNo }}</span>
       <span
