@@ -11,6 +11,8 @@ from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.notification import (
+    BroadcastNotificationCreate,
+    BroadcastNotificationOut,
     NotificationCreate,
     NotificationOut,
 )
@@ -68,8 +70,44 @@ async def send_notification(
         title=note.title,
         body=note.body,
         link=note.link,
+        course_id=note.course_id,
         read_at=note.read_at,
         created_at=note.created_at,
+    )
+
+
+@router.post(
+    "/broadcast",
+    response_model=BroadcastNotificationOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit(lambda: settings.admin_write_rate_limit)
+async def broadcast_notification(
+    request: Request,
+    payload: BroadcastNotificationCreate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> BroadcastNotificationOut:
+    try:
+        result = await notification_service.broadcast_to_course(
+            db=db,
+            sender_id=admin.id,
+            course_slug=payload.course_slug,
+            title=payload.title,
+            body=payload.body,
+            link=payload.link,
+        )
+    except notification_service.CourseNotFoundForBroadcastError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown course_slug: {e.slug!r}",
+        ) from e
+
+    return BroadcastNotificationOut(
+        course_slug=result.course_slug,
+        sent_count=result.sent_count,
+        skipped_inbox_full=result.skipped_inbox_full,
+        skipped_admin=result.skipped_admin,
     )
 
 
@@ -102,6 +140,7 @@ async def list_sent(
                 title=n.title,
                 body=n.body,
                 link=n.link,
+                course_id=n.course_id,
                 read_at=n.read_at,
                 created_at=n.created_at,
             )

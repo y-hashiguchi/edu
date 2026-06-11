@@ -85,6 +85,6 @@ async def test_register_seeds_progress_for_chosen_course(client, db_session):
             select(Progress).where(Progress.user_id == user_id)
         )
     ).scalars().all()
-    # ai-era-se has 1 phase (Phase 1 pilot)
-    assert {r.phase for r in rows} == {1}
+    # ai-era-se has 4 phases; phase 1 in_progress, 2-4 locked
+    assert {r.phase for r in rows} == {1, 2, 3, 4}
     assert all(r.course_id == b.id for r in rows)

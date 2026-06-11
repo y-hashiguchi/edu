@@ -8,12 +8,45 @@ import pytest
 
 from app.core.embedding_client import EmbeddingClient
 from app.services.embedding import upsert_embeddings
-from app.services.rag import search_curriculum_tasks
+from app.services.rag import parse_curriculum_task_coords, search_curriculum_tasks
 
 
 @pytest.fixture(scope="module")
 def client():
     return EmbeddingClient()
+
+
+def test_parse_curriculum_task_coords_accepts_course_scoped_ref():
+    assert parse_curriculum_task_coords("course:ai-era-se:phase:2:task:0") == (2, 1)
+    assert parse_curriculum_task_coords("phase:1:task:2") == (1, 3)
+    assert parse_curriculum_task_coords("legacy-format") is None
+
+
+@pytest.mark.asyncio
+async def test_search_parses_course_scoped_source_ref(
+    db_session, client, default_course_id,
+):
+    items = [
+        (
+            "curriculum_task",
+            "course:ai-driven-dev:phase:2:task:0",
+            2,
+            "Cursor IDEで顧客管理API",
+        ),
+    ]
+    await upsert_embeddings(
+        db_session, client, user_id=None, course_id=default_course_id, items=items
+    )
+    await db_session.commit()
+
+    hits = await search_curriculum_tasks(
+        db_session,
+        client,
+        query="Cursor IDE",
+        limit=5,
+        course_id=default_course_id,
+    )
+    assert hits[0].phase == 2 and hits[0].task_no == 1
 
 
 @pytest.mark.asyncio

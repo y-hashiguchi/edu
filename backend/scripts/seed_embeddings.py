@@ -20,35 +20,31 @@ from app.services.embedding import upsert_embeddings
 
 async def main() -> None:
     client = EmbeddingClient()
-    # Sprint 7: seed embeddings for each course separately so RAG search
-    # can scope by course_id. ai-driven-dev keeps the legacy source_ref
-    # format for backward compatibility; ai-era-se uses a course-scoped
-    # format. (Migrating ai-driven-dev to the new format is a follow-up.)
     async with SessionLocal() as db:
         total = 0
         for slug, course in COURSE_REGISTRY.items():
             items: list[tuple[str, str, int | None, str]] = []
             if slug == "ai-driven-dev":
-                # Preserve legacy source_ref format for existing rows
                 for phase_no, phase in CURRICULUM.items():
                     for i, skill in enumerate(phase["skills"]):
-                        items.append(("curriculum_skill", f"phase:{phase_no}:skill:{i}", phase_no, skill))
-                    for i, task in enumerate(phase["tasks"]):
-                        items.append(
-                            ("curriculum_task", f"phase:{phase_no}:task:{i}", phase_no, task["title"])
-                        )
-            else:
-                # Course-scoped source_ref for new courses
-                for phase in course.phases:
-                    for i, task in enumerate(phase.tasks):
                         items.append(
                             (
-                                "curriculum_task",
-                                f"course:{slug}:phase:{phase.phase}:task:{i}",
-                                phase.phase,
-                                task.title,
+                                "curriculum_skill",
+                                f"course:{slug}:phase:{phase_no}:skill:{i}",
+                                phase_no,
+                                skill,
                             )
                         )
+            for phase in course.phases:
+                for i, task in enumerate(phase.tasks):
+                    items.append(
+                        (
+                            "curriculum_task",
+                            f"course:{slug}:phase:{phase.phase}:task:{i}",
+                            phase.phase,
+                            task.title,
+                        )
+                    )
             await upsert_embeddings(
                 db, client, user_id=None, course_id=course.id, items=items
             )

@@ -1,18 +1,19 @@
 <script setup lang="ts">
 /**
- * /admin/notify — compose a new notification to a single learner.
- *
- * Recipient picker is populated from the same store call that drives
- * /admin/users so we don't issue an extra API request here. A small
- * outbox below the form shows what this admin has already sent.
+ * /admin/notify — compose notifications (1:1 or course broadcast).
  */
 import { computed, onMounted, ref } from 'vue';
 
+import { api } from '@/lib/api';
 import { useAdminStore } from '@/stores/admin';
+import type { CourseCatalogItem } from '@/types/course';
 
 const store = useAdminStore();
 
+const mode = ref<'single' | 'broadcast'>('single');
 const recipientId = ref('');
+const courseSlug = ref('ai-driven-dev');
+const courses = ref<CourseCatalogItem[]>([]);
 const title = ref('');
 const body = ref('');
 const link = ref('');
@@ -25,6 +26,11 @@ onMounted(async () => {
     await store.fetchUsers(200, 0);
   }
   await store.fetchSentNotifications();
+  const catalog = await api.listCourseCatalog();
+  courses.value = catalog.items;
+  if (catalog.items.length > 0 && !courseSlug.value) {
+    courseSlug.value = catalog.items[0].slug;
+  }
 });
 
 const candidates = computed(() =>
@@ -34,23 +40,41 @@ const candidates = computed(() =>
 async function submit() {
   errorMessage.value = null;
   successMessage.value = null;
-  if (!recipientId.value) {
-    errorMessage.value = '受講者を選択してください';
-    return;
-  }
   if (!title.value.trim() || !body.value.trim()) {
     errorMessage.value = 'タイトルと本文を入力してください';
     return;
   }
   submitting.value = true;
   try {
-    await store.sendNotification({
-      recipient_user_id: recipientId.value,
-      title: title.value.trim(),
-      body: body.value.trim(),
-      link: link.value.trim() ? link.value.trim() : null,
-    });
-    successMessage.value = '通知を送信しました';
+    if (mode.value === 'single') {
+      if (!recipientId.value) {
+        errorMessage.value = '受講者を選択してください';
+        return;
+      }
+      await store.sendNotification({
+        recipient_user_id: recipientId.value,
+        title: title.value.trim(),
+        body: body.value.trim(),
+        link: link.value.trim() ? link.value.trim() : null,
+      });
+      successMessage.value = '通知を送信しました';
+    } else {
+      if (!courseSlug.value) {
+        errorMessage.value = 'コースを選択してください';
+        return;
+      }
+      const res = await store.broadcastNotification({
+        course_slug: courseSlug.value,
+        title: title.value.trim(),
+        body: body.value.trim(),
+        link: link.value.trim() ? link.value.trim() : null,
+      });
+      successMessage.value =
+        `一斉送信完了: ${res.sent_count} 件` +
+        (res.skipped_inbox_full > 0
+          ? `（受信上限でスキップ ${res.skipped_inbox_full} 件）`
+          : '');
+    }
     title.value = '';
     body.value = '';
     link.value = '';
@@ -67,13 +91,43 @@ async function submit() {
   <section class="panel">
     <h1>通知作成</h1>
 
+    <div class="mode-tabs">
+      <button
+        type="button"
+        :class="{ active: mode === 'single' }"
+        @click="mode = 'single'"
+      >
+        個別送信
+      </button>
+      <button
+        type="button"
+        :class="{ active: mode === 'broadcast' }"
+        @click="mode = 'broadcast'"
+      >
+        コース一斉送信
+      </button>
+    </div>
+
     <form @submit.prevent="submit">
-      <label class="field">
+      <label v-if="mode === 'single'" class="field">
         <span>宛先</span>
         <select v-model="recipientId" :disabled="submitting">
           <option value="" disabled>受講者を選択…</option>
           <option v-for="u in candidates" :key="u.id" :value="u.id">
             {{ u.name }} ({{ u.email }})
+          </option>
+        </select>
+      </label>
+
+      <label v-else class="field">
+        <span>対象コース</span>
+        <select v-model="courseSlug" :disabled="submitting">
+          <option
+            v-for="c in courses"
+            :key="c.slug"
+            :value="c.slug"
+          >
+            {{ c.title }}
           </option>
         </select>
       </label>
@@ -107,7 +161,7 @@ async function submit() {
           type="text"
           maxlength="500"
           :disabled="submitting"
-          placeholder="/phases/2"
+          placeholder="/courses/ai-driven-dev"
         />
       </label>
 
@@ -115,7 +169,7 @@ async function submit() {
         <p v-if="successMessage" class="ok">{{ successMessage }}</p>
         <p v-if="errorMessage" class="err">{{ errorMessage }}</p>
         <button type="submit" :disabled="submitting">
-          {{ submitting ? '送信中…' : '送信する' }}
+          {{ submitting ? '送信中…' : mode === 'single' ? '送信する' : '一斉送信する' }}
         </button>
       </div>
     </form>
@@ -144,6 +198,25 @@ async function submit() {
   max-width: 640px;
 }
 h1 { margin: 0 0 1rem; font-size: 1.15rem; }
+.mode-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.mode-tabs button {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
+}
+.mode-tabs button.active {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #4338ca;
+  font-weight: 600;
+}
 form {
   display: flex;
   flex-direction: column;

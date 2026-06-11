@@ -25,6 +25,7 @@ function buildRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
+      { path: '/', redirect: '/courses/ai-driven-dev' },
       {
         path: '/courses/:courseSlug',
         name: 'course-home',
@@ -63,6 +64,7 @@ describe('HomeView (ダッシュボード化)', () => {
   it('fetches and renders dashboard on mount', async () => {
     mocked.getMyDashboard.mockResolvedValue(FAKE_DASH);
     const router = buildRouter();
+    await router.push('/courses/ai-driven-dev');
     const w = mount(HomeView, {
       props: { courseSlug: 'ai-driven-dev' },
       global: { plugins: [router] },
@@ -75,6 +77,7 @@ describe('HomeView (ダッシュボード化)', () => {
   it('keeps the phase list section below the dashboard', async () => {
     mocked.getMyDashboard.mockResolvedValue(FAKE_DASH);
     const router = buildRouter();
+    await router.push('/courses/ai-driven-dev');
     const w = mount(HomeView, {
       props: { courseSlug: 'ai-driven-dev' },
       global: { plugins: [router] },

@@ -14,6 +14,7 @@ export interface NotificationOut {
   title: string;
   body: string;
   link: string | null;
+  course_id?: string | null;
   /** ISO-8601; null until the learner marks it read. */
   read_at: string | null;
   created_at: string;
@@ -38,4 +39,18 @@ export interface NotificationCreatePayload {
 
 export interface AdminNotificationListOut {
   items: NotificationOut[];
+}
+
+export interface BroadcastNotificationCreatePayload {
+  course_slug: string;
+  title: string;
+  body: string;
+  link: string | null;
+}
+
+export interface BroadcastNotificationOut {
+  course_slug: string;
+  sent_count: number;
+  skipped_inbox_full: number;
+  skipped_admin: number;
 }

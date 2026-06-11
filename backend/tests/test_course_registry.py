@@ -69,11 +69,10 @@ def test_ai_era_se_course_present():
     assert c.slug == "ai-era-se"
     assert c.id == uuid.UUID("00000000-0000-4000-8000-000000000002")
     assert c.sort_order == 1
-    # Pilot: Phase 1 only, 8 tasks
-    assert len(c.phases) == 1
-    p = c.phases[0]
-    assert p.phase == 1
-    assert len(p.tasks) == 8
+    # Full syllabus: 4 phases (LOW-1 follow-up)
+    assert len(c.phases) == 4
+    assert [p.phase for p in c.phases] == [1, 2, 3, 4]
+    assert len(c.phases[0].tasks) == 8
 
 
 def test_ai_era_se_phase1_system_prompt_contains_ai_usage_rules():

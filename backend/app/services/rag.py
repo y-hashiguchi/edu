@@ -86,6 +86,34 @@ def format_context(hits: list[RagHit]) -> str:
     return "\n".join(lines)
 
 
+def parse_curriculum_task_coords(source_ref: str) -> tuple[int, int] | None:
+    """Parse (phase, 1-indexed task_no) from a curriculum_task source_ref.
+
+    Supported shapes:
+      - legacy: ``phase:{p}:task:{i}`` (i is 0-indexed)
+      - Sprint 7+: ``course:{slug}:phase:{p}:task:{i}`` (i is 0-indexed)
+
+    Returns None for malformed or non-task refs. Callers treat None as
+    "drop this row" so recommendation/dashboard flows never 500 on bad data.
+    """
+    if not isinstance(source_ref, str):
+        return None
+    parts = source_ref.split(":")
+    try:
+        if len(parts) == 4 and parts[0] == "phase" and parts[2] == "task":
+            return int(parts[1]), int(parts[3]) + 1
+        if (
+            len(parts) == 6
+            and parts[0] == "course"
+            and parts[2] == "phase"
+            and parts[4] == "task"
+        ):
+            return int(parts[3]), int(parts[5]) + 1
+    except ValueError:
+        return None
+    return None
+
+
 @dataclass(frozen=True)
 class CurriculumTaskHit:
     """Phase/task coordinates parsed out of `Embedding.source_ref` plus the
@@ -151,16 +179,10 @@ async def search_curriculum_tasks(
         # (e.g. "phase:1:task:0:variant:a" for A/B-tested tasks) drops
         # cleanly here instead of leaking past the iter as a partial
         # value.
-        try:
-            if not isinstance(r.source_ref, str):
-                continue
-            parts = r.source_ref.split(":")
-            if len(parts) != 4 or parts[0] != "phase" or parts[2] != "task":
-                continue
-            phase = int(parts[1])
-            task_no = int(parts[3]) + 1
-        except ValueError:
+        coords = parse_curriculum_task_coords(r.source_ref)
+        if coords is None:
             continue
+        phase, task_no = coords
         out.append(
             CurriculumTaskHit(
                 phase=phase, task_no=task_no, score=1.0 - float(r.distance),

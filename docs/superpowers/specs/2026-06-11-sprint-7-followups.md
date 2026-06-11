@@ -33,45 +33,32 @@ Backend: `AdminSubmissionDetail` schema に `course_slug: str` を追加、`admi
 
 新規 router 1 本（`AdminEnrollRequest` schema、403 / 422 / 404 / 409 / 201 マッピング）+ `enroll_user` + `initialize_progress_for_course` 再利用。新規テスト 5 件追加。完了 commit: TBD.
 
-### LOW-1: ai-era-se Phase 2-4 投入
+### ✅ LOW-1: ai-era-se Phase 2-4 投入 — **2026-06-11 完了**
 
-シラバス第 9〜48 週分を `backend/app/data/courses/ai_era_se.py` に追加。Phase 2 (実践、12 週) / Phase 3 (AI 活用、16 週) / Phase 4 (自律発信、12 週)。各フェーズの `system_prompt` 末尾に Phase 別 評価基準を埋め込む。
+`ai_era_se.py` に Phase 2〜4（計 10+8+5 課題）を追加。Alembic で既存 enroll 受講者に phase 2-4 の locked progress をバックフィル。
 
-- 投入順: パイロット (Phase 1) 完走後に Phase 2 → Phase 3 → Phase 4
-- 工数: 各フェーズ 1 日 (本文転記が中心)
+### ✅ LOW-3: `scripts/seed_embeddings.py` の `source_ref` をコース付きに統一 — **2026-06-11 完了**
 
-### LOW-3: `scripts/seed_embeddings.py` の `source_ref` をコース付きに統一
+`course:{slug}:phase:N:task:N` 形式に統一。Alembic で ai-driven-dev 既存行をプレフィックス付与。`rag.parse_curriculum_task_coords` が両形式をパース。
 
-Task 16 で seed_embeddings は course 別ループに変更したが、ai-driven-dev は `phase:N:task:N` 形式のままで ai-era-se だけ `course:slug:phase:N:task:N` 形式。
+### ✅ LOW-4: broadcast 通知のコーススコープ化 — **2026-06-11 完了**
 
-- 対応: 既存行を `course:ai-driven-dev:phase:N:task:N` に書き換える migration + scripts も統一
-- 工数: 半日
+`POST /api/admin/notifications/broadcast` + `notifications.course_id` 列 + AdminNotifyView の「コース一斉送信」タブ。
 
-### LOW-4: broadcast 通知のコーススコープ化
+### ✅ LOW-5: HomeView.spec.ts の Vue Router warning — **2026-06-11 完了**
 
-broadcast 機能本体は Sprint 8+ で実装予定だが、その際 `course_id` 別にスコープする設計が必要。
+テスト router に `/` フォールバックを追加し、`router.push` で初期ルートを設定。
 
-### LOW-5: HomeView.spec.ts の Vue Router warning
+### LOW-6: Sprint 6 follow-up からのキャリーオーバー — **部分完了 2026-06-11**
 
-Task 17-20 で実装した HomeView spec が `No match found for location with path ""` を出す。テスト自体は通るが warning が増える。
-
-- 対応: `router.push` を spec 内で呼ぶか、テスト router のフォールバックルートを定義
-- 工数: 30 分
-
-### LOW-6: Sprint 6 follow-up からのキャリーオーバー
-
-Sprint 6 で持ち越した残件:
-- MED-2 (bulk weakness threshold documentation) — 判断保留
-- MED-6 (admin-on-admin dashboard threat model) — 判断保留
-- LOW-4 (vitest CVE upgrade)
-- LOW-5 (Playwright headless 環境整備)
+| 項目 | 状態 |
+|------|------|
+| MED-2 (bulk weakness threshold) | 判断保留 |
+| MED-6 (admin-on-admin dashboard) | 判断保留 |
+| LOW-4 (vitest CVE GHSA-5xrq-8626-4rwp) | ✅ vitest `^3.2.6` に upgrade、CI で `npm audit --audit-level=critical` |
+| LOW-5 / INFRA-1 (Playwright headless CI) | ✅ `frontend/e2e/smoke.spec.ts` + `.github/workflows/ci.yml` |
 
 ### LOW-7: 採点ジョブの非同期化 / curriculum 編集機能
 
-Sprint 6 で挙げられた長期候補。Sprint 7 で着手せず。
-
-## INFRA
-
-### INFRA-1: Playwright headless 環境整備 (Sprint 5 carry-over)
-
-MCP playwright 駆動の手動 E2E に依存している状態。CI で自動 smoke E2E を回したい。
+- 採点非同期化 → **Sprint 8 完了**（Redis + arq worker）
+- curriculum 編集機能（admin GUI）→ 未着手（別 sprint、LOW-6 prompt injection 防御と同梱予定）

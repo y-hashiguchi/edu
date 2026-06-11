@@ -16,25 +16,47 @@ from pydantic import BaseModel, Field, field_validator
 _ALLOWED_LINK_PREFIXES = ("https://", "http://", "/")
 
 
+def _validate_link(v: str | None) -> str | None:
+    if v is None or v == "":
+        return None
+    if not any(v.startswith(p) for p in _ALLOWED_LINK_PREFIXES):
+        raise ValueError(
+            "link must be a relative path (/...) or an http/https URL"
+        )
+    return v
+
+
 class NotificationCreate(BaseModel):
     recipient_user_id: uuid.UUID
     title: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=2000)
-    # `link` is optional. It must be either a relative SPA path (starts
-    # with "/") or a fully-qualified http(s) URL — never javascript:,
-    # data:, vbscript:, file:, or other script-eligible schemes.
     link: str | None = Field(default=None, max_length=500)
 
     @field_validator("link")
     @classmethod
     def link_scheme_allowlist(cls, v: str | None) -> str | None:
-        if v is None or v == "":
-            return None
-        if not any(v.startswith(p) for p in _ALLOWED_LINK_PREFIXES):
-            raise ValueError(
-                "link must be a relative path (/...) or an http/https URL"
-            )
-        return v
+        return _validate_link(v)
+
+
+class BroadcastNotificationCreate(BaseModel):
+    """Course-scoped broadcast to all active non-admin enrollments."""
+
+    course_slug: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=2000)
+    link: str | None = Field(default=None, max_length=500)
+
+    @field_validator("link")
+    @classmethod
+    def link_scheme_allowlist(cls, v: str | None) -> str | None:
+        return _validate_link(v)
+
+
+class BroadcastNotificationOut(BaseModel):
+    course_slug: str
+    sent_count: int
+    skipped_inbox_full: int
+    skipped_admin: int
 
 
 class NotificationOut(BaseModel):
@@ -48,6 +70,7 @@ class NotificationOut(BaseModel):
     title: str
     body: str
     link: str | None
+    course_id: uuid.UUID | None = None
     read_at: datetime | None
     created_at: datetime
 

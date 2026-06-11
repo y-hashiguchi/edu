@@ -320,3 +320,80 @@ async def test_admin_list_sent_returns_only_own_outbox(
     items = r.json()["items"]
     assert len(items) == 1
     assert items[0]["title"] == "mine"
+
+
+@pytest.mark.asyncio
+async def test_admin_broadcast_sends_to_course_enrollees(
+    client, db_session, admin_user, auth_user,
+):
+    """LOW-4: course-scoped broadcast reaches active non-admin learners."""
+    from app.models.notification import Notification
+    from sqlalchemy import func, select
+
+    _auth(client, admin_user.id)
+    r = client.post(
+        "/api/admin/notifications/broadcast",
+        json={
+            "course_slug": "ai-driven-dev",
+            "title": "全体連絡",
+            "body": "今週の課題を確認してください",
+            "link": "/courses/ai-driven-dev",
+        },
+    )
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert data["course_slug"] == "ai-driven-dev"
+    assert data["sent_count"] >= 1
+
+    count = (
+        await db_session.execute(
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.title == "全体連絡")
+        )
+    ).scalar_one()
+    assert count == data["sent_count"]
+
+
+@pytest.mark.asyncio
+async def test_admin_broadcast_rejects_unknown_course(client, admin_user):
+    _auth(client, admin_user.id)
+    r = client.post(
+        "/api/admin/notifications/broadcast",
+        json={
+            "course_slug": "no-such-course",
+            "title": "t",
+            "body": "b",
+            "link": None,
+        },
+    )
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_admin_broadcast_skips_admins(
+    client, db_session, admin_user, auth_user,
+):
+    from app.models.notification import Notification
+    from sqlalchemy import select
+
+    _auth(client, admin_user.id)
+    r = client.post(
+        "/api/admin/notifications/broadcast",
+        json={
+            "course_slug": "ai-driven-dev",
+            "title": "admins skipped",
+            "body": "body",
+            "link": None,
+        },
+    )
+    assert r.status_code == 201
+    assert r.json()["skipped_admin"] >= 1
+
+    rows = (
+        await db_session.execute(
+            select(Notification).where(Notification.title == "admins skipped")
+        )
+    ).scalars().all()
+    recipient_ids = {n.recipient_user_id for n in rows}
+    assert admin_user.id not in recipient_ids
