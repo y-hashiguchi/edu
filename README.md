@@ -78,6 +78,7 @@ make test-frontend             # vitest
 - Sprint 4: `docs/superpowers/plans/2026-06-06-ai-tutor-curriculum-sprint-4.md`
 - Sprint 5: `docs/superpowers/plans/2026-06-08-ai-tutor-curriculum-sprint-5.md`
 - Sprint 6: `docs/superpowers/plans/2026-06-09-ai-tutor-curriculum-sprint-6.md`
+- Sprint 7: `docs/superpowers/plans/2026-06-10-ai-tutor-curriculum-sprint-7.md`
 
 ## 実装進捗
 
@@ -89,8 +90,18 @@ make test-frontend             # vitest
 - [x] Sprint 4 security follow-up: Sprint 4 review で出た MEDIUM × 5 件（learner mark-read レート制限 / admin route 通知遷移防御 / list_for_admin 404 整合 / promote_admin email マスク / router guard 統合）
 - [x] Sprint 5: 受講者ダッシュボード（弱点分析 + レコメンド + AI 一言 + 進捗サマリ）+ TaskItem skill_tags 拡張 + curriculum_task 用 RAG ヘルパー `search_curriculum_tasks` + `user_nudges` キャッシュテーブル + Sprint 5 review で出た HIGH × 3 件同梱修正
 - [x] Sprint 6: 受講者×講師の双方向コミュニケーション（コメント返信スレッド + admin NotificationCenter 統合 + admin 受講者 dashboard + admin users 一覧の「もう一押し」column）+ Sprint 6 review で出た HIGH × 3 件同梱修正
+- [x] Sprint 7: マルチコース化（courses / enrollments テーブル + 5 テーブルへの course_id FK + Python レジストリ + `?course=` スコープ + 登録時コース選択 + ダッシュボードコーススコープ化 + ai-driven-dev 既存移設 + ai-era-se Phase 1 8 課題パイロット）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
+> Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
+
+## マルチコース運用（Sprint 7〜）
+
+- 2 コース運用: `ai-driven-dev`（既存 4 フェーズ、各 3 課題）と `ai-era-se`（Phase 1 パイロット、8 課題）
+- 新規登録時にコース必須選択: `/login` → 新規登録 → コース select
+- API は `?course={slug}` クエリでスコープ。未指定時は `ai-driven-dev` に解決
+- フロント URL は `/courses/:slug/phases/:phase` 構成。旧 `/phases/:phase` は `ai-driven-dev` への redirect で互換維持
+- 追加 enroll API は現状未実装。手動で `INSERT INTO enrollments` するか、Sprint 8 で API 化予定（follow-up doc 参照）
 
 ### 管理者の昇格
 
