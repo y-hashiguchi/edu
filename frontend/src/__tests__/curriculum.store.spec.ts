@@ -51,7 +51,7 @@ describe('curriculum store', () => {
       created_at: '2026-06-04T00:00:00Z',
     });
 
-    await store.regradeSubmission(1, 's1');
+    await store.regradeSubmission(1, 's1', 'ai-driven-dev');
     expect(store.cooldownSecondsRemaining('s1')).toBeGreaterThan(0);
     const sub = store.submissions[1][0];
     expect(sub.score).toBe(90);
@@ -63,7 +63,7 @@ describe('curriculum store', () => {
     (api.regradeSubmission as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
       new ApiCooldownError(30),
     );
-    await expect(store.regradeSubmission(1, 's1')).rejects.toBeInstanceOf(
+    await expect(store.regradeSubmission(1, 's1', 'ai-driven-dev')).rejects.toBeInstanceOf(
       ApiCooldownError,
     );
     expect(store.cooldownSecondsRemaining('s1')).toBeGreaterThan(0);
@@ -91,7 +91,7 @@ describe('curriculum store', () => {
       created_at: '2026-06-09T00:00:00Z',
     });
 
-    await store.regradeSubmission(1, 's1');
+    await store.regradeSubmission(1, 's1', 'ai-driven-dev');
     expect(dashboard.data).toBeNull();
   });
 
@@ -116,7 +116,7 @@ describe('curriculum store', () => {
       created_at: '2026-06-09T00:00:00Z',
     });
 
-    await store.regradeSubmission(1, 's1');
+    await store.regradeSubmission(1, 's1', 'ai-driven-dev');
     // invalidate() sets data to null; "did not invalidate" = still truthy.
     expect(dashboard.data).not.toBeNull();
   });

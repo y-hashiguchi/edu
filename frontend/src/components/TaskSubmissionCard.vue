@@ -16,6 +16,16 @@ const comments = ref<LearnerCommentOut[]>([]);
 const commentsError = ref<string | null>(null);
 const replyBusy = ref(false);
 
+const props = defineProps<{
+  taskNo: number;
+  taskText: string;
+  submission?: Submission;
+  busy: boolean;
+  cooldownSeconds?: number;
+  /** Sprint 7: needed by the file download endpoint. */
+  courseSlug: string;
+}>();
+
 async function downloadFile(
   submissionId: string,
   fileId: string,
@@ -23,7 +33,7 @@ async function downloadFile(
 ): Promise<void> {
   downloadError.value = null;
   try {
-    const blob = await api.downloadFile(submissionId, fileId);
+    const blob = await api.downloadFile(submissionId, fileId, props.courseSlug);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -37,14 +47,6 @@ async function downloadFile(
       e instanceof Error ? e.message : 'ファイルのダウンロードに失敗しました';
   }
 }
-
-const props = defineProps<{
-  taskNo: number;
-  taskText: string;
-  submission?: Submission;
-  busy: boolean;
-  cooldownSeconds?: number;
-}>();
 
 const emit = defineEmits<{
   submit: [taskNo: number, content: string, files: File[]];

@@ -25,6 +25,10 @@ import type {
   NotificationOut,
 } from '@/types/notification';
 import type { DashboardResponse } from '@/types/dashboard';
+import type {
+  CourseCatalogResponse,
+  MyCoursesResponse,
+} from '@/types/course';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -107,29 +111,61 @@ export interface SubmitTaskPayload {
   files: File[];
 }
 
+/**
+ * Sprint 7: every course-scoped endpoint accepts `?course={slug}`.
+ * Centralising the encoding here means a single place to audit /
+ * change if the backend ever moves the parameter to a header or to
+ * a path segment.
+ *
+ * `extra` lets callers fold this query string into a URL that already
+ * has other params (e.g. admin submission filters).
+ */
+export function withCourse(slug: string, extra?: URLSearchParams): string {
+  const params = new URLSearchParams(extra ?? undefined);
+  params.set('course', slug);
+  return `?${params.toString()}`;
+}
+
 export const api = {
-  listPhases: () => rawRequest<PhaseSummary[]>('/api/curriculum/phases'),
+  // ---- Sprint 7 course catalog + enrolled-course listing ----
 
-  listProgress: () => rawRequest<ProgressOut[]>('/api/progress'),
+  listCourseCatalog: () =>
+    rawRequest<CourseCatalogResponse>('/api/courses/catalog'),
 
-  completePhase: (phase: number) =>
-    rawRequest<ProgressCompleteResponse>(`/api/progress/${phase}/complete`, {
-      method: 'POST',
-    }),
+  listMyCourses: () => rawRequest<MyCoursesResponse>('/api/courses'),
 
-  getChatHistory: (phase: number) =>
-    rawRequest<ChatMessage[]>(`/api/chat/history/${phase}`),
+  listPhases: (courseSlug: string) =>
+    rawRequest<PhaseSummary[]>(`/api/curriculum/phases${withCourse(courseSlug)}`),
 
-  sendChat: (payload: { phase: number; message: string }) =>
-    rawRequest<ChatResponse>('/api/chat', {
+  listProgress: (courseSlug: string) =>
+    rawRequest<ProgressOut[]>(`/api/progress${withCourse(courseSlug)}`),
+
+  completePhase: (phase: number, courseSlug: string) =>
+    rawRequest<ProgressCompleteResponse>(
+      `/api/progress/${phase}/complete${withCourse(courseSlug)}`,
+      { method: 'POST' },
+    ),
+
+  getChatHistory: (phase: number, courseSlug: string) =>
+    rawRequest<ChatMessage[]>(
+      `/api/chat/history/${phase}${withCourse(courseSlug)}`,
+    ),
+
+  sendChat: (payload: { phase: number; message: string }, courseSlug: string) =>
+    rawRequest<ChatResponse>(`/api/chat${withCourse(courseSlug)}`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
-  listSubmissions: (phase: number) =>
-    rawRequest<Submission[]>(`/api/submissions/${phase}`),
+  listSubmissions: (phase: number, courseSlug: string) =>
+    rawRequest<Submission[]>(
+      `/api/submissions/${phase}${withCourse(courseSlug)}`,
+    ),
 
-  submitTask: (payload: SubmitTaskPayload): Promise<Submission> => {
+  submitTask: (
+    payload: SubmitTaskPayload,
+    courseSlug: string,
+  ): Promise<Submission> => {
     const fd = new FormData();
     fd.append('phase', String(payload.phase));
     fd.append('task_no', String(payload.task_no));
@@ -137,26 +173,39 @@ export const api = {
     for (const file of payload.files) {
       fd.append('files', file, file.name);
     }
-    return multipartRequest<Submission>('/api/submissions', fd);
+    return multipartRequest<Submission>(
+      `/api/submissions${withCourse(courseSlug)}`,
+      fd,
+    );
   },
 
-  regradeSubmission: (submissionId: string): Promise<GradingAttempt> =>
-    rawRequest<GradingAttempt>(`/api/submissions/${submissionId}/regrade`, {
-      method: 'POST',
-    }),
+  regradeSubmission: (
+    submissionId: string,
+    courseSlug: string,
+  ): Promise<GradingAttempt> =>
+    rawRequest<GradingAttempt>(
+      `/api/submissions/${submissionId}/regrade${withCourse(courseSlug)}`,
+      { method: 'POST' },
+    ),
 
   // Downloads the file body via an authenticated fetch and returns a Blob.
   // A bare <a href> cannot carry the Authorization header, so the download
   // endpoint must be reached programmatically.
+  //
+  // Sprint 7: the backend's CourseContext dependency requires `?course=`
+  // even though the file lookup is keyed by submission_id. Threading the
+  // slug here keeps the route consistent with the rest of the API
+  // surface.
   downloadFile: async (
     submissionId: string,
     fileId: string,
+    courseSlug: string,
   ): Promise<Blob> => {
     const token = getToken();
     const headers = new Headers();
     if (token) headers.set('Authorization', `Bearer ${token}`);
     const response = await fetch(
-      `${baseUrl}/api/submissions/${submissionId}/files/${fileId}`,
+      `${baseUrl}/api/submissions/${submissionId}/files/${fileId}${withCourse(courseSlug)}`,
       { headers },
     );
     if (response.status === 401) {
@@ -239,7 +288,10 @@ export const api = {
 
   // ---- Sprint 5 personalized dashboard ----
 
-  getMyDashboard: () => rawRequest<DashboardResponse>('/api/me/dashboard'),
+  getMyDashboard: (courseSlug: string) =>
+    rawRequest<DashboardResponse>(
+      `/api/me/dashboard${withCourse(courseSlug)}`,
+    ),
 
   // ---- Sprint 6 bidirectional comm + admin dashboard ----
 
@@ -256,8 +308,11 @@ export const api = {
       },
     ),
 
-  getAdminUserDashboard: (userId: string): Promise<AdminDashboardResponse> =>
+  getAdminUserDashboard: (
+    userId: string,
+    courseSlug: string,
+  ): Promise<AdminDashboardResponse> =>
     rawRequest<AdminDashboardResponse>(
-      `/api/admin/users/${userId}/dashboard`,
+      `/api/admin/users/${userId}/dashboard${withCourse(courseSlug)}`,
     ),
 };

@@ -1,32 +1,59 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCurriculumStore } from '@/stores/curriculum';
 import { useDashboardStore } from '@/stores/dashboard';
+import { useCourseStore } from '@/stores/course';
 import PhaseCard from '@/components/PhaseCard.vue';
 import NudgeBanner from '@/components/NudgeBanner.vue';
 import ProgressSummaryCard from '@/components/ProgressSummaryCard.vue';
 import WeaknessCard from '@/components/WeaknessCard.vue';
 import RecommendationsCard from '@/components/RecommendationsCard.vue';
 
+/**
+ * Sprint 7: HomeView is now mounted at `/courses/:courseSlug` and
+ * receives the slug as a prop. All curriculum/dashboard fetches are
+ * scoped to that course, and `course.setActiveCourse()` is called so
+ * cross-store consumers (and the next reload) see the same slug.
+ */
+const props = defineProps<{ courseSlug: string }>();
+
 const store = useCurriculumStore();
 const dashboard = useDashboardStore();
+const course = useCourseStore();
 const router = useRouter();
 const completed = computed(() => store.completedCount);
 
+async function loadForCourse(slug: string) {
+  course.setActiveCourse(slug);
+  // Force re-fetch on slug change — phases/progress are course-scoped.
+  store.phases = [];
+  store.progress = {};
+  dashboard.invalidate();
+  await Promise.all([
+    store.fetchPhasesWithProgress(slug),
+    dashboard.fetch(slug),
+  ]);
+}
+
 onMounted(() => {
-  if (store.phases.length === 0) {
-    void store.fetchPhasesWithProgress();
-  }
-  if (dashboard.data === null) {
-    void dashboard.fetch();
-  }
+  void loadForCourse(props.courseSlug);
 });
 
-const reload = () => store.fetchPhasesWithProgress();
+watch(
+  () => props.courseSlug,
+  (slug) => {
+    void loadForCourse(slug);
+  },
+);
+
+const reload = () => store.fetchPhasesWithProgress(props.courseSlug);
 
 function onRecommendationClick(coords: { phase: number; task_no: number }) {
-  void router.push({ name: 'phase', params: { phase: coords.phase } });
+  void router.push({
+    name: 'course-phase',
+    params: { courseSlug: props.courseSlug, phase: coords.phase },
+  });
 }
 </script>
 
@@ -52,10 +79,16 @@ function onRecommendationClick(coords: { phase: number; task_no: number }) {
   </section>
   <template v-else>
     <p class="progress-summary">
-      あなたの進捗: <strong>{{ completed }} / 4</strong> フェーズ完了
+      あなたの進捗:
+      <strong>{{ completed }} / {{ store.phases.length || 4 }}</strong> フェーズ完了
     </p>
     <section class="phase-grid">
-      <PhaseCard v-for="p in store.phases" :key="p.phase" :phase="p" />
+      <PhaseCard
+        v-for="p in store.phases"
+        :key="p.phase"
+        :phase="p"
+        :course-slug="props.courseSlug"
+      />
     </section>
   </template>
 </template>

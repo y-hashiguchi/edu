@@ -8,6 +8,8 @@ const props = defineProps<{
   submissions: Submission[];
   busyTaskNo: number | null;
   cooldownFor?: (submissionId: string) => number;
+  /** Sprint 7: forwarded to TaskSubmissionCard for file downloads. */
+  courseSlug: string;
 }>();
 const emit = defineEmits<{
   submit: [taskNo: number, content: string, files: File[]];
@@ -37,6 +39,7 @@ function cooldownSecondsFor(submissionId: string | undefined): number {
       :submission="byTaskNo[i + 1]"
       :busy="busyTaskNo === i + 1"
       :cooldown-seconds="cooldownSecondsFor(byTaskNo[i + 1]?.id)"
+      :course-slug="props.courseSlug"
       @submit="(no, content, files) => emit('submit', no, content, files)"
       @regrade="(id) => emit('regrade', id)"
     />

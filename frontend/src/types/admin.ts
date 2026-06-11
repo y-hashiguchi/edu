@@ -7,6 +7,7 @@
  */
 
 import type { GradingAttempt, ProgressOut, SubmissionFile } from './curriculum';
+import type { EnrollmentOut } from './course';
 
 export interface AdminUserSummary {
   id: string;
@@ -39,6 +40,11 @@ export interface AdminUserDetail {
    * graded submission on that phase yet. Keys 1..4 are always present.
    */
   latest_scores: Record<string, number | null>;
+  /**
+   * Sprint 7: courses this learner is enrolled in. Used by
+   * AdminUserDetailView to render a per-course dashboard selector.
+   */
+  enrollments: EnrollmentOut[];
 }
 
 export interface AdminSubmissionSummary {

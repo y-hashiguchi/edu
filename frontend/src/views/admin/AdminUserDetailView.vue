@@ -5,6 +5,11 @@
  * Shows the four phases with status + latest score, then a list of the
  * learner's submissions. Each submission row links into the submission
  * detail view (where comments and grading history live).
+ *
+ * Sprint 7: the dashboard section is now per-course. An admin picks
+ * which active enrollment to inspect from a selector; the default is
+ * the first active enrollment in sort order (which matches the order
+ * the backend returns).
  */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -21,16 +26,44 @@ const store = useAdminStore();
 
 const userId = computed(() => String(route.params.id));
 const dashboard = ref<AdminDashboardResponse | null>(null);
+const selectedCourseSlug = ref<string>('');
+
+const activeEnrollments = computed(
+  () => store.selectedUser?.enrollments.filter((e) => e.status === 'active') ?? [],
+);
+
+async function reloadDashboard() {
+  if (!store.selectedUser || !selectedCourseSlug.value) {
+    dashboard.value = null;
+    return;
+  }
+  dashboard.value = await store.fetchUserDashboard(
+    store.selectedUser.id,
+    selectedCourseSlug.value,
+  );
+}
 
 async function load() {
   await store.fetchUserDetail(userId.value);
   await store.fetchSubmissions({ user_id: userId.value });
-  // Sprint 6: 受講者ダッシュボード (nudge なし)
-  dashboard.value = await store.fetchUserDashboard(userId.value);
+  // Default the selector to the first active enrollment (the backend
+  // returns enrollments sorted by course.sort_order, so this is the
+  // primary course). If the learner has no active enrollment we leave
+  // the selector empty and the dashboard section unrendered.
+  const first = activeEnrollments.value[0];
+  selectedCourseSlug.value = first?.course_slug ?? '';
+  await reloadDashboard();
 }
 
 onMounted(load);
 watch(userId, load);
+
+watch(selectedCourseSlug, (slug, prev) => {
+  // Skip the initial assignment inside `load()` to avoid a redundant
+  // round-trip — `load()` already calls `reloadDashboard()`.
+  if (slug === prev) return;
+  if (slug) void reloadDashboard();
+});
 
 function gotoSubmission(submissionId: string) {
   void router.push({ name: 'admin-submission-detail', params: { id: submissionId } });
@@ -85,6 +118,27 @@ function phaseStatusLabel(status: string): string {
             </p>
           </article>
         </div>
+      </section>
+
+      <section
+        v-if="activeEnrollments.length > 0"
+        class="course-picker"
+      >
+        <label>
+          表示するコース
+          <select
+            v-model="selectedCourseSlug"
+            data-test="course-selector"
+          >
+            <option
+              v-for="e in activeEnrollments"
+              :key="e.course_slug"
+              :value="e.course_slug"
+            >
+              {{ e.course_title }}
+            </option>
+          </select>
+        </label>
       </section>
 
       <section v-if="dashboard" class="user-dashboard-section">
@@ -219,6 +273,23 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.9rem;
+}
+.course-picker {
+  margin-top: 1.2rem;
+  display: flex;
+}
+.course-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.course-picker select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
 }
 .dash-error {
   margin: 1.4rem 0 0;

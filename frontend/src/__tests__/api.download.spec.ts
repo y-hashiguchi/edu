@@ -25,7 +25,7 @@ describe('api.downloadFile', () => {
     } as unknown as Response);
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const blob = await api.downloadFile('sub-1', 'file-1');
+    const blob = await api.downloadFile('sub-1', 'file-1', 'ai-driven-dev');
 
     expect(blob).toBe(expected);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -41,7 +41,7 @@ describe('api.downloadFile', () => {
       blob: () => Promise.resolve(new Blob()),
     } as unknown as Response) as unknown as typeof fetch;
 
-    await expect(api.downloadFile('sub-1', 'file-1')).rejects.toThrow(
+    await expect(api.downloadFile('sub-1', 'file-1', 'ai-driven-dev')).rejects.toThrow(
       /Download failed: 403/,
     );
   });

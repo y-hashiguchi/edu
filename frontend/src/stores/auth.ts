@@ -29,10 +29,18 @@ export const useAuthStore = defineStore('auth', {
       await this.fetchMe();
     },
 
-    async register(email: string, name: string, password: string) {
+    async register(
+      email: string,
+      name: string,
+      password: string,
+      courseSlug: string,
+    ) {
+      // Sprint 7: the backend requires `course_slug` on register so the
+      // user is auto-enrolled in their chosen course before they hit
+      // /api/me/dashboard for the first time.
       await rawRequest<UserOut>('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, name, password }),
+        body: JSON.stringify({ email, name, password, course_slug: courseSlug }),
       });
     },
 
@@ -44,6 +52,15 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.token = null;
       this.user = null;
+      // Sprint 7: clear localStorage course slug so the next learner
+      // who logs in on the same browser doesn't inherit our active
+      // course. We import lazily to avoid a circular dep between the
+      // two stores.
+      try {
+        localStorage.removeItem('ai-tutor.activeCourse');
+      } catch {
+        // ignore
+      }
     },
   },
   persist: {

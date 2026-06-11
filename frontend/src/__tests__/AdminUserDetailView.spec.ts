@@ -19,6 +19,20 @@ vi.mock('@/lib/api', async () => {
           { phase: 4, status: 'locked' },
         ],
         latest_scores: { '1': 80, '2': null, '3': null, '4': null },
+        enrollments: [
+          {
+            course_slug: 'ai-driven-dev',
+            course_title: 'AI駆動型開発',
+            status: 'active',
+            enrolled_at: '2026-06-01T00:00:00Z',
+          },
+          {
+            course_slug: 'ai-era-se',
+            course_title: 'AI時代SE育成',
+            status: 'active',
+            enrolled_at: '2026-06-05T00:00:00Z',
+          },
+        ],
       }),
       adminListSubmissions: vi.fn().mockResolvedValue({
         items: [], total: 0, limit: 50, offset: 0,
@@ -40,7 +54,10 @@ vi.mock('@/lib/api', async () => {
   };
 });
 
+import { api } from '@/lib/api';
 import AdminUserDetailView from '@/views/admin/AdminUserDetailView.vue';
+
+const mocked = api as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
 function buildRouter() {
   return createRouter({
@@ -89,5 +106,40 @@ describe('AdminUserDetailView (Sprint 6)', () => {
     const w = mount(AdminUserDetailView, { global: { plugins: [router] } });
     await flushPromises();
     expect(w.text()).toContain('AI協調');
+  });
+
+  it('renders a course selector populated from active enrollments (Sprint 7)', async () => {
+    const router = buildRouter();
+    await router.push('/admin/users/u1');
+    const w = mount(AdminUserDetailView, { global: { plugins: [router] } });
+    await flushPromises();
+    const sel = w.find('[data-test="course-selector"]');
+    expect(sel.exists()).toBe(true);
+    const options = sel.findAll('option');
+    expect(options.map((o) => o.attributes('value'))).toEqual([
+      'ai-driven-dev',
+      'ai-era-se',
+    ]);
+    // Default = first active enrollment
+    expect((sel.element as HTMLSelectElement).value).toBe('ai-driven-dev');
+    expect(mocked.getAdminUserDashboard).toHaveBeenCalledWith(
+      'u1',
+      'ai-driven-dev',
+    );
+  });
+
+  it('switching the course selector refetches the dashboard for the new slug (Sprint 7)', async () => {
+    const router = buildRouter();
+    await router.push('/admin/users/u1');
+    const w = mount(AdminUserDetailView, { global: { plugins: [router] } });
+    await flushPromises();
+    mocked.getAdminUserDashboard.mockClear();
+    const sel = w.find('[data-test="course-selector"]');
+    await sel.setValue('ai-era-se');
+    await flushPromises();
+    expect(mocked.getAdminUserDashboard).toHaveBeenCalledWith(
+      'u1',
+      'ai-era-se',
+    );
   });
 });

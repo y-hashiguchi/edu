@@ -47,7 +47,7 @@ describe('dashboard store', () => {
   it('fetch populates data on success', async () => {
     mocked.getMyDashboard.mockResolvedValue(FAKE);
     const store = useDashboardStore();
-    await store.fetch();
+    await store.fetch('ai-driven-dev');
     expect(store.data?.nudge.is_fresh).toBe(true);
     expect(store.error).toBeNull();
     expect(store.loading).toBe(false);
@@ -56,7 +56,7 @@ describe('dashboard store', () => {
   it('fetch sets error message and clears loading on failure', async () => {
     mocked.getMyDashboard.mockRejectedValue(new Error('network'));
     const store = useDashboardStore();
-    await store.fetch();
+    await store.fetch('ai-driven-dev');
     expect(store.data).toBeNull();
     expect(store.error).toBe('読み込みに失敗しました');
     expect(store.loading).toBe(false);
@@ -65,7 +65,7 @@ describe('dashboard store', () => {
   it('invalidate clears cached data', async () => {
     mocked.getMyDashboard.mockResolvedValue(FAKE);
     const store = useDashboardStore();
-    await store.fetch();
+    await store.fetch('ai-driven-dev');
     store.invalidate();
     expect(store.data).toBeNull();
   });

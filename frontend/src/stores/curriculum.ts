@@ -41,13 +41,13 @@ export const useCurriculumStore = defineStore('curriculum', {
     },
   },
   actions: {
-    async fetchPhasesWithProgress() {
+    async fetchPhasesWithProgress(courseSlug: string) {
       this.loading = true;
       this.error = null;
       try {
         const [phases, progress] = await Promise.all([
-          api.listPhases(),
-          api.listProgress(),
+          api.listPhases(courseSlug),
+          api.listProgress(courseSlug),
         ]);
         this.phases = phases;
         this.progress = Object.fromEntries(progress.map((p) => [p.phase, p]));
@@ -58,8 +58,11 @@ export const useCurriculumStore = defineStore('curriculum', {
       }
     },
 
-    async completePhase(phase: number): Promise<ProgressCompleteResponse> {
-      const result = await api.completePhase(phase);
+    async completePhase(
+      phase: number,
+      courseSlug: string,
+    ): Promise<ProgressCompleteResponse> {
+      const result = await api.completePhase(phase, courseSlug);
       this.progress[phase] = {
         phase: result.phase,
         status: result.status,
@@ -78,36 +81,35 @@ export const useCurriculumStore = defineStore('curriculum', {
       return result;
     },
 
-    async loadHistory(phase: number) {
-      const history = await api.getChatHistory(phase);
+    async loadHistory(phase: number, courseSlug: string) {
+      const history = await api.getChatHistory(phase, courseSlug);
       this.chatLogs[phase] = history.map((m) => ({
         role: m.role,
         content: m.content,
       }));
     },
 
-    async sendChat(phase: number, message: string) {
-      const result = await api.sendChat({ phase, message });
+    async sendChat(phase: number, message: string, courseSlug: string) {
+      const result = await api.sendChat({ phase, message }, courseSlug);
       this.chatLogs[phase] = result.history;
       return result.reply;
     },
 
-    async loadSubmissions(phase: number) {
-      this.submissions[phase] = await api.listSubmissions(phase);
+    async loadSubmissions(phase: number, courseSlug: string) {
+      this.submissions[phase] = await api.listSubmissions(phase, courseSlug);
     },
 
     async submitTask(
       phase: number,
       task_no: number,
       content: string,
-      files: File[] = [],
+      files: File[],
+      courseSlug: string,
     ): Promise<Submission> {
-      const submission = await api.submitTask({
-        phase,
-        task_no,
-        content,
-        files,
-      });
+      const submission = await api.submitTask(
+        { phase, task_no, content, files },
+        courseSlug,
+      );
       const list = [...(this.submissions[phase] ?? [])];
       const idx = list.findIndex((s) => s.task_no === task_no);
       if (idx >= 0) list[idx] = submission;
@@ -117,16 +119,17 @@ export const useCurriculumStore = defineStore('curriculum', {
       // Sprint 5: any new submission shifts the dashboard's
       // weakness/recommendation/nudge inputs, so force a re-fetch on next mount.
       useDashboardStore().invalidate();
-      await this.fetchPhasesWithProgress();
+      await this.fetchPhasesWithProgress(courseSlug);
       return submission;
     },
 
     async regradeSubmission(
       phase: number,
       submissionId: string,
+      courseSlug: string,
     ): Promise<GradingAttempt> {
       try {
-        const attempt = await api.regradeSubmission(submissionId);
+        const attempt = await api.regradeSubmission(submissionId, courseSlug);
         this._mergeAttempt(phase, submissionId, attempt);
         if (attempt.status === 'graded') {
           this.cooldownUntil[submissionId] = Date.now() + 60_000;

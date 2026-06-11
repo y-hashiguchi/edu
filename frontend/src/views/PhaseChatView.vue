@@ -2,13 +2,19 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCurriculumStore } from '@/stores/curriculum';
+import { useCourseStore } from '@/stores/course';
 import ChatLog from '@/components/ChatLog.vue';
 import ChatInput from '@/components/ChatInput.vue';
 import SubmissionPanel from '@/components/SubmissionPanel.vue';
 import { ApiCooldownError } from '@/lib/api';
 
-const props = defineProps<{ phase: number }>();
+/**
+ * Sprint 7: every action on this view is course-scoped. The route
+ * provides `courseSlug` and `phase` as props.
+ */
+const props = defineProps<{ courseSlug: string; phase: number }>();
 const store = useCurriculumStore();
+const course = useCourseStore();
 const router = useRouter();
 
 const sending = ref(false);
@@ -22,24 +28,35 @@ const messages = computed(() => store.chatLogs[props.phase] ?? []);
 const submissions = computed(() => store.submissions[props.phase] ?? []);
 const quickQuestions = computed(() => phaseData.value?.tasks.slice(0, 3) ?? []);
 
-const isLastPhase = computed(() => props.phase === 4);
+const courseHomePath = computed(() => `/courses/${props.courseSlug}`);
+
+const isLastPhase = computed(() => {
+  // The "last" phase is course-dependent now. If the curriculum is
+  // loaded use it; otherwise fall back to the historical default of 4.
+  const phases = store.phases;
+  if (phases.length === 0) return props.phase === 4;
+  const maxPhase = Math.max(...phases.map((p) => p.phase));
+  return props.phase === maxPhase;
+});
+
 const completionLabel = computed(() =>
   phaseData.value?.status === 'completed' ? '完了済み' : 'このフェーズを完了する',
 );
 
 onMounted(async () => {
+  course.setActiveCourse(props.courseSlug);
   if (store.phases.length === 0) {
-    await store.fetchPhasesWithProgress();
+    await store.fetchPhasesWithProgress(props.courseSlug);
   }
   const data = store.getPhase(props.phase);
   if (!data) return;
   if (data.locked) {
-    await router.push('/');
+    await router.push(courseHomePath.value);
     return;
   }
   await Promise.all([
-    store.loadHistory(props.phase),
-    store.loadSubmissions(props.phase),
+    store.loadHistory(props.phase, props.courseSlug),
+    store.loadSubmissions(props.phase, props.courseSlug),
   ]);
 });
 
@@ -47,7 +64,7 @@ const submit = async (text: string) => {
   sending.value = true;
   sendError.value = null;
   try {
-    await store.sendChat(props.phase, text);
+    await store.sendChat(props.phase, text, props.courseSlug);
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'unknown error';
   } finally {
@@ -59,7 +76,13 @@ const submitTask = async (taskNo: number, content: string, files: File[]) => {
   busyTaskNo.value = taskNo;
   sendError.value = null;
   try {
-    await store.submitTask(props.phase, taskNo, content, files);
+    await store.submitTask(
+      props.phase,
+      taskNo,
+      content,
+      files,
+      props.courseSlug,
+    );
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'unknown error';
   } finally {
@@ -70,7 +93,7 @@ const submitTask = async (taskNo: number, content: string, files: File[]) => {
 const regradeSubmission = async (submissionId: string) => {
   sendError.value = null;
   try {
-    await store.regradeSubmission(props.phase, submissionId);
+    await store.regradeSubmission(props.phase, submissionId, props.courseSlug);
   } catch (e) {
     if (e instanceof ApiCooldownError) {
       sendError.value = `再採点はあと ${e.retryAfterSeconds} 秒お待ちください。`;
@@ -94,9 +117,9 @@ const cancelConfirm = () => {
 const confirmComplete = async () => {
   completing.value = true;
   try {
-    await store.completePhase(props.phase);
+    await store.completePhase(props.phase, props.courseSlug);
     confirmingComplete.value = false;
-    await router.push('/');
+    await router.push(courseHomePath.value);
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'unknown error';
   } finally {
@@ -109,7 +132,7 @@ const confirmComplete = async () => {
   <section v-if="!phaseData" class="loading">フェーズ情報を読み込み中…</section>
   <section v-else class="phase-chat">
     <header>
-      <RouterLink to="/">← 一覧に戻る</RouterLink>
+      <RouterLink :to="courseHomePath">← 一覧に戻る</RouterLink>
       <h2>Phase {{ phaseData.phase }} — {{ phaseData.title }}</h2>
       <p>{{ phaseData.goal }}</p>
     </header>
@@ -139,6 +162,7 @@ const confirmComplete = async () => {
       :submissions="submissions"
       :busy-task-no="busyTaskNo"
       :cooldown-for="cooldownFor"
+      :course-slug="props.courseSlug"
       @submit="submitTask"
       @regrade="regradeSubmission"
     />

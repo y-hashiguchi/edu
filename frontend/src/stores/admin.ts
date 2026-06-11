@@ -151,10 +151,13 @@ export const useAdminStore = defineStore('admin', {
      * silently null を返すと admin が「この受講者はまだ何もしていない」と
      * 誤認するため。
      */
-    async fetchUserDashboard(userId: string): Promise<AdminDashboardResponse | null> {
+    async fetchUserDashboard(
+      userId: string,
+      courseSlug: string,
+    ): Promise<AdminDashboardResponse | null> {
       this.dashboardError = null;
       try {
-        return await api.getAdminUserDashboard(userId);
+        return await api.getAdminUserDashboard(userId, courseSlug);
       } catch (e) {
         this.dashboardError =
           e instanceof Error

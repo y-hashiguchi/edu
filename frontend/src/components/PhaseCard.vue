@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { PhaseSummary } from '@/types/curriculum';
 
-const props = defineProps<{ phase: PhaseSummary }>();
+const props = defineProps<{ phase: PhaseSummary; courseSlug: string }>();
 
 const badgeLabel = computed(() => {
   switch (props.phase.status) {
@@ -51,7 +51,10 @@ const lockReason = computed(() => {
       </section>
 
       <RouterLink
-        :to="{ name: 'phase', params: { phase: phase.phase } }"
+        :to="{
+          name: 'course-phase',
+          params: { courseSlug: props.courseSlug, phase: phase.phase },
+        }"
         class="cta"
       >
         AIチューターと対話する →

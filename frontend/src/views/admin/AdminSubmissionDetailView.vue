@@ -39,7 +39,15 @@ async function onPost(body: string) {
 async function downloadFile(fileId: string, filename: string) {
   downloadError.value = null;
   try {
-    const blob = await api.downloadFile(submissionId.value, fileId);
+    // Sprint 7: admin download endpoint resolves the submission by id;
+    // the ?course= dependency is required by FastAPI but ignored for
+    // the lookup itself. We pass the default slug so the request is
+    // accepted regardless of which course the submission belongs to.
+    const blob = await api.downloadFile(
+      submissionId.value,
+      fileId,
+      'ai-driven-dev',
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

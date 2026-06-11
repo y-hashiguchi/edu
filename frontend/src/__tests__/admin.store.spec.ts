@@ -116,7 +116,7 @@ describe('admin store', () => {
   it('fetchUserDashboard returns null on api failure (Sprint 6)', async () => {
     mocked.getAdminUserDashboard.mockRejectedValue(new Error('boom'));
     const store = useAdminStore();
-    const out = await store.fetchUserDashboard('u1');
+    const out = await store.fetchUserDashboard('u1', 'ai-driven-dev');
     expect(out).toBeNull();
   });
 });

@@ -22,11 +22,11 @@ interface State {
 export const useDashboardStore = defineStore('dashboard', {
   state: (): State => ({ data: null, loading: false, error: null }),
   actions: {
-    async fetch() {
+    async fetch(courseSlug: string) {
       this.loading = true;
       this.error = null;
       try {
-        this.data = await api.getMyDashboard();
+        this.data = await api.getMyDashboard(courseSlug);
       } catch {
         // Backend errors here are non-actionable for the learner — they
         // just need to know the dashboard couldn't load. Detailed error
