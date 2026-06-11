@@ -11,39 +11,27 @@
 
 ## MEDIUM
 
-### MED-1: `progress.complete_phase` / `progress.is_phase_unlocked` を course スコープ化
+### ✅ MED-1: `progress.complete_phase` / `progress.is_phase_unlocked` を course スコープ化 — **2026-06-11 完了**
 
-Task 12 で route 層は `CourseContext` 依存になったが、`app/services/progress.py` の `complete_phase(db, user_id, phase)` と `is_phase_unlocked(db, user_id, phase)` は単一コース時の (user_id, phase) シグネチャのまま。複数コース enroll 時に同一 phase 番号の進行状態が混在しうる。
+`is_phase_unlocked`、`complete_phase`、`list_progress`、`_get`、`maybe_mark_submitted` に `course_id` 引数（Optional）を追加。`complete_phase` には次フェーズ存在チェック用に `course_slug` も追加し、コースレジストリから phase 存在を判定する設計に。`api/submissions.py`、`api/chat.py`、`api/progress.py`、`services/submission.py` の呼び出し側を更新。完了 commit: TBD.
 
-- 影響: 1 ユーザが 2 コースに enroll してかつ両コースで同一 phase 番号がある場合のみ。現状の 2 コース構成では ai-era-se Phase 1 (週次 8 課題) vs ai-driven-dev Phase 1 (環境 3 課題) が衝突する潜在パス。
-- 対応: 両関数に `course_id: uuid.UUID` 必須引数を追加し、各クエリに `.where(Progress.course_id == course_id)` を追加。`api/progress.py` と `api/chat.py`、`api/submissions.py` の呼び出し側を更新。
-- 工数: 半日
+### ✅ MED-2: `services/rag.py:search_curriculum_tasks` の `course_id` フィルタ追加 — **2026-06-11 完了**
 
-### MED-2: `services/rag.py:search_curriculum_tasks` の `course_id` フィルタ追加
+`search_context`、`search_curriculum_tasks` の両方に `course_id` 引数（Optional）を追加し、`.where(Embedding.course_id == course_id)` を SQL に注入。`api/chat.py` と `services/recommendation.py` の呼び出し側を更新。完了 commit: TBD.
 
-Task 11 で `recommendation.py` から RAG 検索結果を `course_task_lookup` でフィルタする防御を入れたが、`Embedding` クエリ自体に `course_id` 条件がない。ハンドオフメモの follow-up 候補。
+### ✅ MED-3: `admin/AdminSubmissionDetailView.vue` のダウンロード URL がデフォルトコースで決め打ち — **2026-06-11 完了**
 
-- 影響: 2 コースの埋め込み内容が類似していると、cosine 類似度上位に他コースの行が混入し、フィルタ後に推薦数が想定より少なくなる
-- 対応: `search_curriculum_tasks(db, embedder, query, phase=None, k=10, course_id=None)` を追加し、ユーザのアクティブコースを必須化
-- 工数: 半日
+Backend: `AdminSubmissionDetail` schema に `course_slug: str` を追加、`admin_query.get_submission_detail` で Course も join、`api/admin/submissions.py` で値を埋める。Frontend: `types/admin.ts` に `course_slug` 追加、`AdminSubmissionDetailView.vue` で `store.selectedSubmission?.course_slug` を使用。完了 commit: TBD.
 
-### MED-3: `admin/AdminSubmissionDetailView.vue` のダウンロード URL がデフォルトコースで決め打ち
+### ✅ MED-4: `compute_top_weakness_tags_bulk` 戻り値の二重 (user_id, course_id) — **2026-06-11 完了**
 
-`AdminSubmissionDetailView` の admin file download path に `course_slug='ai-driven-dev'` がハードコード。`AdminSubmissionDetail` payload に `course_slug` が含まれていないため。
-
-- 影響: SE コースの submission の admin file download が `?course=ai-driven-dev` で要求されるため、admin の他コース閲覧パスとして矛盾するが、enrollment 不要なので 200 は返る。視認性低い不整合
-- 対応: backend `AdminSubmissionDetail` schema に `course_slug: str` を追加 → frontend 側で `submission.course_slug` を引数に渡す
-- 工数: 1 時間
-
-### MED-4: `compute_top_weakness_tags_bulk` 戻り値の二重 (user_id, course_id) → top tag 化
-
-現状: `(uid, cid)` ペアを受け取って `{uid: top_tag}` を返す。同じ uid が複数 (uid, cid) ペアにあると後勝ち。admin/users 一覧では各ユーザ "primary course" 1 つだけ渡しているので問題ないが、将来コース別の弱点を admin に出すなら戻り値も `(uid, cid)` キーに拡張要。
-
-- 影響: 将来の admin UI 拡張時に発覚
-- 対応: 仕様変更時に戻り値型を `dict[tuple[uuid.UUID, uuid.UUID], str | None]` に
-- 工数: 1 時間
+サイレントなデータロスを防ぐため、重複 user_id が `user_course_pairs` に含まれた場合は `ValueError` を投げるようにバリデーション追加。将来の `(uid, cid)`-keyed バージョンへの移行パスを docstring に明記。完了 commit: TBD.
 
 ## LOW
+
+### ✅ LOW-2: `POST /api/admin/users/{id}/enrollments` admin 経由の追加 enroll API — **2026-06-11 完了**
+
+新規 router 1 本（`AdminEnrollRequest` schema、403 / 422 / 404 / 409 / 201 マッピング）+ `enroll_user` + `initialize_progress_for_course` 再利用。新規テスト 5 件追加。完了 commit: TBD.
 
 ### LOW-1: ai-era-se Phase 2-4 投入
 
@@ -51,13 +39,6 @@ Task 11 で `recommendation.py` から RAG 検索結果を `course_task_lookup` 
 
 - 投入順: パイロット (Phase 1) 完走後に Phase 2 → Phase 3 → Phase 4
 - 工数: 各フェーズ 1 日 (本文転記が中心)
-
-### LOW-2: `POST /api/admin/users/{id}/enrollments` admin 経由の追加 enroll API
-
-現状は SQL 直叩きでないと追加 enroll できない。
-
-- 対応: 新規 router 1 本 + `services/enrollment.enroll_user` 再利用 + schema 1 件 (`AdminEnrollRequest`) + admin guard
-- 工数: 半日
 
 ### LOW-3: `scripts/seed_embeddings.py` の `source_ref` をコース付きに統一
 

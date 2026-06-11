@@ -120,12 +120,28 @@ async def compute_top_weakness_tags_bulk(
 
     Sprint 7: input は (user_id, course_id) のタプル列。同じ user が
     複数 course を持つケースは admin 一覧では想定しない（admin 側で
-    course を 1 つに固定して呼ぶ）。戻り値は user_id でキー付けし、
-    重複 user_id を渡すと最後の (uid, cid) ペアで上書きされる。"""
+    course を 1 つに固定して呼ぶ）。戻り値は user_id でキー付けする。
+
+    Sprint 7 MED-4 (follow-up): 同一 user_id を複数 (uid, cid) ペアで
+    渡すと "後勝ち" になりサイレントなデータロスを起こすため、
+    duplicate user_id を検出した時点で ValueError を投げる。複数
+    course を分析したい呼び出し側は (uid, cid) キー版（未実装、
+    Sprint 8 候補）へ移行すること。"""
     if not user_course_pairs:
         return {}
 
     user_ids = [u for u, _ in user_course_pairs]
+    seen: set[uuid.UUID] = set()
+    for uid in user_ids:
+        if uid in seen:
+            raise ValueError(
+                f"compute_top_weakness_tags_bulk: duplicate user_id {uid} "
+                "in user_course_pairs. The return dict is keyed by user_id "
+                "and cannot safely carry multiple courses for the same "
+                "user. Either deduplicate at the call site or migrate to "
+                "a (user_id, course_id)-keyed variant."
+            )
+        seen.add(uid)
     stmt = (
         select(
             Submission.user_id,

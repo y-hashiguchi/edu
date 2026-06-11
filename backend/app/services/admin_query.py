@@ -217,6 +217,7 @@ async def get_submission_detail(
 ) -> tuple[
     Submission,
     User,
+    "Course",
     list[SubmissionFile],
     list[GradingAttempt],
     list[tuple[InstructorComment, User]],
@@ -225,18 +226,24 @@ async def get_submission_detail(
 
     Returns None when the submission row doesn't exist (router maps to
     404). Comments are returned paired with the author User so the
-    DTO can include `author_name` without a per-comment lookup."""
+    DTO can include `author_name` without a per-comment lookup.
+
+    Sprint 7 MED-3: the submission's Course is also returned so the
+    admin DTO can carry ``course_slug`` (used by the file-download URL).
+    """
+    from app.models.course import Course
 
     pair = (
         await db.execute(
-            select(Submission, User)
+            select(Submission, User, Course)
             .join(User, Submission.user_id == User.id)
+            .join(Course, Submission.course_id == Course.id)
             .where(Submission.id == submission_id)
         )
     ).first()
     if pair is None:
         return None
-    submission, learner = pair
+    submission, learner, course = pair
 
     files = (
         await db.execute(
@@ -264,4 +271,4 @@ async def get_submission_detail(
     ).all()
     comments = [(c, a) for c, a in comment_rows]
 
-    return submission, learner, list(files), list(history), comments
+    return submission, learner, course, list(files), list(history), comments

@@ -53,13 +53,12 @@ async def compute_recommendations(
         return []
 
     primary = top_weakness_tags[0]
-    # NOTE: search_curriculum_tasks does not yet filter Embedding rows on
-    # course_id (rag.py is out of scope for Task 11). Cross-course
-    # contamination is contained by the course_task_lookup gate below —
-    # any (phase, task_no) that does not exist in the active course is
-    # dropped before becoming a Recommendation.
+    # Sprint 7 MED-2: filter Embedding rows by course at the SQL layer
+    # so cross-course rows can't even reach the candidate list. The
+    # course_task_lookup gate below still defends against legacy
+    # source_ref formats.
     hits: list[CurriculumTaskHit] = await search_curriculum_tasks(
-        db, client, query=f"{primary} を扱うタスク", limit=8,
+        db, client, query=f"{primary} を扱うタスク", limit=8, course_id=course_id,
     )
 
     seen: set[tuple[int, int]] = set()

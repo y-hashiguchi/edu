@@ -97,12 +97,18 @@ class AdminSubmissionListOut(BaseModel):
 
 class AdminSubmissionDetail(BaseModel):
     """Detail view that bundles every related piece (files, history,
-    comments) so the dashboard renders without a second request."""
+    comments) so the dashboard renders without a second request.
+
+    Sprint 7 MED-3: ``course_slug`` is included so the admin file-download
+    URL can scope ``?course=`` correctly instead of hard-coding the
+    default slug.
+    """
 
     id: uuid.UUID
     user_id: uuid.UUID
     user_email: str
     user_name: str
+    course_slug: str
     phase: int
     task_no: int
     content: str

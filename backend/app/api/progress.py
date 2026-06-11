@@ -22,14 +22,9 @@ async def list_my_progress(
     ctx: CourseContext = Depends(get_course_context),
     db: AsyncSession = Depends(get_db),
 ) -> list[ProgressOut]:
-    rows = await list_progress(db, current_user.id)
-    # Filter to current course in-route (service still returns all-course rows
-    # for backward compat — narrow here):
-    return [
-        ProgressOut.model_validate(r)
-        for r in rows
-        if r.course_id == ctx.course.id
-    ]
+    # Sprint 7 MED-1: scope at the service layer instead of post-filtering.
+    rows = await list_progress(db, current_user.id, course_id=ctx.course.id)
+    return [ProgressOut.model_validate(r) for r in rows]
 
 
 @router.post("/{phase}/complete", response_model=ProgressCompleteResponse)
@@ -39,13 +34,16 @@ async def complete(
     ctx: CourseContext = Depends(get_course_context),
     db: AsyncSession = Depends(get_db),
 ) -> ProgressCompleteResponse:
-    # NOTE: complete_phase does not yet accept course_id (Task 11 didn't
-    # touch it). The ?course= param is currently used only for enrollment
-    # check + future scoping. A follow-up should extend complete_phase to
-    # filter by course_id; today it operates on (user_id, phase) only.
-    _ = ctx  # silence unused — kept for DI side effects (auth + enrollment)
+    # Sprint 7 MED-1: pass course_id + course_slug so next-phase unlock
+    # uses the course registry and the Progress lookup is course-scoped.
     try:
-        current, next_unlocked = await complete_phase(db, current_user.id, phase)
+        current, next_unlocked = await complete_phase(
+            db,
+            current_user.id,
+            phase,
+            course_id=ctx.course.id,
+            course_slug=ctx.course.slug,
+        )
     except PhaseLockedError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=f"phase {e.phase} is locked"

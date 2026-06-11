@@ -174,7 +174,9 @@ async def upsert_and_grade(
         p for p in get_course(course_slug).phases if p.phase == phase
     )
     tasks_total = len(phase_def.tasks)
-    await maybe_mark_submitted(db, user_id, phase, required_task_count=tasks_total)
+    await maybe_mark_submitted(
+        db, user_id, phase, required_task_count=tasks_total, course_id=course_id
+    )
 
     await db.commit()
     await db.refresh(row)

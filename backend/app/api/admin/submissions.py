@@ -66,12 +66,13 @@ async def get_submission(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
         )
-    submission, learner, files, history, comments = found
+    submission, learner, course, files, history, comments = found
     return AdminSubmissionDetail(
         id=submission.id,
         user_id=learner.id,
         user_email=learner.email,
         user_name=learner.name,
+        course_slug=course.slug,
         phase=submission.phase,
         task_no=submission.task_no,
         content=submission.content,

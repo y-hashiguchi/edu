@@ -49,7 +49,7 @@ async def test_returns_unsubmitted_hits_in_rag_order(
         CurriculumTaskHit(phase=4, task_no=1, score=0.60),
     ]
 
-    async def fake_search(db, client, *, query, limit):
+    async def fake_search(db, client, *, query, limit, course_id=None):
         return fake_hits
 
     monkeypatch.setattr(
@@ -74,7 +74,7 @@ async def test_match_tag_is_set_when_primary_tag_present_else_null(
     set. phase 4 task 1 has [LLM活用]: match_tag None."""
     user = await _make_user(db_session)
 
-    async def fake_search(db, client, *, query, limit):
+    async def fake_search(db, client, *, query, limit, course_id=None):
         return [
             CurriculumTaskHit(phase=2, task_no=1, score=0.9),
             CurriculumTaskHit(phase=4, task_no=1, score=0.5),
@@ -98,7 +98,7 @@ async def test_match_tag_is_set_when_primary_tag_present_else_null(
 async def test_caps_at_top_3(db_session, monkeypatch, default_course_id):
     user = await _make_user(db_session)
 
-    async def fake_search(db, client, *, query, limit):
+    async def fake_search(db, client, *, query, limit, course_id=None):
         return [
             CurriculumTaskHit(phase=p, task_no=t, score=1.0 - 0.1 * i)
             for i, (p, t) in enumerate([(1, 1), (1, 2), (1, 3), (2, 1), (2, 2)])
@@ -124,7 +124,7 @@ async def test_returns_empty_when_all_tasks_submitted(
         for t in (1, 2, 3):
             await seed_graded_submission(user, p, t, 70)
 
-    async def fake_search(db, client, *, query, limit):
+    async def fake_search(db, client, *, query, limit, course_id=None):
         return [CurriculumTaskHit(phase=1, task_no=1, score=0.99)]
 
     monkeypatch.setattr(

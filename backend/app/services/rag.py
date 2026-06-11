@@ -28,12 +28,16 @@ async def search_context(
     phase: int,
     query: str,
     top_k: int = 4,
+    course_id: uuid.UUID | None = None,
 ) -> list[RagHit]:
     """Embed the query and return top-K closest rows.
 
     Filter:
       - row is either global (user_id IS NULL) or owned by the caller
       - phase matches the caller's current phase OR is NULL
+      - Sprint 7 MED-2: when course_id is given, only rows tagged with
+        that course are returned. Legacy callers (without course_id)
+        keep the multi-course behavior for backwards compat.
     """
     if not query.strip():
         return []
@@ -56,6 +60,8 @@ async def search_context(
         .order_by("distance")
         .limit(top_k)
     )
+    if course_id is not None:
+        stmt = stmt.where(Embedding.course_id == course_id)
     rows = (await db.execute(stmt)).all()
     return [
         RagHit(source_type=r.source_type, content=r.content, score=1.0 - float(r.distance))
@@ -99,13 +105,17 @@ async def search_curriculum_tasks(
     *,
     query: str,
     limit: int = 8,
+    course_id: uuid.UUID | None = None,
 ) -> list[CurriculumTaskHit]:
     """Vector search restricted to `source_type='curriculum_task'`.
 
     Differs from `search_context` in three ways:
       - No phase filter (Sprint 5 recommendation crosses phases).
-      - No user_id filter (curriculum embeddings are global).
+      - No user_id filter (curriculum embeddings are global within a course).
       - Returns (phase, task_no) coordinates instead of free text.
+
+    Sprint 7 MED-2: when course_id is given, restrict to that course so
+    cross-course embeddings don't leak into recommendations.
     """
     if not query.strip():
         return []
@@ -125,6 +135,8 @@ async def search_curriculum_tasks(
         .order_by("distance")
         .limit(limit)
     )
+    if course_id is not None:
+        stmt = stmt.where(Embedding.course_id == course_id)
     rows = (await db.execute(stmt)).all()
 
     out: list[CurriculumTaskHit] = []

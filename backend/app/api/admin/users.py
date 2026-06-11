@@ -3,9 +3,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_admin
+from app.data.courses import COURSE_REGISTRY, get_course
 from app.db.session import get_db
 from app.models.progress import ProgressStatus
 from app.models.user import User
@@ -17,6 +20,13 @@ from app.schemas.admin import (
 from app.schemas.course import EnrollmentOut
 from app.schemas.progress import ProgressOut
 from app.services import admin_query
+from app.services.enrollment import (
+    AlreadyEnrolledError,
+    CourseNotFoundError,
+    _get_course_by_slug,
+    enroll_user,
+)
+from app.services.progress import initialize_progress_for_course
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin"])
 
@@ -94,4 +104,73 @@ async def get_user(
         progress=[ProgressOut.model_validate(p) for p in progress],
         latest_scores=latest_scores,
         enrollments=enrollments,
+    )
+
+
+class AdminEnrollRequest(BaseModel):
+    """Sprint 7 LOW-2 — admin-driven enroll payload."""
+
+    course_slug: str = Field(min_length=1, max_length=64)
+
+
+@router.post(
+    "/{user_id}/enrollments",
+    response_model=EnrollmentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def admin_enroll(
+    user_id: uuid.UUID,
+    payload: AdminEnrollRequest,
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentOut:
+    """Admin-driven enroll: add a course to an existing user.
+
+    Sprint 7 LOW-2: previously the only way to enroll an existing user
+    into a second course was direct SQL. This route reuses ``enroll_user``
+    and seeds per-course progress so the learner can immediately start
+    on the new course."""
+    if payload.course_slug not in COURSE_REGISTRY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown course_slug: {payload.course_slug!r}",
+        )
+
+    target = (
+        await db.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
+        )
+
+    try:
+        enr = await enroll_user(
+            db, user_id=target.id, course_slug=payload.course_slug
+        )
+    except AlreadyEnrolledError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(e)
+        ) from e
+    except CourseNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        ) from e
+
+    course_data = get_course(payload.course_slug)
+    db_course = await _get_course_by_slug(db, payload.course_slug)
+    await initialize_progress_for_course(
+        db,
+        target.id,
+        db_course.id,
+        [p.phase for p in course_data.phases],
+    )
+
+    await db.commit()
+    await db.refresh(enr)
+    return EnrollmentOut(
+        course_slug=db_course.slug,
+        course_title=db_course.title,
+        status=enr.status,
+        enrolled_at=enr.enrolled_at,
     )

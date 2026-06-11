@@ -6,7 +6,9 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.data.curriculum import CURRICULUM
+from app.data.courses import get_course
+from app.data.curriculum import CURRICULUM  # noqa: F401 — kept for legacy callers
+
 from app.models.progress import Progress, ProgressStatus
 from app.models.submission import Submission
 
@@ -80,34 +82,71 @@ async def initialize_progress(db: AsyncSession, user_id: uuid.UUID) -> None:
     )
 
 
-async def list_progress(db: AsyncSession, user_id: uuid.UUID) -> list[Progress]:
-    result = await db.execute(
-        select(Progress).where(Progress.user_id == user_id).order_by(Progress.phase)
-    )
+async def list_progress(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID | None = None,
+) -> list[Progress]:
+    """List a user's progress rows, optionally narrowed to one course.
+
+    Sprint 7 MED-1: callers that already resolve a CourseContext should
+    pass course_id so the SQL filter happens server-side instead of
+    in-route. None preserves the legacy "all courses" shape for callers
+    that haven't migrated yet.
+    """
+    stmt = select(Progress).where(Progress.user_id == user_id)
+    if course_id is not None:
+        stmt = stmt.where(Progress.course_id == course_id)
+    result = await db.execute(stmt.order_by(Progress.phase))
     return list(result.scalars().all())
 
 
-async def _get(db: AsyncSession, user_id: uuid.UUID, phase: int) -> Progress | None:
-    result = await db.execute(
-        select(Progress).where(Progress.user_id == user_id, Progress.phase == phase)
+async def _get(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    phase: int,
+    course_id: uuid.UUID | None = None,
+) -> Progress | None:
+    stmt = select(Progress).where(
+        Progress.user_id == user_id, Progress.phase == phase
     )
+    if course_id is not None:
+        stmt = stmt.where(Progress.course_id == course_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def is_phase_unlocked(db: AsyncSession, user_id: uuid.UUID, phase: int) -> bool:
-    p = await _get(db, user_id, phase)
+async def is_phase_unlocked(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    phase: int,
+    course_id: uuid.UUID | None = None,
+) -> bool:
+    """Sprint 7 MED-1: optional course_id keeps unlock state separate
+    per course. Legacy callers (without course_id) see the union of
+    all courses — preserved for backwards compat."""
+    p = await _get(db, user_id, phase, course_id=course_id)
     return p is not None and p.status != ProgressStatus.LOCKED.value
 
 
 async def complete_phase(
-    db: AsyncSession, user_id: uuid.UUID, phase: int
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    phase: int,
+    course_id: uuid.UUID | None = None,
+    course_slug: str | None = None,
 ) -> tuple[Progress, Progress | None]:
     """Mark phase completed; if next phase is locked, unlock it.
 
     Returns (current, next_unlocked_or_None). Idempotent: re-calling on an
     already-completed phase succeeds with next_unlocked=None.
+
+    Sprint 7 MED-1: when both course_id and course_slug are provided,
+    the next-phase lookup uses the course registry instead of the
+    legacy single-course CURRICULUM mapping. Existing single-course
+    callers keep working unchanged.
     """
-    current = await _get(db, user_id, phase)
+    current = await _get(db, user_id, phase, course_id=course_id)
     if current is None:
         raise PhaseNotFoundError(phase)
     if current.status == ProgressStatus.LOCKED.value:
@@ -120,8 +159,18 @@ async def complete_phase(
 
     next_unlocked: Progress | None = None
     next_phase = phase + 1
-    if next_phase in CURRICULUM:
-        nxt = await _get(db, user_id, next_phase)
+
+    # Determine whether next_phase exists for the active scope:
+    # - course-aware path: ask the registry
+    # - legacy path: fall back to the ai-driven-dev CURRICULUM mapping
+    if course_slug is not None:
+        valid_phases = {p.phase for p in get_course(course_slug).phases}
+        next_phase_exists = next_phase in valid_phases
+    else:
+        next_phase_exists = next_phase in CURRICULUM
+
+    if next_phase_exists:
+        nxt = await _get(db, user_id, next_phase, course_id=course_id)
         if nxt is not None and nxt.status == ProgressStatus.LOCKED.value:
             nxt.status = ProgressStatus.IN_PROGRESS.value
             nxt.started_at = now
@@ -132,19 +181,28 @@ async def complete_phase(
 
 
 async def maybe_mark_submitted(
-    db: AsyncSession, user_id: uuid.UUID, phase: int, required_task_count: int
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    phase: int,
+    required_task_count: int,
+    course_id: uuid.UUID | None = None,
 ) -> Progress | None:
-    """Promote in_progress -> submitted iff all tasks in phase have a submission."""
-    progress = await _get(db, user_id, phase)
+    """Promote in_progress -> submitted iff all tasks in phase have a submission.
+
+    Sprint 7 MED-1: course_id narrows both the Progress lookup and the
+    Submission count to one course so a learner enrolled in two
+    courses with overlapping phase numbers doesn't promote one course
+    based on submissions to another.
+    """
+    progress = await _get(db, user_id, phase, course_id=course_id)
     if progress is None or progress.status != ProgressStatus.IN_PROGRESS.value:
         return None
-    rows = (
-        await db.execute(
-            select(Submission.task_no).where(
-                Submission.user_id == user_id, Submission.phase == phase
-            )
-        )
-    ).all()
+    stmt = select(Submission.task_no).where(
+        Submission.user_id == user_id, Submission.phase == phase
+    )
+    if course_id is not None:
+        stmt = stmt.where(Submission.course_id == course_id)
+    rows = (await db.execute(stmt)).all()
     if len({row.task_no for row in rows}) < required_task_count:
         return None
     progress.status = ProgressStatus.SUBMITTED.value

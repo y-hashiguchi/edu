@@ -89,7 +89,7 @@ async def create_submission(
     claude: ClaudeClient = Depends(get_claude_client),
     db: AsyncSession = Depends(get_db),
 ) -> SubmissionOut:
-    if not await is_phase_unlocked(db, current_user.id, phase):
+    if not await is_phase_unlocked(db, current_user.id, phase, course_id=ctx.course.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"phase {phase} is locked",
@@ -256,7 +256,7 @@ async def list_my_submissions(
     ctx: CourseContext = Depends(get_course_context),
     db: AsyncSession = Depends(get_db),
 ) -> list[SubmissionOut]:
-    if not await is_phase_unlocked(db, current_user.id, phase):
+    if not await is_phase_unlocked(db, current_user.id, phase, course_id=ctx.course.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"phase {phase} is locked",

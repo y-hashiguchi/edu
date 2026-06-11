@@ -82,6 +82,9 @@ export interface AdminSubmissionDetail {
   user_id: string;
   user_email: string;
   user_name: string;
+  // Sprint 7 MED-3: course_slug is included so the file-download URL can
+  // scope ?course= correctly instead of hard-coding the default slug.
+  course_slug: string;
   phase: number;
   task_no: number;
   content: string;

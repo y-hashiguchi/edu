@@ -26,7 +26,7 @@ async def _ensure_phase_accessible(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"phase {phase} not found"
         ) from e
-    unlocked = await is_phase_unlocked(store.db, user.id, phase)
+    unlocked = await is_phase_unlocked(store.db, user.id, phase, course_id=ctx.course.id)
     if not unlocked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=f"phase {phase} is locked"
@@ -48,6 +48,8 @@ async def chat(
     next_history = history + [{"role": "user", "content": request.message}]
 
     # RAG: retrieve top-K relevant context
+    # Sprint 7 MED-2: scope by course so SE embeddings don't leak into
+    # ai-driven-dev chats and vice versa.
     hits = await search_context(
         store.db,
         embedder,
@@ -55,6 +57,7 @@ async def chat(
         phase=request.phase,
         query=request.message,
         top_k=4,
+        course_id=ctx.course.id,
     )
     phase_def = get_phase(ctx.course.slug, request.phase)
     system_prompt = phase_def.system_prompt
