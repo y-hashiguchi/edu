@@ -1,11 +1,15 @@
-"""Sprint 7 — /api/me/dashboard must scope by course."""
+"""Sprint 7 — /api/me/dashboard must scope by course.
+
+conftest.db_session re-seeds both `ai-driven-dev` and `ai-era-se`
+Course rows from COURSE_REGISTRY before each test, so tests here look
+up courses by slug rather than constructing them inline.
+"""
 
 import pytest
+from sqlalchemy import select
 
-from app.core.security import hash_password
 from app.models.course import Course
 from app.models.enrollment import Enrollment
-from app.models.user import User
 
 
 async def _enroll(db, user_id, course_id):
@@ -13,13 +17,16 @@ async def _enroll(db, user_id, course_id):
     await db.commit()
 
 
+async def _get_course(db, slug):
+    return (await db.execute(select(Course).where(Course.slug == slug))).scalar_one()
+
+
 @pytest.mark.asyncio
 async def test_dashboard_requires_active_enrollment(
     client, auth_user, auth_token, db_session
 ):
-    # No enrollment for ai-era-se -> 403
-    db_session.add(Course(slug="ai-era-se", title="SE", sort_order=1))
-    await db_session.commit()
+    # No enrollment for ai-era-se -> 403 (conftest already seeded the
+    # Course row; auth_user is enrolled in ai-driven-dev only).
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.get("/api/me/dashboard?course=ai-era-se")
     assert res.status_code == 403
@@ -29,7 +36,7 @@ async def test_dashboard_requires_active_enrollment(
 async def test_dashboard_returns_default_course_when_param_missing(
     client, auth_user, auth_token, db_session
 ):
-    # auth_user fixture enrolls in ai-driven-dev automatically (Task 16)
+    # auth_user fixture enrolls in ai-driven-dev automatically.
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.get("/api/me/dashboard")
     assert res.status_code == 200
@@ -49,11 +56,7 @@ async def test_dashboard_data_isolated_per_course(
     client, auth_user, auth_token, db_session
 ):
     """Submissions in course A must not contribute to dashboard for course B."""
-    # auth_user already enrolled in ai-driven-dev by fixture
-    se = Course(slug="ai-era-se", title="SE", sort_order=1)
-    db_session.add(se)
-    await db_session.commit()
-    await db_session.refresh(se)
+    se = await _get_course(db_session, "ai-era-se")
     await _enroll(db_session, auth_user.id, se.id)
 
     client.headers.update({"Authorization": f"Bearer {auth_token}"})

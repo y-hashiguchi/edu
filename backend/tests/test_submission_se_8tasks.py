@@ -22,7 +22,7 @@ async def test_ai_era_se_accepts_task_no_8(
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.post(
         "/api/submissions?course=ai-era-se",
-        json={"phase": 1, "task_no": 8, "content": "essay"},
+        data={"phase": "1", "task_no": "8", "content": "essay"},
     )
     assert res.status_code in (200, 201)
 
@@ -42,6 +42,6 @@ async def test_ai_era_se_rejects_task_no_9(
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.post(
         "/api/submissions?course=ai-era-se",
-        json={"phase": 1, "task_no": 9, "content": "essay"},
+        data={"phase": "1", "task_no": "9", "content": "essay"},
     )
     assert res.status_code == 422

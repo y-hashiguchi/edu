@@ -20,9 +20,13 @@ def _auth(client, user_id) -> None:
 
 
 async def _make_user(db_session, email="x@e.com"):
+    from app.services.enrollment import enroll_user
+
     user = User(email=email, name="X", password_hash=hash_password("p"))
     db_session.add(user)
     await db_session.flush()
+    # Sprint 7: dashboard requires active enrollment.
+    await enroll_user(db_session, user_id=user.id, course_slug="ai-driven-dev")
     await db_session.commit()
     await db_session.refresh(user)
     return user

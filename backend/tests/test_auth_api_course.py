@@ -10,11 +10,13 @@ from app.models.user import User
 
 
 async def _seed_courses(db):
-    a = Course(slug="ai-driven-dev", title="AI Dev", sort_order=0)
-    b = Course(slug="ai-era-se", title="SE", sort_order=1)
-    db.add_all([a, b])
-    await db.commit()
-    return a, b
+    """Sprint 7: conftest already re-seeds the two real courses; this
+    helper just fetches them back."""
+    res = await db.execute(
+        select(Course).where(Course.slug.in_(["ai-driven-dev", "ai-era-se"]))
+    )
+    rows = {c.slug: c for c in res.scalars().all()}
+    return rows["ai-driven-dev"], rows["ai-era-se"]
 
 
 @pytest.mark.asyncio

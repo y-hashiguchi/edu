@@ -29,9 +29,9 @@ async def _make_user(db_session, email, is_admin=False):
     return user
 
 
-async def _make_submission(db_session, owner):
+async def _make_submission(db_session, owner, course_id):
     sub = Submission(
-        user_id=owner.id, phase=1, task_no=1,
+        user_id=owner.id, course_id=course_id, phase=1, task_no=1,
         content="x", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
@@ -42,10 +42,10 @@ async def _make_submission(db_session, owner):
 
 
 @pytest.mark.asyncio
-async def test_post_reply_happy_path(client, db_session):
+async def test_post_reply_happy_path(client, db_session, default_course_id):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )
@@ -66,9 +66,9 @@ async def test_post_reply_happy_path(client, db_session):
 
 
 @pytest.mark.asyncio
-async def test_post_reply_requires_parent_id_field(client, db_session):
+async def test_post_reply_requires_parent_id_field(client, db_session, default_course_id):
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
     _auth(client, learner.id)
 
     r = client.post(
@@ -80,13 +80,13 @@ async def test_post_reply_requires_parent_id_field(client, db_session):
 
 @pytest.mark.asyncio
 async def test_post_reply_returns_400_for_parent_in_different_submission(
-    client, db_session,
+    client, db_session, default_course_id,
 ):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub_a = await _make_submission(db_session, learner)
+    sub_a = await _make_submission(db_session, learner, default_course_id)
     sub_b = Submission(
-        user_id=learner.id, phase=1, task_no=2,
+        user_id=learner.id, course_id=default_course_id, phase=1, task_no=2,
         content="x", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub_b)
@@ -109,12 +109,12 @@ async def test_post_reply_returns_400_for_parent_in_different_submission(
 
 @pytest.mark.asyncio
 async def test_post_reply_returns_404_for_other_users_submission(
-    client, db_session,
+    client, db_session, default_course_id,
 ):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     owner = await _make_user(db_session, "o@e.com")
     intruder = await _make_user(db_session, "i@e.com")
-    sub = await _make_submission(db_session, owner)
+    sub = await _make_submission(db_session, owner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )
@@ -131,14 +131,14 @@ async def test_post_reply_returns_404_for_other_users_submission(
 
 
 @pytest.mark.asyncio
-async def test_post_reply_rate_limited(client, db_session, monkeypatch):
+async def test_post_reply_rate_limited(client, db_session, monkeypatch, default_course_id):
     """`me_write_rate_limit` を 5/minute に絞って 7 回連投 → 429 が混じる。"""
     from app.api.me import settings as me_settings
     from app.core.limiter import limiter
 
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )

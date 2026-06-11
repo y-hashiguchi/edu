@@ -15,7 +15,7 @@ async def _make_user(db, email: str = "alice@example.com") -> User:
 
 
 @pytest.mark.asyncio
-async def test_search_returns_phase_filtered_hits(db_session):
+async def test_search_returns_phase_filtered_hits(db_session, default_course_id):
     user = await _make_user(db_session)
     client = EmbeddingClient()
 
@@ -23,6 +23,7 @@ async def test_search_returns_phase_filtered_hits(db_session):
         db_session,
         client,
         user_id=None,
+        course_id=default_course_id,
         items=[
             ("curriculum_skill", "phase:1:skill:0", 1, "Git / GitHub の基礎"),
             ("curriculum_skill", "phase:1:skill:1", 1, "VSCode 拡張機能"),
@@ -33,6 +34,7 @@ async def test_search_returns_phase_filtered_hits(db_session):
         db_session,
         client,
         user_id=user.id,
+        course_id=default_course_id,
         items=[
             ("chat_message", "msg-1", 1, "git branchの使い方を教えてください"),
         ],

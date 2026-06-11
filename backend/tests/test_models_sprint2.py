@@ -16,11 +16,12 @@ async def _make_user(db, email: str = "alice@example.com") -> User:
 
 
 @pytest.mark.asyncio
-async def test_submission_round_trip(db_session):
+async def test_submission_round_trip(db_session, default_course_id):
     user = await _make_user(db_session)
     db_session.add(
         Submission(
             user_id=user.id,
+            course_id=default_course_id,
             phase=1,
             task_no=1,
             content="Hello",
@@ -36,22 +37,29 @@ async def test_submission_round_trip(db_session):
 
 
 @pytest.mark.asyncio
-async def test_submission_unique_per_user_phase_task(db_session):
+async def test_submission_unique_per_user_phase_task(db_session, default_course_id):
     user = await _make_user(db_session)
-    db_session.add(Submission(user_id=user.id, phase=1, task_no=1, content="A"))
+    db_session.add(Submission(
+        user_id=user.id, course_id=default_course_id, phase=1, task_no=1, content="A"
+    ))
     await db_session.commit()
 
-    db_session.add(Submission(user_id=user.id, phase=1, task_no=1, content="B"))
+    db_session.add(Submission(
+        user_id=user.id, course_id=default_course_id, phase=1, task_no=1, content="B"
+    ))
     with pytest.raises(IntegrityError):
         await db_session.commit()
     await db_session.rollback()
 
 
 @pytest.mark.asyncio
-async def test_submission_score_range_constraint(db_session):
+async def test_submission_score_range_constraint(db_session, default_course_id):
     user = await _make_user(db_session)
     db_session.add(
-        Submission(user_id=user.id, phase=1, task_no=1, content="C", score=150)
+        Submission(
+            user_id=user.id, course_id=default_course_id,
+            phase=1, task_no=1, content="C", score=150,
+        )
     )
     with pytest.raises(IntegrityError):
         await db_session.commit()
@@ -59,11 +67,12 @@ async def test_submission_score_range_constraint(db_session):
 
 
 @pytest.mark.asyncio
-async def test_embedding_stores_vector(db_session):
+async def test_embedding_stores_vector(db_session, default_course_id):
     vec = [0.1] * EMBEDDING_DIM
     db_session.add(
         Embedding(
             user_id=None,
+            course_id=default_course_id,
             source_type="curriculum_skill",
             source_ref="phase:1:skill:0",
             phase=1,

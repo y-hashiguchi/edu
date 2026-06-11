@@ -55,8 +55,11 @@ def test_chat_carries_history_across_calls(auth_client):
 
 
 def test_chat_rejects_invalid_phase_via_validation(auth_client):
+    # Sprint 7: phase upper bound is course-specific, so an out-of-range
+    # phase resolves at the service layer (PhaseNotFoundError → 404)
+    # instead of via Pydantic validation.
     response = auth_client.post("/api/chat", json={"phase": 99, "message": "hi"})
-    assert response.status_code == 422
+    assert response.status_code == 404
 
 
 def test_chat_rejects_locked_phase_with_403(auth_client):

@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.core.security import hash_password
+from app.data.courses import DEFAULT_COURSE_SLUG
 from app.models.user import User
 from app.services.dashboard import compose_dashboard
 from app.services.nudge import NudgeResult
@@ -30,7 +31,7 @@ async def _make_user(db_session):
 
 @pytest.mark.asyncio
 async def test_happy_path_aggregates_four_sections(
-    db_session, monkeypatch,
+    db_session, monkeypatch, default_course_id,
 ):
     user = await _make_user(db_session)
 
@@ -67,7 +68,9 @@ async def test_happy_path_aggregates_four_sections(
     )
 
     out = await compose_dashboard(
-        db_session, claude=object(), embedding_client=object(), user_id=user.id,
+        db_session, claude=object(), embedding_client=object(),
+        user_id=user.id, course_id=default_course_id,
+        course_slug=DEFAULT_COURSE_SLUG,
     )
     assert out.progress_summary.completed_tasks == 5
     assert out.weakness.has_enough_data is True
@@ -77,7 +80,7 @@ async def test_happy_path_aggregates_four_sections(
 
 @pytest.mark.asyncio
 async def test_recommendation_failure_returns_empty_section_not_500(
-    db_session, monkeypatch,
+    db_session, monkeypatch, default_course_id,
 ):
     user = await _make_user(db_session)
     monkeypatch.setattr(
@@ -105,14 +108,16 @@ async def test_recommendation_failure_returns_empty_section_not_500(
     )
 
     out = await compose_dashboard(
-        db_session, claude=object(), embedding_client=object(), user_id=user.id,
+        db_session, claude=object(), embedding_client=object(),
+        user_id=user.id, course_id=default_course_id,
+        course_slug=DEFAULT_COURSE_SLUG,
     )
     assert out.recommendations == []
     assert out.progress_summary.completed_tasks == 5
 
 
 @pytest.mark.asyncio
-async def test_nudge_failure_returns_fallback_not_500(db_session, monkeypatch):
+async def test_nudge_failure_returns_fallback_not_500(db_session, monkeypatch, default_course_id):
     user = await _make_user(db_session)
     monkeypatch.setattr(
         "app.services.dashboard.compute_weakness",
@@ -136,7 +141,9 @@ async def test_nudge_failure_returns_fallback_not_500(db_session, monkeypatch):
     )
 
     out = await compose_dashboard(
-        db_session, claude=object(), embedding_client=object(), user_id=user.id,
+        db_session, claude=object(), embedding_client=object(),
+        user_id=user.id, course_id=default_course_id,
+        course_slug=DEFAULT_COURSE_SLUG,
     )
     assert out.nudge.body
     assert out.nudge.is_fresh is False

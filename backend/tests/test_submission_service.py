@@ -1,6 +1,10 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import uuid
+
+_AI_DRIVEN_DEV_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+_AI_DRIVEN_DEV_SLUG = "ai-driven-dev"
 
 from app.core.claude_client import ClaudeClient
 from app.core.security import hash_password
@@ -46,6 +50,8 @@ async def test_upsert_creates_and_grades(db_session):
         task_no=1,
         content="Gitでブランチ切ってPRしました",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     assert row.score == 80
@@ -64,6 +70,8 @@ async def test_upsert_updates_existing(db_session):
         task_no=1,
         content="初回",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     row = await upsert_and_grade(
@@ -74,6 +82,8 @@ async def test_upsert_updates_existing(db_session):
         task_no=1,
         content="改善版",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     assert row.content == "改善版"
@@ -95,6 +105,8 @@ async def test_all_tasks_submitted_promotes_progress(db_session):
             task_no=tno,
             content=f"task {tno}",
             uploads=[],
+            course_id=_AI_DRIVEN_DEV_ID,
+            course_slug=_AI_DRIVEN_DEV_SLUG,
         )
 
     rows = await list_progress(db_session, user.id)
@@ -113,6 +125,8 @@ async def test_partial_submission_keeps_in_progress(db_session):
         task_no=1,
         content="task 1",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     rows = await list_progress(db_session, user.id)
@@ -132,6 +146,8 @@ async def test_invalid_task_no_raises(db_session):
             task_no=99,
             content="x",
             uploads=[],
+            course_id=_AI_DRIVEN_DEV_ID,
+            course_slug=_AI_DRIVEN_DEV_SLUG,
         )
 
 
@@ -147,6 +163,8 @@ async def test_grading_failure_stores_error_message(db_session):
         task_no=1,
         content="提出内容",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
     assert row.score is None
     assert row.ai_feedback.startswith("採点エラー")

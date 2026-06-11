@@ -22,17 +22,19 @@ async def _make_user(db) -> User:
     return u
 
 
-async def _make_submission(db, user_id: uuid.UUID) -> Submission:
-    s = Submission(user_id=user_id, phase=1, task_no=1, content="hello")
+async def _make_submission(db, user_id: uuid.UUID, course_id: uuid.UUID) -> Submission:
+    s = Submission(
+        user_id=user_id, course_id=course_id, phase=1, task_no=1, content="hello"
+    )
     db.add(s)
     await db.flush()
     return s
 
 
 @pytest.mark.asyncio
-async def test_submission_file_can_be_created(db_session):
+async def test_submission_file_can_be_created(db_session, default_course_id):
     user = await _make_user(db_session)
-    sub = await _make_submission(db_session, user.id)
+    sub = await _make_submission(db_session, user.id, default_course_id)
     f = SubmissionFile(
         submission_id=sub.id,
         file_path="uploads/u/s/code.py",
@@ -47,11 +49,11 @@ async def test_submission_file_can_be_created(db_session):
 
 
 @pytest.mark.asyncio
-async def test_submission_file_cascades_on_submission_delete(db_session):
+async def test_submission_file_cascades_on_submission_delete(db_session, default_course_id):
     from sqlalchemy import select
 
     user = await _make_user(db_session)
-    sub = await _make_submission(db_session, user.id)
+    sub = await _make_submission(db_session, user.id, default_course_id)
     db_session.add(
         SubmissionFile(
             submission_id=sub.id,
@@ -85,11 +87,11 @@ async def test_submission_file_requires_submission(db_session):
 
 
 @pytest.mark.asyncio
-async def test_grading_attempt_graded_row(db_session):
+async def test_grading_attempt_graded_row(db_session, default_course_id):
     from app.models.grading_attempt import GradingAttempt, GradingStatus
 
     user = await _make_user(db_session)
-    sub = await _make_submission(db_session, user.id)
+    sub = await _make_submission(db_session, user.id, default_course_id)
     attempt = GradingAttempt(
         submission_id=sub.id,
         status=GradingStatus.GRADED,
@@ -105,11 +107,11 @@ async def test_grading_attempt_graded_row(db_session):
 
 
 @pytest.mark.asyncio
-async def test_grading_attempt_failed_row(db_session):
+async def test_grading_attempt_failed_row(db_session, default_course_id):
     from app.models.grading_attempt import GradingAttempt, GradingStatus
 
     user = await _make_user(db_session)
-    sub = await _make_submission(db_session, user.id)
+    sub = await _make_submission(db_session, user.id, default_course_id)
     attempt = GradingAttempt(
         submission_id=sub.id,
         status=GradingStatus.FAILED,
@@ -124,13 +126,13 @@ async def test_grading_attempt_failed_row(db_session):
 
 
 @pytest.mark.asyncio
-async def test_grading_attempt_cascades_on_submission_delete(db_session):
+async def test_grading_attempt_cascades_on_submission_delete(db_session, default_course_id):
     from sqlalchemy import select
 
     from app.models.grading_attempt import GradingAttempt, GradingStatus
 
     user = await _make_user(db_session)
-    sub = await _make_submission(db_session, user.id)
+    sub = await _make_submission(db_session, user.id, default_course_id)
     db_session.add(
         GradingAttempt(
             submission_id=sub.id,

@@ -40,11 +40,11 @@ def _fake_claude(reply: str):
 
 
 @pytest.mark.asyncio
-async def test_cold_start_returns_static_without_calling_llm(db_session):
+async def test_cold_start_returns_static_without_calling_llm(db_session, default_course_id):
     user = await _make_user(db_session)
     claude = _fake_claude("UNUSED")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=[], top_recommendation_key=None,
         submission_count=0,
     )
@@ -60,11 +60,11 @@ async def test_cold_start_returns_static_without_calling_llm(db_session):
 
 
 @pytest.mark.asyncio
-async def test_cache_miss_generates_and_persists(db_session):
+async def test_cache_miss_generates_and_persists(db_session, default_course_id):
     user = await _make_user(db_session)
     claude = _fake_claude("データ構造が伸びる Phase 2 タスク 1 をやろう。")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key="2:1",
         submission_count=5,
     )
@@ -80,18 +80,18 @@ async def test_cache_miss_generates_and_persists(db_session):
 
 
 @pytest.mark.asyncio
-async def test_cache_hit_within_ttl_does_not_call_llm(db_session):
+async def test_cache_hit_within_ttl_does_not_call_llm(db_session, default_course_id):
     user = await _make_user(db_session)
-    sig = _build_signature(["AI協調"], "2:1", 5)
+    sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
     db_session.add(UserNudge(
-        user_id=user.id, body="cached body",
+        user_id=user.id, course_id=default_course_id, body="cached body",
         generated_at=datetime.now(UTC), input_signature=sig,
     ))
     await db_session.commit()
 
     claude = _fake_claude("WOULD-BE-NEW")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key="2:1",
         submission_count=5,
     )
@@ -100,18 +100,19 @@ async def test_cache_hit_within_ttl_does_not_call_llm(db_session):
 
 
 @pytest.mark.asyncio
-async def test_signature_change_invalidates_cache_even_within_ttl(db_session):
+async def test_signature_change_invalidates_cache_even_within_ttl(db_session, default_course_id):
     user = await _make_user(db_session)
-    old_sig = _build_signature(["AI協調"], "2:1", 5)
+    old_sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
     db_session.add(UserNudge(
-        user_id=user.id, body="stale", generated_at=datetime.now(UTC),
+        user_id=user.id, course_id=default_course_id, body="stale",
+        generated_at=datetime.now(UTC),
         input_signature=old_sig,
     ))
     await db_session.commit()
 
     claude = _fake_claude("regenerated body")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key="3:2",  # changed
         submission_count=5,
     )
@@ -120,11 +121,11 @@ async def test_signature_change_invalidates_cache_even_within_ttl(db_session):
 
 
 @pytest.mark.asyncio
-async def test_ttl_expired_triggers_regeneration(db_session):
+async def test_ttl_expired_triggers_regeneration(db_session, default_course_id):
     user = await _make_user(db_session)
-    sig = _build_signature(["AI協調"], "2:1", 5)
+    sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
     db_session.add(UserNudge(
-        user_id=user.id, body="day-old",
+        user_id=user.id, course_id=default_course_id, body="day-old",
         generated_at=datetime.now(UTC) - timedelta(
             hours=settings.nudge_cache_ttl_hours + 1
         ),
@@ -134,7 +135,7 @@ async def test_ttl_expired_triggers_regeneration(db_session):
 
     claude = _fake_claude("fresh")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key="2:1",
         submission_count=5,
     )
@@ -142,11 +143,11 @@ async def test_ttl_expired_triggers_regeneration(db_session):
 
 
 @pytest.mark.asyncio
-async def test_llm_failure_with_existing_row_returns_stale(db_session):
+async def test_llm_failure_with_existing_row_returns_stale(db_session, default_course_id):
     user = await _make_user(db_session)
-    old_sig = _build_signature(["AI協調"], "2:1", 5)
+    old_sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
     db_session.add(UserNudge(
-        user_id=user.id, body="stale body",
+        user_id=user.id, course_id=default_course_id, body="stale body",
         generated_at=datetime.now(UTC) - timedelta(hours=48),
         input_signature=old_sig,
     ))
@@ -156,7 +157,7 @@ async def test_llm_failure_with_existing_row_returns_stale(db_session):
     claude.complete = AsyncMock(side_effect=RuntimeError("api down"))
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key="2:1",
         submission_count=5,
     )
@@ -171,13 +172,13 @@ async def test_llm_failure_with_existing_row_returns_stale(db_session):
 
 
 @pytest.mark.asyncio
-async def test_llm_failure_with_no_row_returns_static_fallback(db_session):
+async def test_llm_failure_with_no_row_returns_static_fallback(db_session, default_course_id):
     user = await _make_user(db_session)
     claude = MagicMock()
     claude.complete = AsyncMock(side_effect=RuntimeError("api down"))
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key="2:1",
         submission_count=5,
     )
@@ -191,21 +192,21 @@ async def test_llm_failure_with_no_row_returns_static_fallback(db_session):
     assert row is None
 
 
-def test_signature_is_stable_for_same_inputs():
-    a = _build_signature(["AI協調", "API基礎"], "2:1", 5)
-    b = _build_signature(["AI協調", "API基礎"], "2:1", 5)
+def test_signature_is_stable_for_same_inputs(default_course_id):
+    a = _build_signature(default_course_id, ["AI協調", "API基礎"], "2:1", 5)
+    b = _build_signature(default_course_id, ["AI協調", "API基礎"], "2:1", 5)
     assert a == b and len(a) == 16
 
 
-def test_signature_changes_when_inputs_change():
-    base = _build_signature(["AI協調"], "2:1", 5)
-    assert _build_signature(["API基礎"], "2:1", 5) != base
-    assert _build_signature(["AI協調"], "3:1", 5) != base
-    assert _build_signature(["AI協調"], "2:1", 6) != base
+def test_signature_changes_when_inputs_change(default_course_id):
+    base = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
+    assert _build_signature(default_course_id, ["API基礎"], "2:1", 5) != base
+    assert _build_signature(default_course_id, ["AI協調"], "3:1", 5) != base
+    assert _build_signature(default_course_id, ["AI協調"], "2:1", 6) != base
 
 
 @pytest.mark.asyncio
-async def test_transitional_state_returns_static_without_calling_llm(db_session):
+async def test_transitional_state_returns_static_without_calling_llm(db_session, default_course_id):
     """MED-2 (sprint-5 follow-up): just past cold-start (submission_count
     >= 3) but no tag has hit MIN_TAG_SUBMISSIONS=2 yet, so weakness=[]
     and recommendations=[]. The XML prompt would be empty enough that
@@ -218,7 +219,7 @@ async def test_transitional_state_returns_static_without_calling_llm(db_session)
     claude = _fake_claude("UNUSED")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=[], top_recommendation_key=None,
         submission_count=5,
         recommendation_titles=[],
@@ -236,7 +237,7 @@ async def test_transitional_state_returns_static_without_calling_llm(db_session)
 
 @pytest.mark.asyncio
 async def test_transitional_state_recommendation_titles_none_also_short_circuits(
-    db_session,
+    db_session, default_course_id,
 ):
     """recommendation_titles defaults to None when callers omit it;
     the transitional guard must treat that as empty too."""
@@ -244,7 +245,7 @@ async def test_transitional_state_recommendation_titles_none_also_short_circuits
     claude = _fake_claude("UNUSED")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=[], top_recommendation_key=None,
         submission_count=5,
         # recommendation_titles intentionally omitted
@@ -254,7 +255,7 @@ async def test_transitional_state_recommendation_titles_none_also_short_circuits
 
 
 @pytest.mark.asyncio
-async def test_weakness_present_bypasses_transitional_state(db_session):
+async def test_weakness_present_bypasses_transitional_state(db_session, default_course_id):
     """Regression: as soon as a single weakness tag is computed, the
     nudge path goes back to the LLM. The transitional guard must not
     swallow well-formed inputs."""
@@ -262,7 +263,7 @@ async def test_weakness_present_bypasses_transitional_state(db_session):
     claude = _fake_claude("Phase 2 task 1 をやろう")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=["AI協調"], top_recommendation_key=None,
         submission_count=5,
         recommendation_titles=[],
@@ -273,7 +274,7 @@ async def test_weakness_present_bypasses_transitional_state(db_session):
 
 @pytest.mark.asyncio
 async def test_recommendation_titles_present_bypasses_transitional_state(
-    db_session,
+    db_session, default_course_id,
 ):
     """Symmetric to the previous test: a non-empty recommendation set
     is enough context for the LLM, so we must not short-circuit even
@@ -282,7 +283,7 @@ async def test_recommendation_titles_present_bypasses_transitional_state(
     claude = _fake_claude("二分探索木に挑戦しよう")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id,
+        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
         weakness_tags=[], top_recommendation_key="2:1",
         submission_count=5,
         recommendation_titles=["二分探索木の実装"],

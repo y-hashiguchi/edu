@@ -22,21 +22,21 @@ async def _make_user(db_session, email="w@e.com"):
 
 @pytest.mark.asyncio
 async def test_returns_has_enough_data_false_when_below_threshold(
-    db_session, seed_graded_submission,
+    db_session, seed_graded_submission, default_course_id,
 ):
     """Submission < 3 件のとき has_enough_data=False、top_weaknesses=[]。"""
     user = await _make_user(db_session)
     await seed_graded_submission(user, 1, 1, 60)
     await seed_graded_submission(user, 1, 2, 70)
 
-    result = await compute_weakness(db_session, user.id)
+    result = await compute_weakness(db_session, user.id, default_course_id)
     assert result.has_enough_data is False
     assert result.top_weaknesses == []
 
 
 @pytest.mark.asyncio
 async def test_aggregates_by_tag_low_score_first(
-    db_session, seed_graded_submission,
+    db_session, seed_graded_submission, default_course_id,
 ):
     """3 件以上提出すると、タグ別平均が低い順に並ぶ。"""
     user = await _make_user(db_session)
@@ -46,7 +46,7 @@ async def test_aggregates_by_tag_low_score_first(
     await seed_graded_submission(user, 2, 1, 60)
     await seed_graded_submission(user, 2, 3, 80)
 
-    result = await compute_weakness(db_session, user.id)
+    result = await compute_weakness(db_session, user.id, default_course_id)
     assert result.has_enough_data is True
     tags = [w.tag for w in result.top_weaknesses]
     assert tags == ["API基礎", "AI協調"]
@@ -55,7 +55,7 @@ async def test_aggregates_by_tag_low_score_first(
 
 
 @pytest.mark.asyncio
-async def test_returns_at_most_top_3(db_session, seed_graded_submission):
+async def test_returns_at_most_top_3(db_session, seed_graded_submission, default_course_id):
     user = await _make_user(db_session)
     await seed_graded_submission(user, 2, 1, 100)
     await seed_graded_submission(user, 2, 2, 100)
@@ -64,13 +64,13 @@ async def test_returns_at_most_top_3(db_session, seed_graded_submission):
     await seed_graded_submission(user, 3, 2, 30)
     await seed_graded_submission(user, 3, 3, 30)
 
-    result = await compute_weakness(db_session, user.id)
+    result = await compute_weakness(db_session, user.id, default_course_id)
     assert len(result.top_weaknesses) <= 3
 
 
 @pytest.mark.asyncio
 async def test_uses_latest_graded_attempt_per_submission(
-    db_session, seed_graded_submission,
+    db_session, seed_graded_submission, default_course_id,
 ):
     """再採点で 90 → 60 と変動した場合、60 を採用"""
     from datetime import UTC, datetime, timedelta
@@ -93,7 +93,7 @@ async def test_uses_latest_graded_attempt_per_submission(
     await seed_graded_submission(user, 1, 3, 50)
     await db_session.commit()
 
-    result = await compute_weakness(db_session, user.id)
+    result = await compute_weakness(db_session, user.id, default_course_id)
     tags = {w.tag: w for w in result.top_weaknesses}
     assert "Git/GitHub" not in tags  # phase 1 task 1 -> 1 件のみ -> 除外
     assert result.has_enough_data is True
@@ -106,7 +106,7 @@ def test_constants_match_spec():
 
 @pytest.mark.asyncio
 async def test_skips_submissions_for_removed_curriculum_tasks(
-    db_session, seed_graded_submission, monkeypatch,
+    db_session, seed_graded_submission, monkeypatch, default_course_id,
 ):
     """HIGH-2 (sprint-5 review): a learner who submitted against a
     task that has since been removed from curriculum must still get a
@@ -132,7 +132,7 @@ async def test_skips_submissions_for_removed_curriculum_tasks(
 
     monkeypatch.setattr(weakness_mod, "get_task_skill_tags", fake_get_tags)
 
-    result = await weakness_mod.compute_weakness(db_session, user.id)
+    result = await weakness_mod.compute_weakness(db_session, user.id, default_course_id)
     # has_enough_data still True (the 4 submissions are all graded;
     # one tag set is skipped, but the row count counts the submission)
     assert result.has_enough_data is True

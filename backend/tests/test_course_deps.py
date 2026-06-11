@@ -14,18 +14,23 @@ from app.models.user import User
 
 
 async def _seed_user_and_course(db, *, is_admin=False, enrolled=True):
+    """Sprint 7: conftest re-seeds the course rows; this helper only
+    inserts the user + (optionally) the enrollment."""
+    from sqlalchemy import select
+
     user = User(
         email="u@e.com", name="U", password_hash=hash_password("p"),
         is_admin=is_admin,
     )
-    course = Course(slug="ai-driven-dev", title="A", sort_order=0)
-    db.add_all([user, course])
+    db.add(user)
     await db.flush()
+    course = (
+        await db.execute(select(Course).where(Course.slug == "ai-driven-dev"))
+    ).scalar_one()
     if enrolled:
         db.add(Enrollment(user_id=user.id, course_id=course.id))
     await db.commit()
     await db.refresh(user)
-    await db.refresh(course)
     return user, course
 
 

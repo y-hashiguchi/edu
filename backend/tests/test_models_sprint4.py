@@ -60,12 +60,12 @@ async def _make_admin_and_learner(db_session) -> tuple[User, User]:
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_round_trips(db_session):
+async def test_instructor_comment_round_trips(db_session, default_course_id):
     from app.models.instructor_comment import InstructorComment
 
     admin, learner = await _make_admin_and_learner(db_session)
     sub = Submission(
-        user_id=learner.id, phase=1, task_no=1,
+        user_id=learner.id, course_id=default_course_id, phase=1, task_no=1,
         content="x", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
@@ -87,7 +87,9 @@ async def test_instructor_comment_round_trips(db_session):
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_cascades_on_submission_delete(db_session):
+async def test_instructor_comment_cascades_on_submission_delete(
+    db_session, default_course_id
+):
     """Deleting a submission must remove its comments (no orphans)."""
     from sqlalchemy import select
 
@@ -95,7 +97,7 @@ async def test_instructor_comment_cascades_on_submission_delete(db_session):
 
     admin, learner = await _make_admin_and_learner(db_session)
     sub = Submission(
-        user_id=learner.id, phase=1, task_no=1,
+        user_id=learner.id, course_id=default_course_id, phase=1, task_no=1,
         content="x", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)

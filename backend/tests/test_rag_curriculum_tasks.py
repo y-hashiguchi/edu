@@ -18,7 +18,7 @@ def client():
 
 @pytest.mark.asyncio
 async def test_search_returns_phase_and_task_no_parsed_from_source_ref(
-    db_session, client,
+    db_session, client, default_course_id,
 ):
     items = [
         ("curriculum_task", "phase:1:task:0", 1, "Git でブランチを切る"),
@@ -27,7 +27,7 @@ async def test_search_returns_phase_and_task_no_parsed_from_source_ref(
         # ノイズ: curriculum_skill は除外されるべき
         ("curriculum_skill", "phase:1:skill:0", 1, "Git/GitHub"),
     ]
-    await upsert_embeddings(db_session, client, user_id=None, items=items)
+    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
     await db_session.commit()
 
     hits = await search_curriculum_tasks(
@@ -46,12 +46,12 @@ async def test_search_returns_empty_on_blank_query(db_session, client):
 
 
 @pytest.mark.asyncio
-async def test_search_caps_at_limit(db_session, client):
+async def test_search_caps_at_limit(db_session, client, default_course_id):
     items = [
         ("curriculum_task", f"phase:1:task:{i}", 1, f"題材{i}")
         for i in range(6)
     ]
-    await upsert_embeddings(db_session, client, user_id=None, items=items)
+    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
     await db_session.commit()
 
     hits = await search_curriculum_tasks(
@@ -61,13 +61,13 @@ async def test_search_caps_at_limit(db_session, client):
 
 
 @pytest.mark.asyncio
-async def test_search_skips_malformed_source_ref(db_session, client):
+async def test_search_skips_malformed_source_ref(db_session, client, default_course_id):
     """defensive: 過去データに混入した古い形式の source_ref を黙って捨てる"""
     items = [
         ("curriculum_task", "legacy-format", 1, "古い形式"),
         ("curriculum_task", "phase:1:task:0", 1, "新しい形式"),
     ]
-    await upsert_embeddings(db_session, client, user_id=None, items=items)
+    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
     await db_session.commit()
 
     hits = await search_curriculum_tasks(db_session, client, query="形式", limit=5)
@@ -150,7 +150,7 @@ async def test_search_context_also_truncates_oversized_query(db_session, auth_us
 
 
 @pytest.mark.asyncio
-async def test_source_ref_with_extra_segments_is_dropped(db_session, client):
+async def test_source_ref_with_extra_segments_is_dropped(db_session, client, default_course_id):
     """LOW-3 (sprint-5 follow-up): a 5-segment source_ref (e.g. a future
     A/B-variant schema like phase:1:task:0:variant:a) must be silently
     dropped, NOT yielded as a partial CurriculumTaskHit. The previous
@@ -166,7 +166,7 @@ async def test_source_ref_with_extra_segments_is_dropped(db_session, client):
         # not "phase" prefix
         ("curriculum_task", "skill:1:task:0", 1, "間違った prefix"),
     ]
-    await upsert_embeddings(db_session, client, user_id=None, items=items)
+    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
     await db_session.commit()
 
     hits = await search_curriculum_tasks(

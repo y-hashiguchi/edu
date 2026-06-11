@@ -14,6 +14,7 @@ async def upsert_embeddings(
     client: EmbeddingClient,
     *,
     user_id: uuid.UUID | None,
+    course_id: uuid.UUID,
     items: list[tuple[str, str, int | None, str]],
 ) -> None:
     """Embed a batch of texts and insert into embeddings table.
@@ -22,6 +23,10 @@ async def upsert_embeddings(
 
     For a given (source_type, source_ref), any pre-existing rows are
     deleted before insertion (idempotent re-embedding).
+
+    Sprint 7: ``course_id`` is required (NOT NULL on the embeddings
+    table). All embeddings tag the course they belong to so RAG search
+    can scope retrieval per course.
     """
     if not items:
         return
@@ -41,6 +46,7 @@ async def upsert_embeddings(
         db.add(
             Embedding(
                 user_id=user_id,
+                course_id=course_id,
                 source_type=source_type,
                 source_ref=source_ref,
                 phase=phase,

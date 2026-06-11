@@ -83,6 +83,7 @@ async def chat(
             store.db,
             embedder,
             user_id=current_user.id,
+            course_id=ctx.course.id,
             items=[
                 (
                     "chat_message",

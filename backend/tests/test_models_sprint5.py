@@ -21,10 +21,11 @@ async def _make_user(db_session, email="u@e.com"):
 
 
 @pytest.mark.asyncio
-async def test_user_nudge_round_trip(db_session):
+async def test_user_nudge_round_trip(db_session, default_course_id):
     user = await _make_user(db_session)
     nudge = UserNudge(
         user_id=user.id,
+        course_id=default_course_id,
         body="今日は データ構造 を伸ばすチャンスです。",
         generated_at=datetime.now(UTC),
         input_signature="abc1234567890def",
@@ -40,17 +41,19 @@ async def test_user_nudge_round_trip(db_session):
 
 
 @pytest.mark.asyncio
-async def test_user_nudge_pk_is_user_id(db_session):
+async def test_user_nudge_pk_is_user_id(db_session, default_course_id):
     """1 user = 1 row, so a second insert with the same user_id must fail."""
     user = await _make_user(db_session)
     db_session.add(UserNudge(
-        user_id=user.id, body="a", generated_at=datetime.now(UTC),
+        user_id=user.id, course_id=default_course_id, body="a",
+        generated_at=datetime.now(UTC),
         input_signature="x" * 16,
     ))
     await db_session.commit()
 
     db_session.add(UserNudge(
-        user_id=user.id, body="b", generated_at=datetime.now(UTC),
+        user_id=user.id, course_id=default_course_id, body="b",
+        generated_at=datetime.now(UTC),
         input_signature="y" * 16,
     ))
     with pytest.raises(IntegrityError):
@@ -58,10 +61,11 @@ async def test_user_nudge_pk_is_user_id(db_session):
 
 
 @pytest.mark.asyncio
-async def test_user_nudge_cascades_on_user_delete(db_session):
+async def test_user_nudge_cascades_on_user_delete(db_session, default_course_id):
     user = await _make_user(db_session)
     db_session.add(UserNudge(
-        user_id=user.id, body="a", generated_at=datetime.now(UTC),
+        user_id=user.id, course_id=default_course_id, body="a",
+        generated_at=datetime.now(UTC),
         input_signature="x" * 16,
     ))
     await db_session.commit()

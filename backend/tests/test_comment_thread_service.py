@@ -37,9 +37,9 @@ async def _make_user(db_session, email, is_admin=False):
     return user
 
 
-async def _make_submission(db_session, owner):
+async def _make_submission(db_session, owner, course_id, task_no=1):
     sub = Submission(
-        user_id=owner.id, phase=1, task_no=1,
+        user_id=owner.id, course_id=course_id, phase=1, task_no=task_no,
         content="x", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
@@ -50,10 +50,10 @@ async def _make_submission(db_session, owner):
 
 
 @pytest.mark.asyncio
-async def test_post_reply_happy_path(db_session):
+async def test_post_reply_happy_path(db_session, default_course_id):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
 
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
@@ -72,13 +72,15 @@ async def test_post_reply_happy_path(db_session):
 
 
 @pytest.mark.asyncio
-async def test_post_reply_rejects_parent_in_different_submission(db_session):
+async def test_post_reply_rejects_parent_in_different_submission(
+    db_session, default_course_id
+):
     """Parent comment が別 submission に属する場合は 400 相当 (InvalidParentError)."""
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub_a = await _make_submission(db_session, learner)
+    sub_a = await _make_submission(db_session, learner, default_course_id)
     sub_b = Submission(
-        user_id=learner.id, phase=1, task_no=2,
+        user_id=learner.id, course_id=default_course_id, phase=1, task_no=2,
         content="x", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub_b)
@@ -101,13 +103,15 @@ async def test_post_reply_rejects_parent_in_different_submission(db_session):
 
 
 @pytest.mark.asyncio
-async def test_post_reply_rejects_others_submission(db_session):
+async def test_post_reply_rejects_others_submission(
+    db_session, default_course_id
+):
     """Sprint 4 と一貫: 他人の submission に対する操作は SubmissionNotFoundError
     (router 層で 404 にマップ、403 ではなく)."""
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     owner = await _make_user(db_session, "o@e.com")
     intruder = await _make_user(db_session, "i@e.com")
-    sub = await _make_submission(db_session, owner)
+    sub = await _make_submission(db_session, owner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )
@@ -124,10 +128,12 @@ async def test_post_reply_rejects_others_submission(db_session):
 
 
 @pytest.mark.asyncio
-async def test_post_reply_rejects_thread_with_no_admin_ancestor(db_session):
+async def test_post_reply_rejects_thread_with_no_admin_ancestor(
+    db_session, default_course_id
+):
     """先祖に admin が居ないスレッドへの返信は UnauthorizedThreadError."""
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
 
     fake_trunk = InstructorComment(
         submission_id=sub.id, author_user_id=learner.id,
@@ -146,10 +152,12 @@ async def test_post_reply_rejects_thread_with_no_admin_ancestor(db_session):
 
 
 @pytest.mark.asyncio
-async def test_ancestor_has_admin_returns_true_for_admin_trunk(db_session):
+async def test_ancestor_has_admin_returns_true_for_admin_trunk(
+    db_session, default_course_id
+):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )

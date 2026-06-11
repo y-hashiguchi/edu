@@ -132,7 +132,7 @@ async def test_list_users_caps_limit(client, db_session, admin_user):
 
 @pytest.mark.asyncio
 async def test_user_detail_returns_four_phase_progress_and_latest_scores(
-    client, db_session, admin_user
+    client, db_session, admin_user, default_course_id
 ):
     from datetime import UTC, datetime
 
@@ -143,13 +143,13 @@ async def test_user_detail_returns_four_phase_progress_and_latest_scores(
     # (which is the cached value on the submission row).
     db_session.add(
         Submission(
-            user_id=learner.id, phase=1, task_no=1, content="v",
+            user_id=learner.id, course_id=default_course_id, phase=1, task_no=1, content="v",
             score=72, submitted_at=datetime.now(UTC),
         )
     )
     db_session.add(
         Submission(
-            user_id=learner.id, phase=2, task_no=1, content="v",
+            user_id=learner.id, course_id=default_course_id, phase=2, task_no=1, content="v",
             score=88, submitted_at=datetime.now(UTC),
         )
     )

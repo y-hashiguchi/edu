@@ -52,13 +52,26 @@ async def initialize_progress_for_course(
 
 
 async def initialize_progress(db: AsyncSession, user_id: uuid.UUID) -> None:
-    """Legacy single-course shim — seeds against DEFAULT_COURSE_SLUG.
+    """Legacy single-course shim — enrolls + seeds against DEFAULT_COURSE_SLUG.
 
     Kept for code paths that still call the old signature. New callers
-    should use ``initialize_progress_for_course``."""
-    from app.data.courses import DEFAULT_COURSE_SLUG, get_course
-    from app.services.enrollment import _get_course_by_slug
+    should use ``enroll_user`` + ``initialize_progress_for_course`` directly.
 
+    Sprint 7: also auto-enrolls into DEFAULT_COURSE_SLUG so the
+    learner can interact with course-scoped routes (dashboard, chat,
+    submissions). The enrollment is idempotent — if the user is
+    already enrolled, this is a no-op."""
+    from app.data.courses import DEFAULT_COURSE_SLUG, get_course
+    from app.services.enrollment import (
+        AlreadyEnrolledError,
+        _get_course_by_slug,
+        enroll_user,
+    )
+
+    try:
+        await enroll_user(db, user_id=user_id, course_slug=DEFAULT_COURSE_SLUG)
+    except AlreadyEnrolledError:
+        pass
     course_data = get_course(DEFAULT_COURSE_SLUG)
     db_course = await _get_course_by_slug(db, DEFAULT_COURSE_SLUG)
     phase_numbers = [p.phase for p in course_data.phases]

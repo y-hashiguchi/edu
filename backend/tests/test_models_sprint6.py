@@ -23,9 +23,9 @@ async def _make_user(db_session, email="u@e.com", is_admin=False):
     return user
 
 
-async def _make_submission(db_session, owner):
+async def _make_submission(db_session, owner, course_id):
     sub = Submission(
-        user_id=owner.id, phase=1, task_no=1,
+        user_id=owner.id, course_id=course_id, phase=1, task_no=1,
         content="essay", submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
@@ -36,11 +36,11 @@ async def _make_submission(db_session, owner):
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_parent_id_defaults_null(db_session):
+async def test_instructor_comment_parent_id_defaults_null(db_session, default_course_id):
     """A trunk comment (admin's top-level post) has parent_id NULL."""
     admin = await _make_user(db_session, email="a@e.com", is_admin=True)
     owner = await _make_user(db_session, email="o@e.com")
-    sub = await _make_submission(db_session, owner)
+    sub = await _make_submission(db_session, owner, default_course_id)
 
     trunk = InstructorComment(
         submission_id=sub.id,
@@ -54,10 +54,10 @@ async def test_instructor_comment_parent_id_defaults_null(db_session):
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_reply_links_to_parent(db_session):
+async def test_instructor_comment_reply_links_to_parent(db_session, default_course_id):
     admin = await _make_user(db_session, email="a@e.com", is_admin=True)
     owner = await _make_user(db_session, email="o@e.com")
-    sub = await _make_submission(db_session, owner)
+    sub = await _make_submission(db_session, owner, default_course_id)
 
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
@@ -76,13 +76,13 @@ async def test_instructor_comment_reply_links_to_parent(db_session):
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_self_fk_cascades_on_parent_delete(db_session):
+async def test_instructor_comment_self_fk_cascades_on_parent_delete(db_session, default_course_id):
     """Deleting the trunk comment cascades to its replies — keeping
     orphan replies would leak threads visible in the admin index but
     inaccessible from the trunk."""
     admin = await _make_user(db_session, email="a@e.com", is_admin=True)
     owner = await _make_user(db_session, email="o@e.com")
-    sub = await _make_submission(db_session, owner)
+    sub = await _make_submission(db_session, owner, default_course_id)
 
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
@@ -107,7 +107,7 @@ async def test_instructor_comment_self_fk_cascades_on_parent_delete(db_session):
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_self_loop_rejected(db_session):
+async def test_instructor_comment_self_loop_rejected(db_session, default_course_id):
     """MED-1 (sprint-6 follow-up): direct self-parent (id == parent_id) is
     rejected by CHECK constraint. The recursive CTE depth cap defends
     against indirect cycles; this constraint catches the simplest case
@@ -117,7 +117,7 @@ async def test_instructor_comment_self_loop_rejected(db_session):
 
     admin = await _make_user(db_session, email="a@e.com", is_admin=True)
     owner = await _make_user(db_session, email="o@e.com")
-    sub = await _make_submission(db_session, owner)
+    sub = await _make_submission(db_session, owner, default_course_id)
 
     c = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="self-loop",

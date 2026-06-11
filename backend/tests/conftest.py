@@ -45,7 +45,11 @@ async def _setup_db():
 
 @pytest_asyncio.fixture
 async def db_session(_setup_db):
-    """Truncate all tables before each test, then yield an AsyncSession."""
+    """Truncate all tables before each test, then yield an AsyncSession.
+
+    Sprint 7: courses table is re-seeded after every truncate so
+    enrollments / progress / submissions can FK into it."""
+    from app.data.courses import COURSE_REGISTRY
     from app.db.base import Base
     from app.db.session import SessionLocal, engine
 
@@ -56,14 +60,43 @@ async def db_session(_setup_db):
             )
 
     async with SessionLocal() as session:
+        from app.models.course import Course
+        for _slug, c in COURSE_REGISTRY.items():
+            session.add(
+                Course(
+                    id=c.id,
+                    slug=c.slug,
+                    title=c.title,
+                    description=c.description,
+                    sort_order=c.sort_order,
+                )
+            )
+        await session.commit()
         yield session
 
 
 @pytest_asyncio.fixture
-async def auth_user(db_session):
+async def default_course_id(db_session):
+    """Sprint 7 — the ai-driven-dev course's fixed UUID."""
+    import uuid
+    return uuid.UUID("00000000-0000-4000-8000-000000000001")
+
+
+@pytest_asyncio.fixture
+async def se_course_id(db_session):
+    """Sprint 7 — the ai-era-se course's fixed UUID (used by tests that
+    exercise the second course)."""
+    import uuid
+    return uuid.UUID("00000000-0000-4000-8000-000000000002")
+
+
+@pytest_asyncio.fixture
+async def auth_user(db_session, default_course_id):
     from app.core.security import hash_password
+    from app.data.courses import DEFAULT_COURSE_SLUG, get_course
     from app.models.user import User
-    from app.services.progress import initialize_progress
+    from app.services.enrollment import enroll_user
+    from app.services.progress import initialize_progress_for_course
 
     user = User(
         email="alice@example.com",
@@ -72,7 +105,14 @@ async def auth_user(db_session):
     )
     db_session.add(user)
     await db_session.flush()
-    await initialize_progress(db_session, user.id)
+    await enroll_user(db_session, user_id=user.id, course_slug=DEFAULT_COURSE_SLUG)
+    course_data = get_course(DEFAULT_COURSE_SLUG)
+    await initialize_progress_for_course(
+        db_session,
+        user.id,
+        default_course_id,
+        [p.phase for p in course_data.phases],
+    )
     await db_session.commit()
     await db_session.refresh(user)
     return user
@@ -92,12 +132,14 @@ async def auth_client(client, auth_token):
 
 
 @pytest_asyncio.fixture
-async def admin_user(db_session):
+async def admin_user(db_session, default_course_id):
     """A standalone admin (separate row from `auth_user`) so a single test
     can spin up an admin AND a non-admin without email collisions."""
     from app.core.security import hash_password
+    from app.data.courses import DEFAULT_COURSE_SLUG, get_course
     from app.models.user import User
-    from app.services.progress import initialize_progress
+    from app.services.enrollment import enroll_user
+    from app.services.progress import initialize_progress_for_course
 
     user = User(
         email="instructor@example.com",
@@ -107,7 +149,14 @@ async def admin_user(db_session):
     )
     db_session.add(user)
     await db_session.flush()
-    await initialize_progress(db_session, user.id)
+    await enroll_user(db_session, user_id=user.id, course_slug=DEFAULT_COURSE_SLUG)
+    course_data = get_course(DEFAULT_COURSE_SLUG)
+    await initialize_progress_for_course(
+        db_session,
+        user.id,
+        default_course_id,
+        [p.phase for p in course_data.phases],
+    )
     await db_session.commit()
     await db_session.refresh(user)
     return user
@@ -131,18 +180,22 @@ async def admin_client(client, admin_token):
 
 
 @pytest_asyncio.fixture
-async def seed_graded_submission(db_session):
+async def seed_graded_submission(db_session, default_course_id):
     """Insert a Submission row + a GradingAttempt with status='graded'
     and the given score. Returns (submission, attempt) so tests can
-    chain further mutations (e.g. re-grade, mark stale)."""
+    chain further mutations (e.g. re-grade, mark stale).
+
+    Sprint 7: defaults to the ai-driven-dev course. Tests that need a
+    different course can override via the optional ``course_id`` arg."""
     from datetime import UTC, datetime
 
     from app.models.grading_attempt import GradingAttempt
     from app.models.submission import Submission
 
-    async def _seed(user, phase, task_no, score):
+    async def _seed(user, phase, task_no, score, course_id=None):
         sub = Submission(
             user_id=user.id,
+            course_id=course_id or default_course_id,
             phase=phase,
             task_no=task_no,
             content=f"essay phase{phase} task{task_no}",
@@ -167,18 +220,24 @@ async def seed_graded_submission(db_session):
 
 
 @pytest_asyncio.fixture
-async def seed_multiple_learners_with_submissions(db_session, seed_graded_submission):
+async def seed_multiple_learners_with_submissions(
+    db_session, seed_graded_submission, default_course_id
+):
     """Spawn N learners each with M graded submissions.
 
     Returns a list of (User, list[(phase, task_no, score)]) for the
     bulk weakness aggregation tests."""
     from app.core.security import hash_password
+    from app.data.courses import DEFAULT_COURSE_SLUG, get_course
     from app.models.user import User
-    from app.services.progress import initialize_progress
+    from app.services.enrollment import enroll_user
+    from app.services.progress import initialize_progress_for_course
 
     async def _seed(specs):
         """specs: list of (email, list[(phase, task_no, score)])."""
         out = []
+        course_data = get_course(DEFAULT_COURSE_SLUG)
+        phase_numbers = [p.phase for p in course_data.phases]
         for email, subs in specs:
             user = User(
                 email=email, name=email[:2],
@@ -186,7 +245,12 @@ async def seed_multiple_learners_with_submissions(db_session, seed_graded_submis
             )
             db_session.add(user)
             await db_session.flush()
-            await initialize_progress(db_session, user.id)
+            await enroll_user(
+                db_session, user_id=user.id, course_slug=DEFAULT_COURSE_SLUG
+            )
+            await initialize_progress_for_course(
+                db_session, user.id, default_course_id, phase_numbers
+            )
             await db_session.commit()
             await db_session.refresh(user)
             for phase, task_no, score in subs:

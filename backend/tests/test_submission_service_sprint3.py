@@ -4,6 +4,9 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+_AI_DRIVEN_DEV_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+_AI_DRIVEN_DEV_SLUG = "ai-driven-dev"
 from sqlalchemy import select
 
 from app.core.claude_client import ClaudeClient
@@ -80,7 +83,9 @@ async def test_upsert_with_files_persists_files_and_grading_attempt(
         task_no=1,
         content="see attached",
         uploads=[("photo.png", _png_bytes())],
-    )
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
+)
 
     assert row.score == 92
     files = (
@@ -114,7 +119,9 @@ async def test_resubmit_replaces_old_files(db_session, tmp_path, monkeypatch):
         task_no=1,
         content="v1",
         uploads=[("a.png", _png_bytes())],
-    )
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
+)
 
     row2 = await sub_mod.upsert_and_grade(
         db=db_session,
@@ -124,7 +131,9 @@ async def test_resubmit_replaces_old_files(db_session, tmp_path, monkeypatch):
         task_no=1,
         content="v2",
         uploads=[("b.png", _png_bytes())],
-    )
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
+)
 
     assert row1.id == row2.id
     files = (
@@ -158,6 +167,8 @@ async def test_regrade_appends_attempt(db_session, tmp_path, monkeypatch):
         task_no=1,
         content="v1",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     claude2 = _fake_claude('{"score":95,"feedback":"better"}')
@@ -166,6 +177,7 @@ async def test_regrade_appends_attempt(db_session, tmp_path, monkeypatch):
         claude=claude2,
         user_id=user.id,
         submission_id=row.id,
+        course_slug=_AI_DRIVEN_DEV_SLUG
     )
 
     assert attempt.score == 95
@@ -196,6 +208,8 @@ async def test_regrade_enforces_cooldown(db_session, tmp_path, monkeypatch):
         task_no=1,
         content="v1",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     with pytest.raises(sub_mod.RegradeCooldownError) as exc:
@@ -204,6 +218,7 @@ async def test_regrade_enforces_cooldown(db_session, tmp_path, monkeypatch):
             claude=claude,
             user_id=user.id,
             submission_id=row.id,
+        course_slug=_AI_DRIVEN_DEV_SLUG
         )
     assert exc.value.retry_after_seconds > 0
 
@@ -228,6 +243,8 @@ async def test_failed_attempts_do_not_count_toward_cooldown(
         task_no=1,
         content="v1",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
     assert row.score is None
 
@@ -238,6 +255,7 @@ async def test_failed_attempts_do_not_count_toward_cooldown(
         claude=good_claude,
         user_id=user.id,
         submission_id=row.id,
+        course_slug=_AI_DRIVEN_DEV_SLUG
     )
     assert attempt.status == GradingStatus.GRADED
 
@@ -274,6 +292,8 @@ async def test_concurrent_regrade_serialised_by_row_lock(
         task_no=1,
         content="v",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     # Push the only graded attempt 61 s into the past so the cooldown has
@@ -308,6 +328,7 @@ async def test_concurrent_regrade_serialised_by_row_lock(
                     claude=slow_claude,
                     user_id=user_id,
                     submission_id=submission_id,
+        course_slug=_AI_DRIVEN_DEV_SLUG
                 )
             except sub_mod.RegradeCooldownError as e:
                 return e
@@ -339,6 +360,8 @@ async def test_regrade_rejects_other_users_submission(
         task_no=1,
         content="v",
         uploads=[],
+        course_id=_AI_DRIVEN_DEV_ID,
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     with pytest.raises(sub_mod.SubmissionNotFoundError):
@@ -347,4 +370,5 @@ async def test_regrade_rejects_other_users_submission(
             claude=claude,
             user_id=intruder.id,
             submission_id=row.id,
+        course_slug=_AI_DRIVEN_DEV_SLUG
         )

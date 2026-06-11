@@ -26,9 +26,10 @@ async def _make_user(db_session, email, is_admin=False):
     return user
 
 
-async def _make_submission(db_session, owner):
+async def _make_submission(db_session, owner, course_id):
     sub = Submission(
         user_id=owner.id,
+        course_id=course_id,
         phase=1,
         task_no=1,
         content="x",
@@ -42,10 +43,10 @@ async def _make_submission(db_session, owner):
 
 
 @pytest.mark.asyncio
-async def test_reply_creates_notification_for_single_admin(db_session):
+async def test_reply_creates_notification_for_single_admin(db_session, default_course_id):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )
@@ -73,12 +74,12 @@ async def test_reply_creates_notification_for_single_admin(db_session):
 
 
 @pytest.mark.asyncio
-async def test_reply_creates_notifications_for_multiple_thread_admins(db_session):
+async def test_reply_creates_notifications_for_multiple_thread_admins(db_session, default_course_id):
     """Two admins participated in the thread → both get notifications."""
     admin_a = await _make_user(db_session, "a@e.com", is_admin=True)
     admin_b = await _make_user(db_session, "b@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
 
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin_a.id, body="A",
@@ -110,11 +111,11 @@ async def test_reply_creates_notifications_for_multiple_thread_admins(db_session
 
 
 @pytest.mark.asyncio
-async def test_reply_notification_body_truncates_long_text(db_session):
+async def test_reply_notification_body_truncates_long_text(db_session, default_course_id):
     """UI 表示用に冒頭 120 文字に切り詰める。"""
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
         submission_id=sub.id, author_user_id=admin.id, body="trunk",
     )
@@ -138,7 +139,7 @@ async def test_reply_notification_body_truncates_long_text(db_session):
 
 
 @pytest.mark.asyncio
-async def test_reply_notifies_sibling_branch_admin(db_session):
+async def test_reply_notifies_sibling_branch_admin(db_session, default_course_id):
     """HIGH-3 (sprint-6 follow-up): admin B が trunk へ直接返信 (sibling branch)
     した状態で、学習者が trunk へ返信したとき、admin B にも通知が届くこと。
 
@@ -151,7 +152,7 @@ async def test_reply_notifies_sibling_branch_admin(db_session):
     admin_a = await _make_user(db_session, "a@e.com", is_admin=True)
     admin_b = await _make_user(db_session, "b@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
-    sub = await _make_submission(db_session, learner)
+    sub = await _make_submission(db_session, learner, default_course_id)
 
     # admin A's trunk
     trunk = InstructorComment(

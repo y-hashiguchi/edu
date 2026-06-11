@@ -13,7 +13,7 @@ def test_register_creates_user_and_progress(client, db_session):
         json={
             "email": "alice@example.com",
             "name": "アリス",
-            "password": "password123",
+            "password": "password123", "course_slug": "ai-driven-dev"
         },
     )
     assert response.status_code == 201
@@ -29,7 +29,7 @@ def test_register_password_is_hashed(client, db_session):
         json={
             "email": "alice@example.com",
             "name": "アリス",
-            "password": "password123",
+            "password": "password123", "course_slug": "ai-driven-dev"
         },
     )
 
@@ -49,7 +49,7 @@ def test_register_password_is_hashed(client, db_session):
 def test_register_progress_rows_are_seeded(client, db_session):
     client.post(
         "/api/auth/register",
-        json={"email": "alice@example.com", "name": "A", "password": "password123"},
+        json={"email": "alice@example.com", "name": "A", "password": "password123", "course_slug": "ai-driven-dev"},
     )
 
     async def fetch():
@@ -74,7 +74,7 @@ def test_register_progress_rows_are_seeded(client, db_session):
 
 
 def test_register_returns_409_on_duplicate_email(client, db_session):
-    payload = {"email": "alice@example.com", "name": "A", "password": "password123"}
+    payload = {"email": "alice@example.com", "name": "A", "password": "password123", "course_slug": "ai-driven-dev"}
     assert client.post("/api/auth/register", json=payload).status_code == 201
     assert client.post("/api/auth/register", json=payload).status_code == 409
 
@@ -90,7 +90,7 @@ def test_register_returns_422_on_short_password(client, db_session):
 def test_register_returns_422_on_invalid_email(client, db_session):
     response = client.post(
         "/api/auth/register",
-        json={"email": "not-an-email", "name": "A", "password": "password123"},
+        json={"email": "not-an-email", "name": "A", "password": "password123", "course_slug": "ai-driven-dev"},
     )
     assert response.status_code == 422
 
@@ -98,11 +98,11 @@ def test_register_returns_422_on_invalid_email(client, db_session):
 def test_login_returns_token_on_valid_credentials(client, db_session):
     client.post(
         "/api/auth/register",
-        json={"email": "alice@example.com", "name": "A", "password": "password123"},
+        json={"email": "alice@example.com", "name": "A", "password": "password123", "course_slug": "ai-driven-dev"},
     )
     response = client.post(
         "/api/auth/login",
-        json={"email": "alice@example.com", "password": "password123"},
+        json={"email": "alice@example.com", "password": "password123", "course_slug": "ai-driven-dev"},
     )
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -112,7 +112,7 @@ def test_login_returns_token_on_valid_credentials(client, db_session):
 def test_login_returns_401_on_wrong_password(client, db_session):
     client.post(
         "/api/auth/register",
-        json={"email": "alice@example.com", "name": "A", "password": "password123"},
+        json={"email": "alice@example.com", "name": "A", "password": "password123", "course_slug": "ai-driven-dev"},
     )
     response = client.post(
         "/api/auth/login",
@@ -125,7 +125,7 @@ def test_login_returns_401_on_wrong_password(client, db_session):
 def test_login_returns_401_on_unknown_email(client, db_session):
     response = client.post(
         "/api/auth/login",
-        json={"email": "ghost@example.com", "password": "password123"},
+        json={"email": "ghost@example.com", "password": "password123", "course_slug": "ai-driven-dev"},
     )
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid credentials"

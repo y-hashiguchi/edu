@@ -7,10 +7,9 @@ from app.models.enrollment import Enrollment
 
 
 async def _seed(db, learner_id):
-    se = Course(slug="ai-era-se", title="SE", sort_order=1)
-    db.add(se)
-    await db.commit()
-    await db.refresh(se)
+    from sqlalchemy import select
+
+    se = (await db.execute(select(Course).where(Course.slug == "ai-era-se"))).scalar_one()
     db.add(Enrollment(user_id=learner_id, course_id=se.id, status="active"))
     await db.commit()
     return se

@@ -19,7 +19,7 @@ def _png_bytes() -> bytes:
     )
 
 
-async def _make_user_and_submission(db) -> tuple[User, Submission]:
+async def _make_user_and_submission(db, course_id) -> tuple[User, Submission]:
     user = User(
         email=f"u-{uuid.uuid4()}@example.com",
         name="t",
@@ -27,7 +27,9 @@ async def _make_user_and_submission(db) -> tuple[User, Submission]:
     )
     db.add(user)
     await db.flush()
-    sub = Submission(user_id=user.id, phase=1, task_no=1, content="x")
+    sub = Submission(
+        user_id=user.id, course_id=course_id, phase=1, task_no=1, content="x"
+    )
     db.add(sub)
     await db.flush()
     return user, sub
@@ -35,7 +37,7 @@ async def _make_user_and_submission(db) -> tuple[User, Submission]:
 
 @pytest.mark.asyncio
 async def test_persist_uploads_creates_db_rows_and_files(
-    db_session, tmp_path, monkeypatch
+    db_session, tmp_path, monkeypatch, default_course_id
 ):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     from importlib import reload
@@ -50,7 +52,7 @@ async def test_persist_uploads_creates_db_rows_and_files(
 
     reload(svc_mod)
 
-    user, sub = await _make_user_and_submission(db_session)
+    user, sub = await _make_user_and_submission(db_session, default_course_id)
 
     files = await svc_mod.persist_uploads(
         db=db_session,
@@ -71,7 +73,7 @@ async def test_persist_uploads_creates_db_rows_and_files(
 
 @pytest.mark.asyncio
 async def test_persist_uploads_rejects_too_many_files(
-    db_session, tmp_path, monkeypatch
+    db_session, tmp_path, monkeypatch, default_course_id
 ):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     monkeypatch.setenv("MAX_FILES_PER_SUBMISSION", "2")
@@ -87,7 +89,7 @@ async def test_persist_uploads_rejects_too_many_files(
 
     reload(svc_mod)
 
-    user, sub = await _make_user_and_submission(db_session)
+    user, sub = await _make_user_and_submission(db_session, default_course_id)
 
     with pytest.raises(svc_mod.TooManyFilesError):
         await svc_mod.persist_uploads(
@@ -104,7 +106,7 @@ async def test_persist_uploads_rejects_too_many_files(
 
 @pytest.mark.asyncio
 async def test_clear_existing_files_drops_db_and_disk(
-    db_session, tmp_path, monkeypatch
+    db_session, tmp_path, monkeypatch, default_course_id
 ):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     from importlib import reload
@@ -119,7 +121,7 @@ async def test_clear_existing_files_drops_db_and_disk(
 
     reload(svc_mod)
 
-    user, sub = await _make_user_and_submission(db_session)
+    user, sub = await _make_user_and_submission(db_session, default_course_id)
     await svc_mod.persist_uploads(
         db=db_session,
         user_id=user.id,
@@ -144,7 +146,7 @@ async def test_clear_existing_files_drops_db_and_disk(
 
 @pytest.mark.asyncio
 async def test_persist_uploads_rolls_back_disk_on_mid_loop_failure(
-    db_session, tmp_path, monkeypatch
+    db_session, tmp_path, monkeypatch, default_course_id
 ):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     from importlib import reload
@@ -159,7 +161,7 @@ async def test_persist_uploads_rolls_back_disk_on_mid_loop_failure(
 
     reload(svc_mod)
 
-    user, sub = await _make_user_and_submission(db_session)
+    user, sub = await _make_user_and_submission(db_session, default_course_id)
 
     # First upload valid PNG, second triggers MimeMismatchError (PNG content with .py extension).
     uploads = [

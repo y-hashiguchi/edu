@@ -79,7 +79,9 @@ def _to_out(
 async def create_submission(
     request: Request,  # required for the slowapi limiter decorator
     phase: int = Form(..., ge=1, le=4),
-    task_no: int = Form(..., ge=1, le=5),
+    # Sprint 7: per-course task_no upper bound is enforced in the
+    # service layer (ai-era-se has 8 tasks; ai-driven-dev has up to 5).
+    task_no: int = Form(..., ge=1),
     content: str = Form(..., min_length=1, max_length=10_000),
     files: list[UploadFile] = File(default_factory=list),
     current_user: User = Depends(get_current_user),

@@ -25,33 +25,33 @@ async def test_empty_user_ids_returns_empty_dict(db_session):
 
 
 @pytest.mark.asyncio
-async def test_user_with_no_submissions_returns_none(db_session):
+async def test_user_with_no_submissions_returns_none(db_session, default_course_id):
     uid = await _make_user_id(db_session, "z@e.com")
-    out = await compute_top_weakness_tags_bulk(db_session, [uid])
+    out = await compute_top_weakness_tags_bulk(db_session, [(uid, default_course_id)])
     assert out == {uid: None}
 
 
 @pytest.mark.asyncio
 async def test_returns_lowest_average_tag_per_user(
-    db_session, seed_multiple_learners_with_submissions,
+    db_session, seed_multiple_learners_with_submissions, default_course_id,
 ):
     users = await seed_multiple_learners_with_submissions([
         ("a@e.com", [(2, 1, 30), (2, 2, 40), (2, 3, 50)]),
         ("b@e.com", [(1, 1, 90), (2, 1, 30), (2, 2, 40)]),
     ])
-    user_ids = [u.id for u, _ in users]
-    out = await compute_top_weakness_tags_bulk(db_session, user_ids)
+    pairs = [(u.id, default_course_id) for u, _ in users]
+    out = await compute_top_weakness_tags_bulk(db_session, pairs)
     assert out[users[0][0].id] == "AI協調"
     assert out[users[1][0].id] == "AI協調"
 
 
 @pytest.mark.asyncio
 async def test_tie_breaker_by_tag_name_alphabetical(
-    db_session, seed_multiple_learners_with_submissions,
+    db_session, seed_multiple_learners_with_submissions, default_course_id,
 ):
     users = await seed_multiple_learners_with_submissions([
         ("c@e.com", [(1, 1, 50), (1, 2, 50)]),
     ])
     uid = users[0][0].id
-    out = await compute_top_weakness_tags_bulk(db_session, [uid])
+    out = await compute_top_weakness_tags_bulk(db_session, [(uid, default_course_id)])
     assert out[uid] == "Git/GitHub"
