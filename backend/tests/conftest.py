@@ -18,6 +18,8 @@ os.environ.setdefault("BCRYPT_ROUNDS", "4")
 # POSTs flying through the test client, leaving the live 10/minute cap on
 # would surface 429s in unrelated assertions.
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
+# Sprint 8: keep grading synchronous in tests (no Redis worker required).
+os.environ.setdefault("GRADING_ASYNC_ENABLED", "false")
 
 
 @pytest.fixture

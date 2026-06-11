@@ -16,98 +16,28 @@ from app.schemas.grading import GradingResult, GradingResultStatus
 from app.services import file_storage_service
 from app.services.grading import grade_submission
 from app.services.progress import maybe_mark_submitted
+from app.services.submission_grading import (
+    apply_grading_result,
+    grade_submission_by_id,
+    record_grading_attempt,
+)
+from app.worker.enqueue import enqueue_grading
 
 
-class SubmissionPhaseInvalidError(Exception):
-    pass
+from app.services.submission_errors import (
+    PhaseNotFoundError,
+    RegradeCooldownError,
+    SubmissionNotFoundError,
+    SubmissionPhaseInvalidError,
+    SubmissionTaskInvalidError,
+    TaskNotFoundError,
+)
+from app.services.submission_validate import validate_phase_and_task as _validate_phase_and_task
 
 
-class SubmissionTaskInvalidError(Exception):
-    pass
-
-
-# Sprint 7 aliases preferred by new course-aware callers. The historical
-# *Invalid* names remain for backwards compatibility with existing route
-# imports (Task 12 will migrate them).
-class PhaseNotFoundError(SubmissionPhaseInvalidError):
-    def __init__(self, phase: int) -> None:
-        super().__init__(phase)
-        self.phase = phase
-
-
-class TaskNotFoundError(SubmissionTaskInvalidError):
-    def __init__(self, phase: int, task_no: int) -> None:
-        super().__init__(f"task_no {task_no} not found in phase {phase}")
-        self.phase = phase
-        self.task_no = task_no
-
-
-class SubmissionNotFoundError(Exception):
-    pass
-
-
-class RegradeCooldownError(Exception):
-    def __init__(self, retry_after_seconds: int) -> None:
-        super().__init__(f"cooldown active; retry in {retry_after_seconds}s")
-        self.retry_after_seconds = retry_after_seconds
-
-
-def _validate_phase_and_task(course_slug: str, phase: int, task_no: int) -> str:
-    """Course-aware phase/task validation.
-
-    Returns the human task title for prompt construction. Raises
-    ``PhaseNotFoundError`` / ``TaskNotFoundError`` (subclasses of the
-    legacy *Invalid* names) so existing callers keep working until Task 12
-    migrates them."""
-    try:
-        phase_def = next(
-            p for p in get_course(course_slug).phases if p.phase == phase
-        )
-    except StopIteration:
-        raise PhaseNotFoundError(phase) from None
-    if task_no < 1 or task_no > len(phase_def.tasks):
-        raise TaskNotFoundError(phase, task_no)
-    return phase_def.tasks[task_no - 1].title
-
-
-def _record_attempt(
-    db: AsyncSession, submission_id: uuid.UUID, result: GradingResult
-) -> GradingAttempt:
-    if result.status == GradingResultStatus.GRADED:
-        status = GradingStatus.GRADED
-    else:
-        status = GradingStatus.FAILED
-    attempt = GradingAttempt(
-        submission_id=submission_id,
-        status=status,
-        score=result.score,
-        feedback=result.feedback,
-        error_message=result.error_message,
-        model_name=result.model_name,
-    )
-    db.add(attempt)
-    return attempt
-
-
-def _apply_result_to_submission(
-    submission: Submission, result: GradingResult, *, now: datetime
-) -> None:
-    if result.status == GradingResultStatus.GRADED:
-        submission.score = result.score
-        submission.ai_feedback = result.feedback
-        submission.graded_at = now
-    else:
-        submission.score = None
-        submission.ai_feedback = (
-            f"採点エラー: {result.error_message}" if result.error_message else None
-        )
-        submission.graded_at = now
-
-
-async def upsert_and_grade(
+async def upsert_submission(
     *,
     db: AsyncSession,
-    claude: ClaudeClient,
     user_id: uuid.UUID,
     course_id: uuid.UUID,
     course_slug: str,
@@ -116,7 +46,8 @@ async def upsert_and_grade(
     content: str,
     uploads: list[tuple[str, bytes]],
 ) -> Submission:
-    task_description = _validate_phase_and_task(course_slug, phase, task_no)
+    """Persist submission + files. Does not grade."""
+    _validate_phase_and_task(course_slug, phase, task_no)
 
     existing = (
         await db.execute(
@@ -153,34 +84,80 @@ async def upsert_and_grade(
         )
         await db.flush()
 
-    files = await file_storage_service.persist_uploads(
+    await file_storage_service.persist_uploads(
         db=db,
         user_id=user_id,
         submission_id=row.id,
         uploads=uploads,
     )
 
-    result = await grade_submission(
-        claude=claude,
-        task_description=task_description,
-        content=content,
-        files=files,
-    )
-
-    _record_attempt(db, row.id, result)
-    _apply_result_to_submission(row, result, now=now)
-
     phase_def = next(
         p for p in get_course(course_slug).phases if p.phase == phase
     )
-    tasks_total = len(phase_def.tasks)
     await maybe_mark_submitted(
-        db, user_id, phase, required_task_count=tasks_total, course_id=course_id
+        db, user_id, phase, required_task_count=len(phase_def.tasks), course_id=course_id
     )
+    return row
 
+
+async def upsert_and_enqueue(
+    *,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    course_slug: str,
+    phase: int,
+    task_no: int,
+    content: str,
+    uploads: list[tuple[str, bytes]],
+) -> Submission:
+    """Sprint 8: persist immediately, grade in background."""
+    row = await upsert_submission(
+        db=db,
+        user_id=user_id,
+        course_id=course_id,
+        course_slug=course_slug,
+        phase=phase,
+        task_no=task_no,
+        content=content,
+        uploads=uploads,
+    )
     await db.commit()
     await db.refresh(row)
+    await enqueue_grading(row.id)
+    await db.refresh(row)
     return row
+
+
+async def upsert_and_grade(
+    *,
+    db: AsyncSession,
+    claude: ClaudeClient,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    course_slug: str,
+    phase: int,
+    task_no: int,
+    content: str,
+    uploads: list[tuple[str, bytes]],
+) -> Submission:
+    """Synchronous grading path (GRADING_ASYNC_ENABLED=false)."""
+    row = await upsert_submission(
+        db=db,
+        user_id=user_id,
+        course_id=course_id,
+        course_slug=course_slug,
+        phase=phase,
+        task_no=task_no,
+        content=content,
+        uploads=uploads,
+    )
+    await db.flush()
+    graded = await grade_submission_by_id(db, claude, row.id)
+    assert graded is not None
+    await db.commit()
+    await db.refresh(graded)
+    return graded
 
 
 async def _latest_graded_attempt(
@@ -252,8 +229,8 @@ async def regrade_submission(
     )
 
     now = datetime.now(UTC)
-    attempt = _record_attempt(db, row.id, result)
-    _apply_result_to_submission(row, result, now=now)
+    attempt = record_grading_attempt(db, row.id, result)
+    apply_grading_result(row, result, now=now)
     await db.commit()
     await db.refresh(attempt)
     await db.refresh(row)

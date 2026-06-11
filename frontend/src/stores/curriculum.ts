@@ -120,7 +120,34 @@ export const useCurriculumStore = defineStore('curriculum', {
       // weakness/recommendation/nudge inputs, so force a re-fetch on next mount.
       useDashboardStore().invalidate();
       await this.fetchPhasesWithProgress(courseSlug);
+      // Sprint 8: async grading — poll until graded_at is set.
+      if (submission.graded_at == null) {
+        void this.pollUntilGraded(phase, task_no, courseSlug);
+      }
       return submission;
+    },
+
+    async pollUntilGraded(
+      phase: number,
+      taskNo: number,
+      courseSlug: string,
+      maxAttempts = 30,
+    ): Promise<void> {
+      for (let i = 0; i < maxAttempts; i += 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+        await this.loadSubmissions(phase, courseSlug);
+        const current = (this.submissions[phase] ?? []).find(
+          (s) => s.task_no === taskNo,
+        );
+        if (!current || current.graded_at != null) {
+          if (current?.score != null) {
+            this._noteCooldownIfGraded(current);
+            useDashboardStore().invalidate();
+            await this.fetchPhasesWithProgress(courseSlug);
+          }
+          return;
+        }
+      }
     },
 
     async regradeSubmission(

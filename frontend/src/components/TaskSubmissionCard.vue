@@ -110,10 +110,24 @@ watch(
   { immediate: true },
 );
 
-const isGraded = computed(() => props.submission?.score != null);
-const scoreLabel = computed(() =>
-  isGraded.value ? `${props.submission!.score} / 100` : '採点中…',
+const isPending = computed(
+  () =>
+    props.submission != null &&
+    props.submission.graded_at == null,
 );
+const isFailed = computed(
+  () =>
+    props.submission != null &&
+    props.submission.graded_at != null &&
+    props.submission.score == null,
+);
+const isGraded = computed(() => props.submission?.score != null);
+const scoreLabel = computed(() => {
+  if (isGraded.value) return `${props.submission!.score} / 100`;
+  if (isPending.value) return '採点中…';
+  if (isFailed.value) return '採点失敗';
+  return '—';
+});
 
 const canRegrade = computed(
   () => props.submission != null && (props.cooldownSeconds ?? 0) === 0,
@@ -147,7 +161,11 @@ defineExpose({ clearFilesAfterSubmit });
   <article class="task-card">
     <header>
       <span class="num">Task {{ taskNo }}</span>
-      <span v-if="submission" class="badge" :class="{ graded: isGraded }">
+      <span
+        v-if="submission"
+        class="badge"
+        :class="{ graded: isGraded, pending: isPending, failed: isFailed }"
+      >
         {{ scoreLabel }}
       </span>
     </header>
@@ -254,6 +272,14 @@ defineExpose({ clearFilesAfterSubmit });
 .badge.graded {
   background: #dcfce7;
   color: #166534;
+}
+.badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge.failed {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .desc {
   margin: 0;

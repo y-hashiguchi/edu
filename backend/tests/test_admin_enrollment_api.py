@@ -89,7 +89,7 @@ async def test_admin_enroll_adds_course_and_seeds_progress(
     ).scalar_one()
     assert enr.status == "active"
 
-    # Progress was seeded for ai-era-se Phase 1
+    # Progress was seeded for all ai-era-se phases
     se_progress = (
         await db_session.execute(
             select(Progress).where(
@@ -98,4 +98,4 @@ async def test_admin_enroll_adds_course_and_seeds_progress(
             )
         )
     ).scalars().all()
-    assert {p.phase for p in se_progress} == {1}
+    assert {p.phase for p in se_progress} == {1, 2, 3, 4}

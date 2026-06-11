@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # Grading (Sprint 3)
     regrade_cooldown_seconds: int = 60
 
+    # Sprint 8 — async grading (arq + Redis)
+    grading_async_enabled: bool = True
+    redis_url: str = "redis://localhost:6379/0"
+
     # Rate limiting (Sprint 3)
     rate_limit_enabled: bool = True
     submission_rate_limit: str = "10/minute"

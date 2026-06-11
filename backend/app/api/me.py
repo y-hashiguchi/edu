@@ -137,6 +137,7 @@ async def list_my_notifications(
                 title=n.title,
                 body=n.body,
                 link=n.link,
+                course_id=n.course_id,
                 read_at=n.read_at,
                 created_at=n.created_at,
             )
@@ -181,6 +182,7 @@ async def mark_my_notification_read(
         title=note.title,
         body=note.body,
         link=note.link,
+        course_id=note.course_id,
         read_at=note.read_at,
         created_at=note.created_at,
     )

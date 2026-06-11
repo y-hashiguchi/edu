@@ -47,6 +47,7 @@ from app.services.submission import (
     list_grading_history,
     list_user_submissions,
     regrade_submission,
+    upsert_and_enqueue,
     upsert_and_grade,
 )
 
@@ -101,17 +102,29 @@ async def create_submission(
         uploads.append((uf.filename or "file", data))
 
     try:
-        row = await upsert_and_grade(
-            db=db,
-            claude=claude,
-            user_id=current_user.id,
-            course_id=ctx.course.id,
-            course_slug=ctx.course.slug,
-            phase=phase,
-            task_no=task_no,
-            content=content,
-            uploads=uploads,
-        )
+        if settings.grading_async_enabled:
+            row = await upsert_and_enqueue(
+                db=db,
+                user_id=current_user.id,
+                course_id=ctx.course.id,
+                course_slug=ctx.course.slug,
+                phase=phase,
+                task_no=task_no,
+                content=content,
+                uploads=uploads,
+            )
+        else:
+            row = await upsert_and_grade(
+                db=db,
+                claude=claude,
+                user_id=current_user.id,
+                course_id=ctx.course.id,
+                course_slug=ctx.course.slug,
+                phase=phase,
+                task_no=task_no,
+                content=content,
+                uploads=uploads,
+            )
     except SubmissionPhaseInvalidError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

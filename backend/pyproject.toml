@@ -23,6 +23,8 @@ dependencies = [
     "fastembed>=0.4.0",
     "numpy>=2.0.0",
     "pgvector>=0.3.0",
+    "arq>=0.26.0",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
