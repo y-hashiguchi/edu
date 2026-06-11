@@ -9,6 +9,12 @@ vi.mock('@/lib/api', async () => {
     ...actual,
     api: {
       ...actual.api,
+      listCourseCatalog: vi.fn().mockResolvedValue({
+        items: [
+          { slug: 'ai-driven-dev', title: 'AI駆動型開発', description: null, sort_order: 0 },
+          { slug: 'ai-era-se', title: 'AI時代SE育成', description: null, sort_order: 1 },
+        ],
+      }),
       adminGetUser: vi.fn().mockResolvedValue({
         id: 'u1', email: 'a@e.com', name: 'A',
         created_at: '2026-06-09T00:00:00Z', is_admin: false,

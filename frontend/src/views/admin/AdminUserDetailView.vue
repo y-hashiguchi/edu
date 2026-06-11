@@ -14,11 +14,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { api } from '@/lib/api';
 import ProgressSummaryCard from '@/components/ProgressSummaryCard.vue';
 import RecommendationsCard from '@/components/RecommendationsCard.vue';
 import WeaknessCard from '@/components/WeaknessCard.vue';
 import { useAdminStore } from '@/stores/admin';
 import type { AdminDashboardResponse } from '@/types/admin';
+import type { CourseCatalogItem } from '@/types/course';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,10 +29,21 @@ const store = useAdminStore();
 const userId = computed(() => String(route.params.id));
 const dashboard = ref<AdminDashboardResponse | null>(null);
 const selectedCourseSlug = ref<string>('');
+const catalog = ref<CourseCatalogItem[]>([]);
+const enrollSlug = ref('');
+const enrollMessage = ref<string | null>(null);
+const enrolling = ref(false);
 
 const activeEnrollments = computed(
   () => store.selectedUser?.enrollments.filter((e) => e.status === 'active') ?? [],
 );
+
+const enrollableCourses = computed(() => {
+  const enrolled = new Set(
+    (store.selectedUser?.enrollments ?? []).map((e) => e.course_slug),
+  );
+  return catalog.value.filter((c) => !enrolled.has(c.slug));
+});
 
 async function reloadDashboard() {
   if (!store.selectedUser || !selectedCourseSlug.value) {
@@ -43,7 +56,28 @@ async function reloadDashboard() {
   );
 }
 
+async function enrollInCourse() {
+  if (!store.selectedUser || !enrollSlug.value) return;
+  enrolling.value = true;
+  enrollMessage.value = null;
+  try {
+    await store.enrollUser(store.selectedUser.id, enrollSlug.value);
+    enrollMessage.value = 'コースを追加しました';
+    enrollSlug.value = '';
+    selectedCourseSlug.value =
+      activeEnrollments.value[0]?.course_slug ?? '';
+    await reloadDashboard();
+  } catch (e) {
+    enrollMessage.value =
+      e instanceof Error ? e.message : 'コース追加に失敗しました';
+  } finally {
+    enrolling.value = false;
+  }
+}
+
 async function load() {
+  const cat = await api.listCourseCatalog();
+  catalog.value = cat.items;
   await store.fetchUserDetail(userId.value);
   await store.fetchSubmissions({ user_id: userId.value });
   // Default the selector to the first active enrollment (the backend
@@ -118,6 +152,33 @@ function phaseStatusLabel(status: string): string {
             </p>
           </article>
         </div>
+      </section>
+
+      <section
+        v-if="enrollableCourses.length > 0"
+        class="enroll-box"
+      >
+        <h2>コース追加</h2>
+        <div class="enroll-row">
+          <select v-model="enrollSlug" :disabled="enrolling">
+            <option value="" disabled>コースを選択…</option>
+            <option
+              v-for="c in enrollableCourses"
+              :key="c.slug"
+              :value="c.slug"
+            >
+              {{ c.title }}
+            </option>
+          </select>
+          <button
+            type="button"
+            :disabled="enrolling || !enrollSlug"
+            @click="enrollInCourse"
+          >
+            {{ enrolling ? '追加中…' : '追加する' }}
+          </button>
+        </div>
+        <p v-if="enrollMessage" class="enroll-msg">{{ enrollMessage }}</p>
       </section>
 
       <section
@@ -290,6 +351,34 @@ h2 {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font: inherit;
+}
+.enroll-box { margin-top: 1.2rem; }
+.enroll-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.enroll-row select {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+}
+.enroll-row button {
+  background: #4f46e5;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+}
+.enroll-row button:disabled { opacity: 0.5; }
+.enroll-msg {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #047857;
 }
 .dash-error {
   margin: 1.4rem 0 0;

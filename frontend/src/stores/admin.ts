@@ -137,6 +137,20 @@ export const useAdminStore = defineStore('admin', {
       return note;
     },
 
+    async broadcastNotification(
+      payload: import('@/types/notification').BroadcastNotificationCreatePayload,
+    ) {
+      return api.adminBroadcastNotification(payload);
+    },
+
+    async enrollUser(userId: string, courseSlug: string) {
+      const enr = await api.adminEnrollUser(userId, courseSlug);
+      if (this.selectedUser?.id === userId) {
+        await this.fetchUserDetail(userId);
+      }
+      return enr;
+    },
+
     async fetchSentNotifications() {
       const res = await api.adminListSentNotifications();
       this.sentNotifications = res.items;

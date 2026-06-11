@@ -20,10 +20,13 @@ import type {
 } from '@/types/admin';
 import type {
   AdminNotificationListOut,
+  BroadcastNotificationCreatePayload,
+  BroadcastNotificationOut,
   NotificationCreatePayload,
   NotificationListOut,
   NotificationOut,
 } from '@/types/notification';
+import type { EnrollmentOut } from '@/types/course';
 import type { DashboardResponse } from '@/types/dashboard';
 import type {
   CourseCatalogResponse,
@@ -264,6 +267,23 @@ export const api = {
     rawRequest<NotificationOut>(`/api/admin/notifications`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  adminBroadcastNotification: (
+    payload: BroadcastNotificationCreatePayload,
+  ): Promise<BroadcastNotificationOut> =>
+    rawRequest(`/api/admin/notifications/broadcast`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  adminEnrollUser: (
+    userId: string,
+    courseSlug: string,
+  ): Promise<EnrollmentOut> =>
+    rawRequest(`/api/admin/users/${userId}/enrollments`, {
+      method: 'POST',
+      body: JSON.stringify({ course_slug: courseSlug }),
     }),
 
   adminListSentNotifications: (): Promise<AdminNotificationListOut> =>
