@@ -91,6 +91,8 @@ make test-frontend             # vitest
 - [x] Sprint 5: 受講者ダッシュボード（弱点分析 + レコメンド + AI 一言 + 進捗サマリ）+ TaskItem skill_tags 拡張 + curriculum_task 用 RAG ヘルパー `search_curriculum_tasks` + `user_nudges` キャッシュテーブル + Sprint 5 review で出た HIGH × 3 件同梱修正
 - [x] Sprint 6: 受講者×講師の双方向コミュニケーション（コメント返信スレッド + admin NotificationCenter 統合 + admin 受講者 dashboard + admin users 一覧の「もう一押し」column）+ Sprint 6 review で出た HIGH × 3 件同梱修正
 - [x] Sprint 7: マルチコース化（courses / enrollments テーブル + 5 テーブルへの course_id FK + Python レジストリ + `?course=` スコープ + 登録時コース選択 + ダッシュボードコーススコープ化 + ai-driven-dev 既存移設 + ai-era-se Phase 1 8 課題パイロット）
+- [x] Sprint 8: 採点非同期化（Redis + arq worker、提出 API は即時返却、フロントはポーリングで結果反映）
+- [x] Sprint 7 follow-up / INFRA: vitest CVE パッチ（`>=3.2.5`）、Playwright headless smoke E2E、GitHub Actions CI
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -101,7 +103,22 @@ make test-frontend             # vitest
 - 新規登録時にコース必須選択: `/login` → 新規登録 → コース select
 - API は `?course={slug}` クエリでスコープ。未指定時は `ai-driven-dev` に解決
 - フロント URL は `/courses/:slug/phases/:phase` 構成。旧 `/phases/:phase` は `ai-driven-dev` への redirect で互換維持
-- 追加 enroll API は現状未実装。手動で `INSERT INTO enrollments` するか、Sprint 8 で API 化予定（follow-up doc 参照）
+- 追加 enroll: `POST /api/admin/users/{id}/enrollments`（admin UI の受講者詳細からも操作可能）
+- コース一斉通知: `POST /api/admin/notifications/broadcast`（`course_slug` で active 受講者に配信）
+- `make seed-embeddings` の `source_ref` は全コース `course:{slug}:phase:N:task:N` 形式に統一済み
+
+### CI / E2E
+
+- `.github/workflows/ci.yml`: backend pytest、frontend vitest、`npm audit --audit-level=critical`、Playwright smoke
+- ローカル E2E: `docker compose up -d postgres backend` のあと `cd frontend && npm run test:e2e`
+- vitest は `3.2.6` 以上（GHSA-5xrq-8626-4rwp 対応）。`vitest --ui` はローカル専用
+
+### 非同期採点（Sprint 8）
+
+- `docker compose up` で `redis` + `grading-worker` が起動（`GRADING_ASYNC_ENABLED=true` がデフォルト）
+- 提出 POST は保存後すぐ 201 を返し、採点はワーカーがバックグラウンド実行
+- ローカル直接起動時は Redis を立て、`make worker` でワーカーを別ターミナル起動
+- テストは `GRADING_ASYNC_ENABLED=false` で同期採点（Redis 不要）
 
 ### 管理者の昇格
 

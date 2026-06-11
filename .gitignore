@@ -29,6 +29,9 @@ frontend/src/**/*.js
 
 # Playwright MCP ephemeral output
 /.playwright-mcp/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 
 # Local e2e screenshots from ad-hoc Playwright runs.
 # Committed reference screenshots (e2e-sprint3-*.png) remain tracked.

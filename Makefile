@@ -1,4 +1,11 @@
-.PHONY: dev test test-backend test-frontend lint clean migrate revision db-shell seed-embeddings
+.PHONY: dev test test-backend test-frontend test-e2e lint clean migrate revision db-shell seed-embeddings worker
+
+worker:
+	docker compose up -d redis postgres
+	cd backend && set -a && . ../.env && set +a && \
+		DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_tutor \
+		REDIS_URL=redis://localhost:6379/0 \
+		uv run arq app.worker.settings.WorkerSettings
 
 dev:
 	docker compose up --build
@@ -27,6 +34,10 @@ test-backend:
 
 test-frontend:
 	cd frontend && npm run test
+
+test-e2e:
+	docker compose up -d postgres backend
+	cd frontend && npm run test:e2e
 
 lint:
 	cd backend && uv run ruff check app tests
