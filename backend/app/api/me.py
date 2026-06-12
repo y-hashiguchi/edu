@@ -17,9 +17,14 @@ from app.config import settings
 from app.core.deps import get_current_user
 from app.core.limiter import limiter
 from app.db.session import get_db
+from app.models.grading_attempt import GradingAttempt
+from app.models.submission import Submission
+from app.models.submission_file import SubmissionFile
 from app.models.user import User
 from app.schemas.comment import CommentCreate, LearnerCommentOut
+from app.schemas.grading import GradingAttemptOut
 from app.schemas.notification import NotificationListOut, NotificationOut
+from app.schemas.submission import SubmissionFileOut, SubmissionOut
 from app.services import comment as comment_service
 from app.services import notification as notification_service
 from app.services.comment import (
@@ -30,6 +35,66 @@ from app.services.comment import (
 )
 
 router = APIRouter(prefix="/api/me", tags=["me"])
+
+
+@router.get("/submissions/{submission_id}", response_model=SubmissionOut)
+async def get_my_submission(
+    submission_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SubmissionOut:
+    """Sprint 8 follow-up — single-submission polling endpoint.
+
+    The async grading + async regrade flows reset ``graded_at`` until
+    the worker writes a new GradingAttempt. The frontend polls this
+    endpoint (every ~2s) instead of refetching the whole phase list,
+    cutting bandwidth and DB load while a learner is staring at the
+    "採点中" badge.
+
+    BOLA boundary: the WHERE clause pins ``user_id = current_user.id``
+    so any submission_id owned by a different learner returns 404,
+    matching the comment endpoints' BOLA shape on this router.
+    """
+    submission = (
+        await db.execute(
+            select(Submission).where(
+                Submission.id == submission_id,
+                Submission.user_id == user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if submission is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+        )
+
+    files = (
+        await db.execute(
+            select(SubmissionFile)
+            .where(SubmissionFile.submission_id == submission.id)
+            .order_by(SubmissionFile.created_at)
+        )
+    ).scalars().all()
+    attempts = (
+        await db.execute(
+            select(GradingAttempt)
+            .where(GradingAttempt.submission_id == submission.id)
+            .order_by(GradingAttempt.created_at.desc())
+        )
+    ).scalars().all()
+
+    return SubmissionOut(
+        id=submission.id,
+        phase=submission.phase,
+        task_no=submission.task_no,
+        content=submission.content,
+        ai_feedback=submission.ai_feedback,
+        score=submission.score,
+        submitted_at=submission.submitted_at,
+        graded_at=submission.graded_at,
+        files=[SubmissionFileOut.from_row(f) for f in files],
+        grading_history=[GradingAttemptOut.model_validate(a) for a in attempts],
+    )
 
 
 @router.get(

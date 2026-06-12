@@ -191,6 +191,15 @@ export const api = {
       { method: 'POST' },
     ),
 
+  // Sprint 8 follow-up: single-submission polling endpoint used while
+  // async grading or async regrade is in flight. Returns the same
+  // Submission shape the list endpoint produces so callers can swap it
+  // straight into store state.
+  getMySubmission: (submissionId: string): Promise<Submission> =>
+    rawRequest<Submission>(`/api/me/submissions/${submissionId}`, {
+      method: 'GET',
+    }),
+
   // Downloads the file body via an authenticated fetch and returns a Blob.
   // A bare <a href> cannot carry the Authorization header, so the download
   // endpoint must be reached programmatically.

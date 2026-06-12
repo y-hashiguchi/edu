@@ -47,6 +47,7 @@ from app.services.submission import (
     list_grading_history,
     list_user_submissions,
     regrade_submission,
+    regrade_submission_async,
     upsert_and_enqueue,
     upsert_and_grade,
 )
@@ -180,7 +181,36 @@ async def regrade(
     claude: ClaudeClient = Depends(get_claude_client),
     db: AsyncSession = Depends(get_db),
 ) -> GradingAttemptOut:
+    """Sprint 3 baseline + Sprint 8 follow-up: regrade an existing submission.
+
+    Sync mode (``GRADING_ASYNC_ENABLED=false``) returns the freshly written
+    GradingAttempt with status ``graded``/``failed``.
+
+    Async mode queues the work on the arq worker and returns a synthetic
+    PENDING attempt (not persisted) so the client can pivot to polling
+    ``GET /api/me/submissions/{id}`` until ``graded_at`` is set."""
     try:
+        if settings.grading_async_enabled:
+            row = await regrade_submission_async(
+                db=db,
+                user_id=current_user.id,
+                course_slug=ctx.course.slug,
+                submission_id=submission_id,
+            )
+            # Synthetic PENDING attempt — never persisted (DB CHECK
+            # constraint forbids it). The client uses this only to
+            # learn that polling should begin.
+            from datetime import UTC, datetime
+            return GradingAttemptOut(
+                id=uuid.uuid4(),
+                status="pending",  # type: ignore[arg-type]
+                score=None,
+                feedback=None,
+                error_message=None,
+                model_name="(pending)",
+                created_at=datetime.now(UTC),
+            )
+
         attempt = await regrade_submission(
             db=db,
             claude=claude,

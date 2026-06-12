@@ -46,7 +46,11 @@ export interface TokenResponse {
   token_type: string;
 }
 
-export type GradingAttemptStatus = 'graded' | 'failed';
+// Sprint 8 follow-up: 'pending' is an ephemeral wire value returned by
+// the async regrade path. The DB never stores it (CHECK constraint
+// forbids it); the frontend sees it as a signal that polling should
+// begin and there is no real grading_attempt to merge yet.
+export type GradingAttemptStatus = 'graded' | 'failed' | 'pending';
 
 export interface GradingAttempt {
   id: string;

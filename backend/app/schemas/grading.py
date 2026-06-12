@@ -10,6 +10,11 @@ from pydantic import BaseModel, Field
 class GradingResultStatus(StrEnum):
     GRADED = "graded"
     FAILED = "failed"
+    # Sprint 8 follow-up: ephemeral wire status used by async regrade.
+    # Never persisted (the DB CHECK constraint only allows graded/failed).
+    # The route hands the client a synthetic PENDING attempt so the
+    # frontend knows to start polling.
+    PENDING = "pending"
 
 
 class GradingResult(BaseModel):

@@ -9,6 +9,7 @@ vi.mock('@/lib/api', async () => {
       ...actual.api,
       submitTask: vi.fn(),
       regradeSubmission: vi.fn(),
+      getMySubmission: vi.fn(),
       listProgress: vi.fn().mockResolvedValue([]),
       listPhases: vi.fn().mockResolvedValue([]),
     },
@@ -119,5 +120,49 @@ describe('curriculum store', () => {
     await store.regradeSubmission(1, 's1', 'ai-driven-dev');
     // invalidate() sets data to null; "did not invalidate" = still truthy.
     expect(dashboard.data).not.toBeNull();
+  });
+
+  it('regradeSubmission marks the row pending and does not merge on async path', async () => {
+    // Sprint 8 follow-up: async regrade returns a synthetic PENDING
+    // attempt. The store should NOT call _mergeAttempt (which would
+    // overwrite ai_feedback with "採点エラー: undefined") and should
+    // clear graded_at so the UI shows "採点中".
+    const store = useCurriculumStore();
+    const previousFeedback = 'previous: 80 nice';
+    store.submissions[1] = [
+      {
+        id: 's1', phase: 1, task_no: 1, content: 'x',
+        ai_feedback: previousFeedback, score: 80,
+        submitted_at: '', graded_at: '2026-06-11T00:00:00Z',
+        files: [], grading_history: [],
+      },
+    ];
+    (api.regradeSubmission as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'pending-1', status: 'pending', score: null, feedback: null,
+      error_message: null, model_name: '(pending)',
+      created_at: '2026-06-11T01:00:00Z',
+    });
+    // Block the poll loop from racing the assertion: have getMySubmission
+    // return a still-pending row so pollSubmissionById doesn't terminate.
+    (api.getMySubmission as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 's1', phase: 1, task_no: 1, content: 'x',
+      ai_feedback: previousFeedback, score: 80,
+      submitted_at: '', graded_at: null,
+      files: [], grading_history: [],
+    });
+
+    const attempt = await store.regradeSubmission(1, 's1', 'ai-driven-dev');
+    expect(attempt.status).toBe('pending');
+    const sub = store.submissions[1][0];
+    // graded_at cleared → UI surfaces the "採点中" state.
+    expect(sub.graded_at).toBeNull();
+    // Previous feedback / score / history must NOT be overwritten by the
+    // synthetic pending attempt.
+    expect(sub.ai_feedback).toBe(previousFeedback);
+    expect(sub.score).toBe(80);
+    expect(sub.grading_history).toHaveLength(0);
+    // No cooldown stored for a pending attempt (we don't know yet if it
+    // will succeed; the cooldown is server-side anyway).
+    expect(store.cooldownSecondsRemaining('s1')).toBe(0);
   });
 });

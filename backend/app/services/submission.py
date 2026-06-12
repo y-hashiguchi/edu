@@ -198,6 +198,23 @@ async def _load_owned_submission(
     return row
 
 
+async def _check_regrade_cooldown(
+    db: AsyncSession, submission: Submission
+) -> None:
+    """Raise RegradeCooldownError if the most recent graded attempt is
+    inside the cooldown window. Shared by sync + async regrade paths."""
+    cooldown = settings.regrade_cooldown_seconds
+    if cooldown <= 0:
+        return
+    last_graded = await _latest_graded_attempt(db, submission.id)
+    if last_graded is None:
+        return
+    elapsed = datetime.now(UTC) - last_graded.created_at
+    remaining = cooldown - int(elapsed.total_seconds())
+    if remaining > 0:
+        raise RegradeCooldownError(retry_after_seconds=remaining)
+
+
 async def regrade_submission(
     *,
     db: AsyncSession,
@@ -206,15 +223,9 @@ async def regrade_submission(
     course_slug: str,
     submission_id: uuid.UUID,
 ) -> GradingAttempt:
+    """Synchronous regrade path (used when GRADING_ASYNC_ENABLED=false)."""
     row = await _load_owned_submission(db, user_id, submission_id, lock=True)
-
-    cooldown = settings.regrade_cooldown_seconds
-    last_graded = await _latest_graded_attempt(db, row.id)
-    if cooldown > 0 and last_graded is not None:
-        elapsed = datetime.now(UTC) - last_graded.created_at
-        remaining = cooldown - int(elapsed.total_seconds())
-        if remaining > 0:
-            raise RegradeCooldownError(retry_after_seconds=remaining)
+    await _check_regrade_cooldown(db, row)
 
     task_description = _validate_phase_and_task(course_slug, row.phase, row.task_no)
     files = await file_storage_service.list_submission_files(
@@ -235,6 +246,34 @@ async def regrade_submission(
     await db.refresh(attempt)
     await db.refresh(row)
     return attempt
+
+
+async def regrade_submission_async(
+    *,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    course_slug: str,
+    submission_id: uuid.UUID,
+) -> Submission:
+    """Sprint 8 follow-up: queue regrade on the arq worker.
+
+    The route still runs the cooldown check and validates the phase/task
+    synchronously so the client sees the error path immediately. Once
+    queued, ``submission.graded_at`` is reset to ``None`` so the
+    frontend's poll loop can distinguish "freshly queued for regrade"
+    from "already graded by a previous attempt"."""
+    row = await _load_owned_submission(db, user_id, submission_id, lock=True)
+    await _check_regrade_cooldown(db, row)
+    # Validate phase/task here so a misconfigured course surfaces a
+    # 422/404 instead of a worker-side crash.
+    _validate_phase_and_task(course_slug, row.phase, row.task_no)
+
+    row.graded_at = None
+    await db.commit()
+    await db.refresh(row)
+    await enqueue_grading(row.id)
+    await db.refresh(row)
+    return row
 
 
 async def list_user_submissions(

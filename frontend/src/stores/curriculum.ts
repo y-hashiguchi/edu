@@ -150,6 +150,36 @@ export const useCurriculumStore = defineStore('curriculum', {
       }
     },
 
+    // Sprint 8 follow-up: poll the single-submission endpoint until the
+    // graded_at column is filled. Used by the async regrade flow so the
+    // store updates without refetching the whole phase list.
+    async pollSubmissionById(
+      phase: number,
+      submissionId: string,
+      courseSlug: string,
+      maxAttempts = 30,
+    ): Promise<void> {
+      for (let i = 0; i < maxAttempts; i += 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+        let updated: Submission;
+        try {
+          updated = await api.getMySubmission(submissionId);
+        } catch {
+          // Network blip: keep polling — the worker may still be running.
+          continue;
+        }
+        this._replaceSubmission(phase, updated);
+        if (updated.graded_at != null) {
+          if (updated.score != null) {
+            this._noteCooldownIfGraded(updated);
+            useDashboardStore().invalidate();
+            await this.fetchPhasesWithProgress(courseSlug);
+          }
+          return;
+        }
+      }
+    },
+
     async regradeSubmission(
       phase: number,
       submissionId: string,
@@ -157,6 +187,13 @@ export const useCurriculumStore = defineStore('curriculum', {
     ): Promise<GradingAttempt> {
       try {
         const attempt = await api.regradeSubmission(submissionId, courseSlug);
+        if (attempt.status === 'pending') {
+          // Async path: clear the cached graded_at so the UI shows
+          // "採点中" and start polling the single-submission endpoint.
+          this._markPending(phase, submissionId);
+          void this.pollSubmissionById(phase, submissionId, courseSlug);
+          return attempt;
+        }
         this._mergeAttempt(phase, submissionId, attempt);
         if (attempt.status === 'graded') {
           this.cooldownUntil[submissionId] = Date.now() + 60_000;
@@ -175,6 +212,34 @@ export const useCurriculumStore = defineStore('curriculum', {
         }
         throw e;
       }
+    },
+
+    _markPending(phase: number, submissionId: string) {
+      const list = this.submissions[phase] ?? [];
+      const idx = list.findIndex((s) => s.id === submissionId);
+      if (idx < 0) return;
+      const target = list[idx];
+      // Reset graded_at so the UI shows the "採点中" state and
+      // pollUntilGraded / pollSubmissionById short-circuits resume the
+      // updated cycle.
+      const updated: Submission = { ...target, graded_at: null };
+      const newList = [...list];
+      newList[idx] = updated;
+      this.submissions[phase] = newList;
+    },
+
+    _replaceSubmission(phase: number, submission: Submission) {
+      const list = this.submissions[phase] ?? [];
+      const idx = list.findIndex((s) => s.id === submission.id);
+      if (idx < 0) {
+        this.submissions[phase] = [...list, submission].sort(
+          (a, b) => a.task_no - b.task_no,
+        );
+        return;
+      }
+      const newList = [...list];
+      newList[idx] = submission;
+      this.submissions[phase] = newList;
     },
 
     _mergeAttempt(
