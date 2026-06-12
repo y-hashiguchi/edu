@@ -120,39 +120,20 @@ export const useCurriculumStore = defineStore('curriculum', {
       // weakness/recommendation/nudge inputs, so force a re-fetch on next mount.
       useDashboardStore().invalidate();
       await this.fetchPhasesWithProgress(courseSlug);
-      // Sprint 8: async grading — poll until graded_at is set.
+      // Sprint 8 + follow-up: async grading — poll a single submission
+      // until graded_at is set. Uses the lightweight
+      // GET /api/me/submissions/{id} endpoint instead of refetching
+      // the whole phase list.
       if (submission.graded_at == null) {
-        void this.pollUntilGraded(phase, task_no, courseSlug);
+        void this.pollSubmissionById(phase, submission.id, courseSlug);
       }
       return submission;
     },
 
-    async pollUntilGraded(
-      phase: number,
-      taskNo: number,
-      courseSlug: string,
-      maxAttempts = 30,
-    ): Promise<void> {
-      for (let i = 0; i < maxAttempts; i += 1) {
-        await new Promise((r) => setTimeout(r, 2000));
-        await this.loadSubmissions(phase, courseSlug);
-        const current = (this.submissions[phase] ?? []).find(
-          (s) => s.task_no === taskNo,
-        );
-        if (!current || current.graded_at != null) {
-          if (current?.score != null) {
-            this._noteCooldownIfGraded(current);
-            useDashboardStore().invalidate();
-            await this.fetchPhasesWithProgress(courseSlug);
-          }
-          return;
-        }
-      }
-    },
-
-    // Sprint 8 follow-up: poll the single-submission endpoint until the
-    // graded_at column is filled. Used by the async regrade flow so the
-    // store updates without refetching the whole phase list.
+    // Sprint 8 + follow-up: poll the single-submission endpoint until
+    // ``graded_at`` is filled. Used by both submitTask (async grading)
+    // and regradeSubmission (async regrade) — the legacy phase-list
+    // poller was removed once both call sites had a submission_id.
     async pollSubmissionById(
       phase: number,
       submissionId: string,
@@ -219,9 +200,9 @@ export const useCurriculumStore = defineStore('curriculum', {
       const idx = list.findIndex((s) => s.id === submissionId);
       if (idx < 0) return;
       const target = list[idx];
-      // Reset graded_at so the UI shows the "採点中" state and
-      // pollUntilGraded / pollSubmissionById short-circuits resume the
-      // updated cycle.
+      // Reset graded_at so the UI shows the "採点中" state and the
+      // ensuing pollSubmissionById can short-circuit out once the
+      // worker writes a real graded attempt.
       const updated: Submission = { ...target, graded_at: null };
       const newList = [...list];
       newList[idx] = updated;

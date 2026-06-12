@@ -93,3 +93,29 @@ test('dashboard reflects three graded submissions', async ({ page }) => {
   // Nudge banner: stub returns canned coaching text on the nudge model.
   await expect(page.locator('section.nudge-banner')).toBeVisible();
 });
+
+test('resubmitting a task updates the badge with the new score', async ({
+  page,
+}) => {
+  const email = `resubmit-${Date.now()}@example.com`;
+
+  await register(page, email);
+  await login(page, email);
+
+  await page.goto(`/courses/${COURSE}/phases/1`);
+  await submitTask(page, 1, 'weak', 55);
+
+  // Re-submit Task 1 with a "great" marker. The score badge must flip
+  // from 55 to 92, proving the upsert + regrade-on-resubmit cycle.
+  const card = page.locator('[data-test="task-card-1"]');
+  await card.locator('textarea').fill('E2E task 1 stub:great');
+  await card.getByRole('button', { name: '再提出する' }).click();
+  await expect(card.locator('.badge')).toContainText('92', { timeout: 30_000 });
+
+  // The regrade BUTTON cycle (compared with the resubmit cycle above)
+  // is covered by `backend/tests/test_async_regrade.py` and the
+  // curriculum store unit tests — exercising it in E2E would require
+  // either disabling the frontend's UX-side 60 s cooldown or sleeping
+  // the test for a minute. Neither is worth it: the request/response
+  // is identical to the resubmit path the worker already runs.
+});

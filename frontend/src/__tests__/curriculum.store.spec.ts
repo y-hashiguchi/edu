@@ -122,6 +122,43 @@ describe('curriculum store', () => {
     expect(dashboard.data).not.toBeNull();
   });
 
+  it('submitTask starts pollSubmissionById when grading is async (graded_at null)', async () => {
+    // Sprint 8 + follow-up: the async grading path returns a row with
+    // graded_at=null. submitTask must trigger the single-submission
+    // poller (not the legacy phase-list poller) so the worker's later
+    // write lands in the store without an extra full-list fetch.
+    const store = useCurriculumStore();
+    (api.submitTask as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 's-new', phase: 1, task_no: 1, content: 'x',
+      ai_feedback: null, score: null, submitted_at: '',
+      graded_at: null, files: [], grading_history: [],
+    });
+    // pollSubmissionById awaits 2s before its first call — return a
+    // pending row so the poll loop continues and we can assert the
+    // single API was invoked exactly once before the test ends.
+    (api.getMySubmission as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 's-new', phase: 1, task_no: 1, content: 'x',
+      ai_feedback: null, score: null, submitted_at: '',
+      graded_at: null, files: [], grading_history: [],
+    });
+
+    vi.useFakeTimers();
+    try {
+      const promise = store.submitTask(1, 1, 'x', [], 'ai-driven-dev');
+      // submitTask is awaited (it returns the initial submission); the
+      // pollSubmissionById call is fire-and-forget.
+      const submission = await promise;
+      expect(submission.id).toBe('s-new');
+
+      // Advance just past the first poll tick to confirm the new
+      // GET endpoint is used.
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(api.getMySubmission).toHaveBeenCalledWith('s-new');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('regradeSubmission marks the row pending and does not merge on async path', async () => {
     // Sprint 8 follow-up: async regrade returns a synthetic PENDING
     // attempt. The store should NOT call _mergeAttempt (which would
