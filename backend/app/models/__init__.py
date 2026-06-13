@@ -2,6 +2,8 @@
 
 from app.models.chat_history import ChatHistory  # noqa: F401
 from app.models.course import Course  # noqa: F401
+from app.models.curriculum_phase import CurriculumPhase  # noqa: F401
+from app.models.curriculum_task import CurriculumTask  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
 from app.models.enrollment import Enrollment  # noqa: F401
 from app.models.grading_attempt import GradingAttempt, GradingStatus  # noqa: F401
