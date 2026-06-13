@@ -81,10 +81,15 @@ async def test_phase_delete_cascades_tasks(db_session):
     ))
     await db_session.commit()
 
+    task_id = (await db_session.execute(
+        select(CurriculumTask.id).where(CurriculumTask.phase_id == p.id)
+    )).scalar_one()
     await db_session.delete(p)
     await db_session.commit()
-    rows = (await db_session.execute(select(CurriculumTask))).scalars().all()
-    assert rows == []
+    # Sprint 9 conftest pre-seeds CurriculumTask rows from COURSE_REGISTRY,
+    # so a global SELECT no longer reflects only this test's row. Assert
+    # via primary key instead.
+    assert await db_session.get(CurriculumTask, task_id) is None
 
 
 @pytest.mark.asyncio
