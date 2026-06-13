@@ -19,6 +19,15 @@ import type {
   LearnerCommentOut,
 } from '@/types/admin';
 import type {
+  AdminCurriculumCourseDetail,
+  AdminCurriculumCourseList,
+  AdminCurriculumPublishOut,
+  AdminPhaseEditOut,
+  AdminPhasePatch,
+  AdminTaskEditOut,
+  AdminTaskPatch,
+} from '@/types/admin_curriculum';
+import type {
   AdminNotificationListOut,
   BroadcastNotificationCreatePayload,
   BroadcastNotificationOut,
@@ -297,6 +306,46 @@ export const api = {
 
   adminListSentNotifications: (): Promise<AdminNotificationListOut> =>
     rawRequest<AdminNotificationListOut>(`/api/admin/notifications`),
+
+  // Sprint 9 — admin curriculum editing.
+  adminCurriculumList: (): Promise<AdminCurriculumCourseList> =>
+    rawRequest<AdminCurriculumCourseList>('/api/admin/curriculum/', {
+      method: 'GET',
+    }),
+  adminCurriculumDetail: (slug: string): Promise<AdminCurriculumCourseDetail> =>
+    rawRequest<AdminCurriculumCourseDetail>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}`,
+      { method: 'GET' },
+    ),
+  adminPutCurriculumPhase: (
+    slug: string,
+    phaseNo: number,
+    body: AdminPhasePatch,
+  ): Promise<AdminPhaseEditOut> =>
+    rawRequest<AdminPhaseEditOut>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
+  adminPutCurriculumTask: (
+    slug: string,
+    phaseNo: number,
+    taskNo: number,
+    body: AdminTaskPatch,
+  ): Promise<AdminTaskEditOut> =>
+    rawRequest<AdminTaskEditOut>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}/tasks/${taskNo}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
+  adminPublishCurriculum: (slug: string): Promise<AdminCurriculumPublishOut> =>
+    rawRequest<AdminCurriculumPublishOut>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/publish`,
+      { method: 'POST' },
+    ),
+  adminDiscardCurriculumDrafts: (slug: string): Promise<void> =>
+    rawRequest<void>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/draft`,
+      { method: 'POST' },
+    ),
 
   // ---- Sprint 4 learner-side /api/me endpoints ----
 
