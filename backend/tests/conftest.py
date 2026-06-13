@@ -74,7 +74,45 @@ async def db_session(_setup_db):
                 )
             )
         await session.commit()
+
+        # Sprint 9: curriculum_phases / curriculum_tasks も毎テスト再 seed
+        from app.models.curriculum_phase import CurriculumPhase
+        from app.models.curriculum_task import CurriculumTask
+        for _slug, c in COURSE_REGISTRY.items():
+            for phase in c.phases:
+                phase_row = CurriculumPhase(
+                    course_id=c.id,
+                    phase_no=phase.phase,
+                    title=phase.title,
+                    goal=phase.goal,
+                    system_prompt=phase.system_prompt,
+                )
+                session.add(phase_row)
+                await session.flush()
+                for t in phase.tasks:
+                    session.add(CurriculumTask(
+                        phase_id=phase_row.id,
+                        task_no=t.task_no,
+                        title=t.title,
+                        description=t.description,
+                        skill_tags=list(t.skill_tags),
+                        deliverable=t.deliverable,
+                        week_label=t.week_label,
+                    ))
+        await session.commit()
+
+        # Sprint 9: cache を test DB の内容で初期化
+        from app.data.courses import runtime
+        await runtime.reload_from_db(session)
+
         yield session
+
+
+@pytest_asyncio.fixture
+async def seed_curriculum(db_session):
+    """Sprint 9 — Task 1-9 のテストが curriculum_phases / curriculum_tasks を
+    必要とすることを明示するためのマーカー。実際の seed は db_session で済む。"""
+    return db_session
 
 
 @pytest_asyncio.fixture
