@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -76,27 +76,50 @@ class AdminCurriculumPublishOut(BaseModel):
 class AdminPhaseUpdateRequest(BaseModel):
     """PUT body — フィールド省略 = 変更なし、明示 None = draft クリア、
     明示値 = draft 設定。route 側で `model_dump(exclude_unset=True)` を取る。
+
+    Sprint 9 follow-up MED-1: ``min_length=1`` を付与し、空文字 draft が
+    published 列に COPY されて NOT NULL 仕様を実質破ることを防ぐ。
     """
 
-    title: str | None = Field(default=None, max_length=200)
-    goal: str | None = Field(default=None, max_length=500)
-    system_prompt: str | None = Field(default=None, max_length=8000)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    goal: str | None = Field(default=None, min_length=1, max_length=500)
+    system_prompt: str | None = Field(default=None, min_length=1, max_length=8000)
 
 
 class AdminTaskUpdateRequest(BaseModel):
-    """PUT body for task draft."""
+    """PUT body for task draft.
 
-    title: str | None = Field(default=None, max_length=200)
-    description: str | None = Field(default=None, max_length=2000)
+    Sprint 9 follow-up MED-1: title / description は ``min_length=1`` 必須。
+    ``deliverable`` / ``week_label`` は「空文字 = 明示的に空にする」のセン
+    チネル運用なので min_length は付けない。
+    """
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, min_length=1, max_length=2000)
     skill_tags: list[str] | None = Field(default=None, max_length=10)
     deliverable: str | None = Field(default=None, max_length=200)
     week_label: str | None = Field(default=None, max_length=200)
 
-    def normalized_skill_tags(self) -> list[str] | None:
-        """順序維持の dedup + 各要素長 50 チェック。
+    @field_validator("skill_tags")
+    @classmethod
+    def _validate_skill_tag_lengths(
+        cls, v: list[str] | None
+    ) -> list[str] | None:
+        """Sprint 9 follow-up MED-2: 50 字超のタグは silent drop ではなく
+        422 で reject する。UI が「入力したのに消えた」状態を作らない。
+        """
+        if v is None:
+            return v
+        for raw in v:
+            if len(raw.strip()) > 50:
+                raise ValueError(
+                    f"skill_tag exceeds 50 chars: {raw[:20]!r}..."
+                )
+        return v
 
-        route が `model_dump(exclude_unset=True)` の後にこれを呼ぶ運用 (タグ
-        フィールド省略時は None、明示空 list は []、値ありは dedup 後)。
+    def normalized_skill_tags(self) -> list[str] | None:
+        """順序維持の dedup + 空文字 strip。長さ検査は field_validator が
+        担当するためここでは silent drop しない。
         """
         if self.skill_tags is None:
             return None
@@ -104,9 +127,7 @@ class AdminTaskUpdateRequest(BaseModel):
         out: list[str] = []
         for raw in self.skill_tags:
             t = raw.strip()
-            if not t or len(t) > 50:
-                continue
-            if t in seen:
+            if not t or t in seen:
                 continue
             seen.add(t)
             out.append(t)
