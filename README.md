@@ -79,6 +79,7 @@ make test-frontend             # vitest
 - Sprint 5: `docs/superpowers/plans/2026-06-08-ai-tutor-curriculum-sprint-5.md`
 - Sprint 6: `docs/superpowers/plans/2026-06-09-ai-tutor-curriculum-sprint-6.md`
 - Sprint 7: `docs/superpowers/plans/2026-06-10-ai-tutor-curriculum-sprint-7.md`
+- Sprint 9: `docs/superpowers/plans/2026-06-13-ai-tutor-curriculum-sprint-9.md`
 
 ## 実装進捗
 
@@ -93,6 +94,7 @@ make test-frontend             # vitest
 - [x] Sprint 7: マルチコース化（courses / enrollments テーブル + 5 テーブルへの course_id FK + Python レジストリ + `?course=` スコープ + 登録時コース選択 + ダッシュボードコーススコープ化 + ai-driven-dev 既存移設 + ai-era-se Phase 1 8 課題パイロット）
 - [x] Sprint 8: 採点非同期化（Redis + arq worker、提出 API は即時返却、フロントはポーリングで結果反映）
 - [x] Sprint 7 follow-up / INFRA: vitest CVE パッチ（`>=3.2.5`）、Playwright headless smoke E2E、GitHub Actions CI
+- [x] Sprint 9: カリキュラム編集 admin GUI（`curriculum_phases` / `curriculum_tasks` 2 テーブル + 起動時 cache 化 + draft→publish 二段階ワークフロー + 500ms debounce PUT + `is_admin` RBAC）+ Sprint 9 review HIGH × 3 件同梱修正
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -130,5 +132,16 @@ uv run python -m scripts.promote_admin instructor@example.com
 ```
 
 冪等。既に admin の場合は `already admin` を出力して 0 を返す。
+
+### カリキュラム編集（Sprint 9〜）
+
+- admin GUI: `/admin/curriculum` → コース選択 → title / description / skill_tags / deliverable / system_prompt を編集
+- 編集は debounce 500ms で `draft_*` 列に保存（公開には影響しない）
+- 「公開」ボタンで draft を published 列に COPY し、in-process cache を再ロード
+- 「ドラフト破棄」で未公開の編集を全て NULL に戻す
+- DB 永続化: `curriculum_phases` / `curriculum_tasks` 2 テーブル。Python レジストリ
+  (`backend/app/data/courses/{ai_driven_dev,ai_era_se}.py`) は起動時 cache 構築の
+  フォールバック用に残置
+- 起動時に `reload_from_db` で in-process cache を構築。空テーブルなら RuntimeError で停止
 
 詳細は `docs/superpowers/plans/` を参照。
