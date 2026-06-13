@@ -131,6 +131,10 @@ async def test_publish_course_promotes_drafts_and_reloads_cache(
 
     result = await publish_course(db_session, course_slug="ai-driven-dev")
     await db_session.commit()
+    # Sprint 9 review HIGH (code-reviewer): cache refresh moved to the
+    # route layer to run after db.commit(). The route is what hits
+    # reload_course in production; the service test invokes it directly.
+    await runtime.reload_course(db_session, "ai-driven-dev")
     assert result.published_phase_count == 1
     assert result.published_task_count == 1
 

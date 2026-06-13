@@ -17,7 +17,7 @@ from typing import Any, Mapping
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.data.courses import CourseNotFoundError, runtime
+from app.data.courses import CourseNotFoundError
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
@@ -167,7 +167,10 @@ async def publish_course(
     """全 draft_* を対応する published 列に COPY、draft_* を NULL に。
 
     Returns: 影響行数。0 件も idempotent (200 OK)。
-    publish 完了後、runtime cache を当該 course の rebuild で差し替える。
+
+    Cache invalidation is the route's responsibility — it must call
+    ``runtime.reload_course`` *after* ``db.commit()`` so a commit-time
+    failure does not leave the cache holding values the DB rolled back.
     """
     course = await _get_course_by_slug(db, course_slug)
 
@@ -228,7 +231,6 @@ async def publish_course(
             t.updated_at = datetime.now(UTC)
 
     await db.flush()
-    await runtime.reload_course(db, course_slug)
 
     return PublishResult(
         slug=course_slug,

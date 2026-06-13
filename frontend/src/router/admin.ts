@@ -47,9 +47,10 @@ export const adminRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/AdminCurriculumListView.vue'),
       },
       {
-        path: 'curriculum/:slug',
+        path: 'curriculum/:courseSlug',
         name: 'admin-curriculum-edit',
         component: () => import('@/views/admin/AdminCurriculumEditView.vue'),
+        props: true,
       },
     ],
   },

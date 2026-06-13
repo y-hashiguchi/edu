@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import type { AdminCurriculumCourseDetail, AdminPhaseEditOut } from '@/types/admin_curriculum';
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { slug: 'ai-driven-dev' } }),
+  useRoute: () => ({ params: { courseSlug: 'ai-driven-dev' } }),
   useRouter: () => ({ push: vi.fn() }),
 }));
 

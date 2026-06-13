@@ -14,7 +14,7 @@ const route = useRoute();
 const router = useRouter();
 const store = useAdminCurriculumStore();
 
-const slug = computed(() => String(route.params.slug));
+const slug = computed(() => String(route.params.courseSlug));
 
 const showPublishModal = ref(false);
 const showDiscardModal = ref(false);

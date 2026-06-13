@@ -1,5 +1,7 @@
 """Sprint 9 — admin curriculum editing API (`/api/admin/curriculum/...`)."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.deps import get_current_admin
 from app.core.limiter import limiter
-from app.data.courses import CourseNotFoundError
+from app.data.courses import CourseNotFoundError, runtime
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
@@ -205,6 +209,20 @@ async def publish(
     except CourseNotFoundError:
         raise HTTPException(status_code=404, detail="course not found")
     await db.commit()
+    # Sprint 9 review HIGH (code-reviewer): only refresh the cache once the
+    # transaction is durably persisted. A reload before commit could leave
+    # the cache holding published values while the DB rolled back on a
+    # constraint or network failure during commit.
+    await runtime.reload_course(db, course_slug)
+    # Sprint 9 review HIGH (security-reviewer): publish is irreversible and
+    # affects every learner in the course. Log who triggered it.
+    logger.info(
+        "curriculum.publish slug=%s phases=%d tasks=%d by=%s",
+        result.slug,
+        result.published_phase_count,
+        result.published_task_count,
+        _admin.email,
+    )
     return AdminCurriculumPublishOut(
         slug=result.slug,
         published_phase_count=result.published_phase_count,
@@ -229,4 +247,9 @@ async def discard(
     except CourseNotFoundError:
         raise HTTPException(status_code=404, detail="course not found")
     await db.commit()
+    logger.info(
+        "curriculum.discard slug=%s by=%s",
+        course_slug,
+        _admin.email,
+    )
     return None
