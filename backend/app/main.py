@@ -25,6 +25,14 @@ from app.worker.enqueue import close_grading_pool, init_grading_pool
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_grading_pool()
+    # Sprint 9: populate the curriculum cache from DB. 0 行のときは
+    # 明示的なエラーで起動を失敗させ、Alembic seed 未実行を可視化。
+    from app.data.courses.runtime import reload_from_db
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as db:
+        await reload_from_db(db)
+
     yield
     await close_grading_pool()
 
