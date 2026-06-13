@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     # be able to flood a learner inbox at line speed.
     admin_write_rate_limit: str = "60/minute"
 
+    # Sprint 9 — curriculum 編集 (admin GUI)
+    # debounce 自動保存で連続 PUT が来るので writes は余裕を持って高めに。
+    # publish は cache 全リビルドを伴うので絞る。
+    admin_curriculum_write_rate_limit: str = "120/minute"
+    admin_curriculum_publish_rate_limit: str = "10/minute"
+
     # Learner write rate limit (sprint-4 follow-up MED-4) — mark-read is
     # idempotent so abuse cannot break state, but a stolen learner token
     # could still loop the SELECT Notification + SELECT User round-trip.
