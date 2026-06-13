@@ -1,0 +1,108 @@
+import { defineStore } from 'pinia';
+import { api } from '@/lib/api';
+import type {
+  AdminCurriculumCourseDetail,
+  AdminCurriculumCourseSummary,
+  AdminPhasePatch,
+  AdminTaskPatch,
+} from '@/types/admin_curriculum';
+
+interface PendingTimer {
+  timer: ReturnType<typeof setTimeout>;
+  lastPayload: AdminPhasePatch | AdminTaskPatch;
+}
+
+const DEBOUNCE_MS = 500;
+
+interface State {
+  list: AdminCurriculumCourseSummary[];
+  detail: AdminCurriculumCourseDetail | null;
+  saveError: string | null;
+  pending: Record<string, PendingTimer>;
+}
+
+function phaseKey(slug: string, phaseNo: number): string {
+  return `phase:${slug}:${phaseNo}`;
+}
+function taskKey(slug: string, phaseNo: number, taskNo: number): string {
+  return `task:${slug}:${phaseNo}:${taskNo}`;
+}
+
+export const useAdminCurriculumStore = defineStore('admin_curriculum', {
+  state: (): State => ({
+    list: [],
+    detail: null,
+    saveError: null,
+    pending: {},
+  }),
+  actions: {
+    async fetchList() {
+      const res = await api.adminCurriculumList();
+      this.list = res.items;
+    },
+
+    async fetchDetail(slug: string) {
+      this.detail = await api.adminCurriculumDetail(slug);
+    },
+
+    putPhase(slug: string, phaseNo: number, payload: AdminPhasePatch) {
+      const key = phaseKey(slug, phaseNo);
+      this._scheduleDebounced(key, payload, async (latest) => {
+        try {
+          await api.adminPutCurriculumPhase(slug, phaseNo, latest as AdminPhasePatch);
+          this.saveError = null;
+          await this.fetchDetail(slug);
+        } catch (e) {
+          this.saveError = e instanceof Error ? e.message : String(e);
+        }
+      });
+    },
+
+    putTask(
+      slug: string,
+      phaseNo: number,
+      taskNo: number,
+      payload: AdminTaskPatch,
+    ) {
+      const key = taskKey(slug, phaseNo, taskNo);
+      this._scheduleDebounced(key, payload, async (latest) => {
+        try {
+          await api.adminPutCurriculumTask(
+            slug, phaseNo, taskNo, latest as AdminTaskPatch,
+          );
+          this.saveError = null;
+          await this.fetchDetail(slug);
+        } catch (e) {
+          this.saveError = e instanceof Error ? e.message : String(e);
+        }
+      });
+    },
+
+    async publish(slug: string) {
+      await api.adminPublishCurriculum(slug);
+      await this.fetchDetail(slug);
+    },
+
+    async discardDrafts(slug: string) {
+      await api.adminDiscardCurriculumDrafts(slug);
+      await this.fetchDetail(slug);
+    },
+
+    _scheduleDebounced(
+      key: string,
+      payload: AdminPhasePatch | AdminTaskPatch,
+      fire: (latest: AdminPhasePatch | AdminTaskPatch) => Promise<void>,
+    ) {
+      const existing = this.pending[key];
+      const merged = { ...(existing?.lastPayload ?? {}), ...payload };
+      if (existing) {
+        clearTimeout(existing.timer);
+      }
+      const timer = setTimeout(() => {
+        delete this.pending[key];
+        void fire(merged);
+      }, DEBOUNCE_MS);
+      this.pending[key] = { timer, lastPayload: merged };
+    },
+  },
+});
