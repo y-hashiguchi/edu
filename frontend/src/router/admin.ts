@@ -41,6 +41,16 @@ export const adminRoutes: RouteRecordRaw[] = [
         name: 'admin-notify',
         component: () => import('@/views/admin/AdminNotifyView.vue'),
       },
+      {
+        path: 'curriculum',
+        name: 'admin-curriculum-list',
+        component: () => import('@/views/admin/AdminCurriculumListView.vue'),
+      },
+      {
+        path: 'curriculum/:slug',
+        name: 'admin-curriculum-edit',
+        component: () => import('@/views/admin/AdminCurriculumEditView.vue'),
+      },
     ],
   },
 ];

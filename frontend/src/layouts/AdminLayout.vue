@@ -37,6 +37,7 @@ function logout() {
       <nav aria-label="Admin navigation">
         <RouterLink to="/admin/users">受講者一覧</RouterLink>
         <RouterLink to="/admin/notify">通知作成</RouterLink>
+        <RouterLink to="/admin/curriculum">カリキュラム編集</RouterLink>
         <RouterLink to="/">学習者ビュー</RouterLink>
       </nav>
       <div class="who">
