@@ -107,7 +107,7 @@ docs/superpowers/specs/2026-06-14-sprint-10-followups.md
 
 ### 6.1 GitHub remote
 
-**未設定** — [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md)
+**未設定** → **`origin` = https://github.com/y-hashiguchi/edu**（2026-06-14 push 済み）
 
 ### 6.2 ローカル E2E（Colima + 外部ディスク）
 

@@ -7,8 +7,8 @@
 | 項目 | 状態 |
 |------|------|
 | ワークフロー定義 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) あり |
-| `git remote` | **未設定** |
-| CI 初回実走 | remote push 待ち |
+| `git remote` | `origin` → https://github.com/y-hashiguchi/edu |
+| CI 初回実走 | push 済み（2026-06-14）— Actions タブで確認 |
 | 手動トリガ | `workflow_dispatch` 対応済み |
 
 ## ローカルベースライン（2026-06-14）
