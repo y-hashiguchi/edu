@@ -1,7 +1,7 @@
 # Sprint 11 完了 — 引き継ぎメモ
 
 **作成日:** 2026-06-11  
-**前提 HEAD:** 未コミット（Sprint 11 実装ワーキングツリー）  
+**前提 HEAD:** `1e0013e` (Sprint 11 コミット済み)  
 **前提テスト:** backend **438** / frontend **102** / E2E **7**（修正後）
 
 ---
@@ -92,10 +92,10 @@ cd backend && arq app.worker.settings.WorkerSettings
 
 ---
 
-## 6. 未コミット変更
+## 6. コミット
 
-Sprint 11 一式（backend + frontend + docs + tests）。  
-**commit / push はユーザ明示依頼時のみ。**
+- `1e0013e` — `feat(sprint-11): add scheduled course broadcast notifications`
+- **push:** 未実施（private repo — ローカルゲート推奨）
 
 ---
 
