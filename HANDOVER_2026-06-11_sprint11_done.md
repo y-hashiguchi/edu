@@ -82,13 +82,12 @@ cd backend && arq app.worker.settings.WorkerSettings
 
 ---
 
-## 5. Sprint 10 follow-up / 次候補
+## 5. 後続作業（Sprint 11 以降）
 
-| 項目 | 内容 |
+| 項目 | 状態 |
 |------|------|
-| Sprint 10 LOW | [`docs/superpowers/specs/2026-06-14-sprint-10-followups.md`](docs/superpowers/specs/2026-06-14-sprint-10-followups.md) |
-| Sprint 9 LOW-2 | multi-worker cache invalidation (Redis pub/sub) |
-| ~~候補 B~~ | ai-era-se Phase 2-4 — **Sprint 9 migration で DB 済み** |
+| Sprint 10 follow-ups LOW 1–3 | ✅ `dca32fa` |
+| Sprint 9 LOW-2 multi-worker cache pub/sub | ✅ 本コミット |
 
 ---
 

@@ -156,5 +156,6 @@ uv run python -m scripts.promote_admin instructor@example.com
   (`backend/app/data/courses/{ai_driven_dev,ai_era_se}.py`) は起動時 cache 構築の
   フォールバック用に残置
 - 起動時に `reload_from_db` で in-process cache を構築。空テーブルなら RuntimeError で停止
+- multi-worker: publish 後 Redis pub/sub (`edu:curriculum:cache:invalidate`) で他 worker も reload（`CURRICULUM_CACHE_PUBSUB_ENABLED`、デフォルト true）
 
 詳細は `docs/superpowers/plans/` を参照。

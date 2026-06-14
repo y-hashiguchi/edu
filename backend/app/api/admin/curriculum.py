@@ -235,6 +235,9 @@ async def publish(
     # the cache holding published values while the DB rolled back on a
     # constraint or network failure during commit.
     await runtime.reload_course(db, course_slug)
+    from app.services.curriculum_cache_pubsub import notify_cache_reload
+
+    await notify_cache_reload(course_slug)
     # Sprint 9 review HIGH (security-reviewer): publish is irreversible and
     # affects every learner in the course. Log who triggered it.
     logger.info(

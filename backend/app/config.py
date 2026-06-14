@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     scheduled_broadcast_batch_size: int = 10
     scheduled_broadcast_cron_enabled: bool = True
 
+    # Sprint 9 LOW-2 — multi-worker curriculum cache sync (Redis pub/sub)
+    curriculum_cache_pubsub_enabled: bool = True
+    curriculum_cache_invalidate_channel: str = "edu:curriculum:cache:invalidate"
+
     # Learner write rate limit (sprint-4 follow-up MED-4) — mark-read is
     # idempotent so abuse cannot break state, but a stolen learner token
     # could still loop the SELECT Notification + SELECT User round-trip.

@@ -20,6 +20,8 @@ os.environ.setdefault("BCRYPT_ROUNDS", "4")
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 # Sprint 8: keep grading synchronous in tests (no Redis worker required).
 os.environ.setdefault("GRADING_ASYNC_ENABLED", "false")
+# Sprint 9 LOW-2: disable cross-worker pub/sub in tests (no Redis listener).
+os.environ.setdefault("CURRICULUM_CACHE_PUBSUB_ENABLED", "false")
 
 
 @pytest.fixture

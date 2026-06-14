@@ -21,6 +21,7 @@ from app.api.admin import users as admin_users
 from app.config import settings
 from app.core.csp import CSPMiddleware
 from app.core.limiter import limiter
+from app.services.curriculum_cache_pubsub import start_listener, stop_listener
 from app.worker.enqueue import close_grading_pool, init_grading_pool
 
 
@@ -35,8 +36,12 @@ async def lifespan(app: FastAPI):
     async with SessionLocal() as db:
         await reload_from_db(db)
 
-    yield
-    await close_grading_pool()
+    await start_listener()
+    try:
+        yield
+    finally:
+        await stop_listener()
+        await close_grading_pool()
 
 
 class LimitUploadSize(BaseHTTPMiddleware):

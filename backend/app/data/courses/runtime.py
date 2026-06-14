@@ -7,11 +7,9 @@ This lets the existing synchronous `get_course(slug)` API stay
 unchanged while moving the source of truth from the Python registry to
 the DB.
 
-Multi-worker note (follow-up): with N uvicorn workers each cache is
-process-local, so `publish` triggers an inconsistency window until each
-worker observes the next reload. For Sprint 9 the dev / docker setup
-runs a single worker; future scaling needs a Redis pub/sub invalidation
-broadcast.
+Multi-worker: ``notify_cache_reload`` publishes to Redis after publish;
+peer workers reload via ``app.services.curriculum_cache_pubsub`` listener
+(see ``curriculum_cache_pubsub_enabled`` in config).
 """
 
 from __future__ import annotations
