@@ -1,35 +1,35 @@
 import { test, expect } from '@playwright/test';
 
-// CI に admin 昇格手順がないため、現状は skip。
-// ローカル実行では promote_admin スクリプトで is_admin を付けてから
-// `test.describe.skip` を `test.describe` に切り替えて検証する。
-test.describe.skip('admin curriculum editing', () => {
-  test('admin edits title and publish reflects on learner view', async ({ page }) => {
+import {
+  E2E_COURSE,
+  login,
+  promoteAdminViaScript,
+  registerLearner,
+} from './helpers';
+
+test.describe('admin curriculum editing', () => {
+  test('admin edits title and publish reflects on learner view', async ({
+    page,
+  }) => {
     const adminEmail = `admin-${Date.now()}@example.com`;
     const learnerEmail = `learner-${Date.now()}@example.com`;
 
-    // 1) 管理者を作成（admin 昇格は別途 backend スクリプトで実行する想定）。
-    await page.goto('/login');
-    await page.getByRole('tab', { name: '新規登録' }).click();
-    await page.getByLabel('メールアドレス').fill(adminEmail);
-    await page.getByLabel('お名前').fill('Admin');
-    await page.locator('[data-test="course-select"]').selectOption('ai-driven-dev');
-    await page.getByLabel('パスワード').fill('password12345');
-    await page.getByRole('button', { name: '登録する' }).click();
-    await expect(page.getByText('登録できました')).toBeVisible();
+    // 1) 管理者ユーザーを登録し CLI で is_admin を付与。
+    await registerLearner(page, adminEmail, 'Admin');
+    promoteAdminViaScript(adminEmail);
 
     // 2) admin ログイン → カリキュラム編集へ。
-    await page.getByLabel('パスワード').fill('password12345');
-    await page.getByRole('button', { name: 'ログイン' }).click();
+    await login(page, adminEmail);
     await page.goto('/admin/curriculum');
-    await page.getByText('AI駆動開発').click();
+    await expect(page.getByRole('heading', { name: 'カリキュラム編集' })).toBeVisible();
+    await page.getByRole('link', { name: /AI駆動型開発 補足/ }).click();
     await page.waitForURL(/\/admin\/curriculum\/ai-driven-dev/);
 
     // 3) Phase 1 の title を編集。
     const phase1 = page.locator('[data-test="phase-edit-1"]');
     const titleInput = phase1.locator('input').first();
     await titleInput.fill('編集後タイトル');
-    // debounce flush
+    // debounce flush (500ms) + margin
     await page.waitForTimeout(800);
 
     // 4) ドラフト件数増、公開ボタン押下。
@@ -40,18 +40,11 @@ test.describe.skip('admin curriculum editing', () => {
     await expect(page.locator('[data-test="message"]')).toContainText('公開完了');
 
     // 5) 学習者として確認。
-    await page.locator('text=ログアウト').click();
-    await page.goto('/login');
-    await page.getByRole('tab', { name: '新規登録' }).click();
-    await page.getByLabel('メールアドレス').fill(learnerEmail);
-    await page.getByLabel('お名前').fill('Learner');
-    await page.locator('[data-test="course-select"]').selectOption('ai-driven-dev');
-    await page.getByLabel('パスワード').fill('password12345');
-    await page.getByRole('button', { name: '登録する' }).click();
-    await page.getByLabel('パスワード').fill('password12345');
-    await page.getByRole('button', { name: 'ログイン' }).click();
-    await page.waitForURL(/\/courses\/ai-driven-dev/);
+    await page.getByRole('button', { name: 'ログアウト' }).click();
+    await registerLearner(page, learnerEmail, 'Learner');
+    await login(page, learnerEmail);
+    await page.waitForURL(new RegExp(`/courses/${E2E_COURSE}`));
 
-    await expect(page.getByText('編集後タイトル')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '編集後タイトル' })).toBeVisible();
   });
 });

@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -85,9 +86,6 @@ jobs:
       GRADING_ASYNC_ENABLED: "false"
       RATE_LIMIT_ENABLED: "false"
       BCRYPT_ROUNDS: "4"
-      # Stub Claude so the dashboard golden path is reproducible without
-      # spending API tokens. Maps stub:weak / stub:ok / stub:great inside
-      # the submission body to deterministic grading scores.
       CLAUDE_STUB_MODE: "true"
       CORS_ALLOW_ORIGINS: http://localhost:4173
       VITE_API_BASE_URL: http://localhost:8000
@@ -134,4 +132,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run E2E smoke tests
         working-directory: frontend
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_tutor
+          JWT_SECRET_KEY: ci-test-secret-key
+          ANTHROPIC_API_KEY: sk-ant-ci-placeholder
         run: npx playwright test
