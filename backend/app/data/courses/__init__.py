@@ -51,16 +51,20 @@ COURSE_REGISTRY: dict[str, CourseData] = {
 def get_course(slug: str) -> CourseData:
     """Cache-first lookup. Sprint 9 routes/services hit this via the cache.
 
-    Test convenience: if the cache is empty (no `reload_from_db` was
-    called — common for pure-unit tests that don't go through lifespan),
-    fall back to `COURSE_REGISTRY`. Integration tests that exercise edit
-    semantics must call `runtime.reload_from_db(db)` explicitly so they
-    see the DB state, not the python literal.
+    Sprint 9 follow-up MED-4: registry fallback is per-slug, not
+    cache-empty-only. A partial ``reload_from_db`` failure that wrote
+    one course but raised before the other would otherwise leave
+    ``get_course("ai-era-se")`` raising ``CourseNotFoundError`` even
+    though ``COURSE_REGISTRY["ai-era-se"]`` would succeed. Integration
+    tests that exercise edit semantics must still call
+    ``runtime.reload_from_db(db)`` explicitly so they see the DB state,
+    not the python literal.
     """
     from app.data.courses import runtime
 
-    if runtime._CACHE:
-        return runtime.get_cached_course(slug)
+    cached = runtime._CACHE.get(slug)
+    if cached is not None:
+        return cached
     try:
         return COURSE_REGISTRY[slug]
     except KeyError:

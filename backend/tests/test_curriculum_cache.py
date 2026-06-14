@@ -106,3 +106,29 @@ async def test_reload_from_db_on_empty_table_raises(db_session):
     runtime._CACHE.clear()
     with pytest.raises(RuntimeError, match="curriculum_phases is empty"):
         await runtime.reload_from_db(db_session)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 9 follow-up MED-4 — per-slug registry fallback
+# ---------------------------------------------------------------------------
+
+
+def test_get_course_falls_back_to_registry_when_specific_slug_missing():
+    """部分的に reload された cache でも、未投入の slug は registry を見る。"""
+    from app.data.courses import COURSE_REGISTRY, get_course
+
+    runtime._CACHE.clear()
+    runtime._CACHE["ai-driven-dev"] = COURSE_REGISTRY["ai-driven-dev"]
+    # 'ai-era-se' が cache にないが registry にはある — 旧実装は raise していた。
+    course = get_course("ai-era-se")
+    assert course.slug == "ai-era-se"
+    runtime._CACHE.clear()
+
+
+def test_get_course_raises_when_slug_in_neither_cache_nor_registry():
+    """cache にも registry にもない場合のみ CourseNotFoundError。"""
+    from app.data.courses import CourseNotFoundError, get_course
+
+    runtime._CACHE.clear()
+    with pytest.raises(CourseNotFoundError):
+        get_course("does-not-exist")
