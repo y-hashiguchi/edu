@@ -43,3 +43,4 @@ class Enrollment(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
+    cohort_label: Mapped[str | None] = mapped_column(String(80), nullable=True)

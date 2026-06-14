@@ -27,7 +27,7 @@ import type {
   AdminTaskEditOut,
   AdminTaskPatch,
 } from '@/types/admin_curriculum';
-import type { AdminCohortSummary } from '@/types/admin_cohort';
+import type { AdminCohortLabels, AdminCohortSummary } from '@/types/admin_cohort';
 import type {
   AdminNotificationListOut,
   BroadcastNotificationCreatePayload,
@@ -373,18 +373,37 @@ export const api = {
       { method: 'POST' },
     ),
 
-  adminCohortSummary: (courseSlug: string): Promise<AdminCohortSummary> =>
-    rawRequest<AdminCohortSummary>(
-      `/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-summary`,
+  adminCohortSummary: (
+    courseSlug: string,
+    cohortLabel?: string | null,
+  ): Promise<AdminCohortSummary> => {
+    const params = new URLSearchParams();
+    if (cohortLabel) params.set('cohort_label', cohortLabel);
+    const qs = params.toString();
+    return rawRequest<AdminCohortSummary>(
+      `/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-summary${qs ? `?${qs}` : ''}`,
+      { method: 'GET' },
+    );
+  },
+
+  adminCohortLabels: (courseSlug: string): Promise<AdminCohortLabels> =>
+    rawRequest<AdminCohortLabels>(
+      `/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-labels`,
       { method: 'GET' },
     ),
 
-  downloadCohortCsv: async (courseSlug: string): Promise<Blob> => {
+  downloadCohortCsv: async (
+    courseSlug: string,
+    cohortLabel?: string | null,
+  ): Promise<Blob> => {
     const token = getToken();
     const headers = new Headers();
     if (token) headers.set('Authorization', `Bearer ${token}`);
+    const params = new URLSearchParams();
+    if (cohortLabel) params.set('cohort_label', cohortLabel);
+    const qs = params.toString();
     const response = await fetch(
-      `${baseUrl}/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-summary/export`,
+      `${baseUrl}/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-summary/export${qs ? `?${qs}` : ''}`,
       { headers },
     );
     if (response.status === 401) {

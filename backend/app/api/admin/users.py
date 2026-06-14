@@ -92,6 +92,7 @@ async def get_user(
             course_title=c.title,
             status=e.status,
             enrolled_at=e.enrolled_at,
+            cohort_label=e.cohort_label,
         )
         for e, c in enrollment_rows
     ]
@@ -111,6 +112,7 @@ class AdminEnrollRequest(BaseModel):
     """Sprint 7 LOW-2 — admin-driven enroll payload."""
 
     course_slug: str = Field(min_length=1, max_length=64)
+    cohort_label: str | None = Field(default=None, max_length=80, pattern=r"^[a-zA-Z0-9._-]{1,80}$")
 
 
 @router.post(
@@ -146,7 +148,10 @@ async def admin_enroll(
 
     try:
         enr = await enroll_user(
-            db, user_id=target.id, course_slug=payload.course_slug
+            db,
+            user_id=target.id,
+            course_slug=payload.course_slug,
+            cohort_label=payload.cohort_label,
         )
     except AlreadyEnrolledError as e:
         raise HTTPException(
@@ -173,4 +178,5 @@ async def admin_enroll(
         course_title=db_course.title,
         status=enr.status,
         enrolled_at=enr.enrolled_at,
+        cohort_label=enr.cohort_label,
     )

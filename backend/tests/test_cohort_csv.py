@@ -37,7 +37,7 @@ def test_render_cohort_csv_includes_all_sections():
 
     csv_text = render_cohort_csv(summary)
 
-    assert "ai-driven-dev,AI Driven Dev,3,72.5,0.4" in csv_text
+    assert "ai-driven-dev,AI Driven Dev,,3,72.5,0.4" in csv_text
     assert "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" in csv_text
     assert "Learner One,l***@example.com" in csv_text
     assert "python,80.0,5" in csv_text

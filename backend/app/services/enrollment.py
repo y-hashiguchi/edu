@@ -65,7 +65,11 @@ async def _get_course_by_slug(db: AsyncSession, slug: str) -> Course:
 
 
 async def enroll_user(
-    db: AsyncSession, *, user_id: uuid.UUID, course_slug: str
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    course_slug: str,
+    cohort_label: str | None = None,
 ) -> Enrollment:
     course = await _get_course_by_slug(db, course_slug)
     existing = await db.execute(
@@ -77,7 +81,12 @@ async def enroll_user(
     if existing.scalar_one_or_none() is not None:
         raise AlreadyEnrolledError(user_id, course_slug)
 
-    enr = Enrollment(user_id=user_id, course_id=course.id, status="active")
+    enr = Enrollment(
+        user_id=user_id,
+        course_id=course.id,
+        status="active",
+        cohort_label=cohort_label,
+    )
     db.add(enr)
     await db.flush()
     return enr
@@ -119,3 +128,20 @@ async def list_my_courses(
             )
         )
     return out
+
+
+async def list_cohort_labels(
+    db: AsyncSession, *, course_id: uuid.UUID
+) -> list[str]:
+    """Distinct non-null cohort labels for active enrollments in one course."""
+    result = await db.execute(
+        select(Enrollment.cohort_label)
+        .where(
+            Enrollment.course_id == course_id,
+            Enrollment.status == "active",
+            Enrollment.cohort_label.is_not(None),
+        )
+        .distinct()
+        .order_by(Enrollment.cohort_label)
+    )
+    return [row[0] for row in result.all() if row[0]]

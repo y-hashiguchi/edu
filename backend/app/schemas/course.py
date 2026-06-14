@@ -23,6 +23,7 @@ class EnrollmentOut(BaseModel):
     course_title: str
     status: str = Field(pattern=r"^(active|paused|completed)$")
     enrolled_at: datetime
+    cohort_label: str | None = None
 
 
 class MyCourseItem(BaseModel):

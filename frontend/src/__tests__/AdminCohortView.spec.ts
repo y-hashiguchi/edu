@@ -10,6 +10,7 @@ vi.mock('@/lib/api', async () => {
       ...actual.api,
       adminCurriculumList: vi.fn(),
       adminCohortSummary: vi.fn(),
+      adminCohortLabels: vi.fn().mockResolvedValue({ items: [] }),
       downloadCohortCsv: vi.fn(),
     },
   };
@@ -36,6 +37,7 @@ describe('AdminCohortView', () => {
       completion_rate: 0.4,
       stuck_learners: [],
       tag_heatmap: [],
+      cohort_label: null,
     });
     const w = mount(AdminCohortView);
     await flushPromises();
@@ -66,6 +68,7 @@ describe('AdminCohortView', () => {
         },
       ],
       tag_heatmap: [],
+      cohort_label: null,
     });
     const w = mount(AdminCohortView);
     await flushPromises();
@@ -104,6 +107,7 @@ describe('AdminCohortView', () => {
       completion_rate: 0.5,
       stuck_learners: [],
       tag_heatmap: [],
+      cohort_label: null,
     });
     (api.downloadCohortCsv as ReturnType<typeof vi.fn>).mockResolvedValue(
       new Blob(['course_slug,course_title'], { type: 'text/csv' }),
@@ -114,6 +118,6 @@ describe('AdminCohortView', () => {
     await w.get('[data-test="export-csv"]').trigger('click');
     await flushPromises();
 
-    expect(api.downloadCohortCsv).toHaveBeenCalledWith('ai-driven-dev');
+    expect(api.downloadCohortCsv).toHaveBeenCalledWith('ai-driven-dev', null);
   });
 });

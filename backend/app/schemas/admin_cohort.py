@@ -32,3 +32,11 @@ class AdminCohortSummaryOut(BaseModel):
     completion_rate: float
     stuck_learners: list[StuckLearnerOut]
     tag_heatmap: list[TagHeatmapEntryOut]
+    cohort_label: str | None = Field(
+        default=None,
+        description="Applied cohort filter; null means all active enrollments",
+    )
+
+
+class AdminCohortLabelsOut(BaseModel):
+    items: list[str]

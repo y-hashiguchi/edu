@@ -27,7 +27,13 @@ onMounted(async () => {
 
 async function onCourseChange(event: Event) {
   const slug = (event.target as HTMLSelectElement).value;
-  await store.fetchSummary(slug);
+  await store.fetchSummary(slug, null);
+}
+
+async function onCohortLabelChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  const label = value === '' ? null : value;
+  await store.fetchSummary(store.selectedSlug, label);
 }
 
 async function exportCsv() {
@@ -35,11 +41,16 @@ async function exportCsv() {
   exportError.value = null;
   exporting.value = true;
   try {
-    const blob = await api.downloadCohortCsv(store.selectedSlug);
+    const blob = await api.downloadCohortCsv(
+      store.selectedSlug,
+      store.selectedCohortLabel,
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cohort-${store.selectedSlug}.csv`;
+    a.download = `cohort-${store.selectedSlug}${
+      store.selectedCohortLabel ? `-${store.selectedCohortLabel}` : ''
+    }.csv`;
     a.click();
     URL.revokeObjectURL(url);
   } catch {
@@ -64,6 +75,20 @@ async function exportCsv() {
       >
         <option v-for="c in courses" :key="c.slug" :value="c.slug">
           {{ c.title }}
+        </option>
+      </select>
+    </label>
+
+    <label v-if="store.labels.length > 0" class="course-picker">
+      入学バッチ
+      <select
+        data-test="cohort-label-select"
+        :value="store.selectedCohortLabel ?? ''"
+        @change="onCohortLabelChange"
+      >
+        <option value="">すべて</option>
+        <option v-for="label in store.labels" :key="label" :value="label">
+          {{ label }}
         </option>
       </select>
     </label>

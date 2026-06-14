@@ -269,3 +269,51 @@ async def test_tag_heatmap_excludes_single_submission_tags(
         course_title=course.title,
     )
     assert summary.tag_heatmap == []
+
+
+@pytest.mark.asyncio
+async def test_cohort_label_filters_enrollments(
+    db_session, default_course_id, seed_curriculum,
+):
+    user_a = await _make_enrolled_learner(
+        db_session, default_course_id, email="spring@e.com",
+    )
+    user_b = await _make_enrolled_learner(
+        db_session, default_course_id, email="fall@e.com",
+    )
+    await db_session.execute(
+        update(Enrollment)
+        .where(
+            Enrollment.user_id == user_a.id,
+            Enrollment.course_id == default_course_id,
+        )
+        .values(cohort_label="2026-spring")
+    )
+    await db_session.execute(
+        update(Enrollment)
+        .where(
+            Enrollment.user_id == user_b.id,
+            Enrollment.course_id == default_course_id,
+        )
+        .values(cohort_label="2026-fall")
+    )
+    await db_session.commit()
+
+    course = get_course(DEFAULT_COURSE_SLUG)
+    all_summary = await compute_cohort_summary(
+        db_session,
+        course_id=default_course_id,
+        course_slug=DEFAULT_COURSE_SLUG,
+        course_title=course.title,
+    )
+    spring_summary = await compute_cohort_summary(
+        db_session,
+        course_id=default_course_id,
+        course_slug=DEFAULT_COURSE_SLUG,
+        course_title=course.title,
+        cohort_label="2026-spring",
+    )
+
+    assert all_summary.enrolled_count >= spring_summary.enrolled_count
+    assert spring_summary.enrolled_count == 1
+    assert spring_summary.cohort_label == "2026-spring"

@@ -22,4 +22,9 @@ export interface AdminCohortSummary {
   completion_rate: number;
   stuck_learners: StuckLearner[];
   tag_heatmap: TagHeatmapEntry[];
+  cohort_label: string | null;
+}
+
+export interface AdminCohortLabels {
+  items: string[];
 }

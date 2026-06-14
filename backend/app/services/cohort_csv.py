@@ -17,6 +17,7 @@ def render_cohort_csv(summary: CohortSummary) -> str:
         [
             "course_slug",
             "course_title",
+            "cohort_label",
             "enrolled_count",
             "average_score",
             "completion_rate",
@@ -26,6 +27,7 @@ def render_cohort_csv(summary: CohortSummary) -> str:
         [
             summary.course_slug,
             summary.course_title,
+            summary.cohort_label or "",
             summary.enrolled_count,
             summary.average_score if summary.average_score is not None else "",
             summary.completion_rate,

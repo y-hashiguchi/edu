@@ -76,7 +76,7 @@ async def test_cohort_export_returns_csv(
         "content-disposition"
     ]
     body = res.text
-    assert "course_slug,course_title,enrolled_count" in body
+    assert "course_slug,course_title,cohort_label,enrolled_count" in body
     assert "ai-driven-dev" in body
     assert "user_id,display_name,email_masked" in body
     assert "tag,average_score,submission_count" in body
@@ -89,3 +89,58 @@ async def test_cohort_export_unknown_slug_404(
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/no-such-course/cohort-summary/export")
     assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_cohort_labels_lists_distinct_values(
+    client, admin_user, admin_token, auth_user, db_session, default_course_id,
+    seed_curriculum,
+):
+    from sqlalchemy import update
+
+    from app.models.enrollment import Enrollment
+
+    await db_session.execute(
+        update(Enrollment)
+        .where(
+            Enrollment.user_id == auth_user.id,
+            Enrollment.course_id == default_course_id,
+        )
+        .values(cohort_label="2026-spring")
+    )
+    await db_session.commit()
+
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.get("/api/admin/courses/ai-driven-dev/cohort-labels")
+    assert res.status_code == 200
+    assert "2026-spring" in res.json()["items"]
+
+
+@pytest.mark.asyncio
+async def test_cohort_summary_filters_by_label(
+    client, admin_user, admin_token, auth_user, db_session, default_course_id,
+    seed_curriculum,
+):
+    from sqlalchemy import update
+
+    from app.models.enrollment import Enrollment
+
+    await db_session.execute(
+        update(Enrollment)
+        .where(
+            Enrollment.user_id == auth_user.id,
+            Enrollment.course_id == default_course_id,
+        )
+        .values(cohort_label="2026-spring")
+    )
+    await db_session.commit()
+
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.get(
+        "/api/admin/courses/ai-driven-dev/cohort-summary",
+        params={"cohort_label": "2026-spring"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["cohort_label"] == "2026-spring"
+    assert body["enrolled_count"] == 1

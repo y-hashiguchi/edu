@@ -8,6 +8,7 @@ vi.mock('@/lib/api', async () => {
     api: {
       ...actual.api,
       adminCohortSummary: vi.fn(),
+      adminCohortLabels: vi.fn().mockResolvedValue({ items: [] }),
     },
   };
 });
@@ -30,6 +31,7 @@ describe('admin_cohort store', () => {
       completion_rate: 0.25,
       stuck_learners: [],
       tag_heatmap: [],
+      cohort_label: null,
     });
     const store = useAdminCohortStore();
     await store.fetchSummary('ai-driven-dev');
@@ -57,6 +59,7 @@ describe('admin_cohort store', () => {
       completion_rate: 0,
       stuck_learners: [],
       tag_heatmap: [],
+      cohort_label: null,
     });
     const store = useAdminCohortStore();
     await store.fetchSummary('ai-era-se');

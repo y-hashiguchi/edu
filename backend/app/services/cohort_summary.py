@@ -48,6 +48,7 @@ class CohortSummary:
     completion_rate: float
     stuck_learners: list[StuckLearner]
     tag_heatmap: list[TagHeatmapEntry]
+    cohort_label: str | None = None
 
 
 def _task_skill_tags(course_slug: str, phase: int, task_no: int) -> list[str]:
@@ -97,6 +98,7 @@ async def compute_cohort_summary(
     course_slug: str,
     course_title: str,
     stuck_inactive_days: int | None = None,
+    cohort_label: str | None = None,
     now: datetime | None = None,
 ) -> CohortSummary:
     """Aggregate cohort metrics for active enrollments in one course."""
@@ -124,6 +126,8 @@ async def compute_cohort_summary(
             Enrollment.status == "active",
         )
     )
+    if cohort_label is not None:
+        enroll_stmt = enroll_stmt.where(Enrollment.cohort_label == cohort_label)
     enroll_rows = (await db.execute(enroll_stmt)).all()
     enrolled_count = len(enroll_rows)
 
@@ -136,6 +140,7 @@ async def compute_cohort_summary(
             completion_rate=0.0,
             stuck_learners=[],
             tag_heatmap=[],
+            cohort_label=cohort_label,
         )
 
     user_ids = [r[0] for r in enroll_rows]
@@ -294,4 +299,5 @@ async def compute_cohort_summary(
         completion_rate=completion_rate,
         stuck_learners=stuck_learners,
         tag_heatmap=tag_heatmap,
+        cohort_label=cohort_label,
     )
