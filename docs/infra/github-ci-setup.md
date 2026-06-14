@@ -1,22 +1,23 @@
 # GitHub Actions CI セットアップ
 
-**最終確認:** 2026-06-14（Cursor Agent Phase 0/1）
+**最終確認:** 2026-06-14（Sprint 10 完了後）
 
 ## 現状
 
 | 項目 | 状態 |
 |------|------|
 | ワークフロー定義 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) あり |
-| `git remote` | **未設定**（2026-06-14 時点） |
+| `git remote` | **未設定** |
 | CI 初回実走 | remote push 待ち |
 | 手動トリガ | `workflow_dispatch` 対応済み |
 
-## ローカルベースライン（2026-06-14 再確認）
+## ローカルベースライン（2026-06-14）
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | **411 passed** |
-| frontend vitest | **94 passed (24 files)** |
+| backend pytest | **426 passed** |
+| frontend vitest | **100 passed (26 files)** |
+| E2E Playwright | **6 passed** |
 | frontend build | green |
 | npm audit (critical) | 0 vulnerabilities |
 
@@ -49,16 +50,17 @@ push または PR 作成後、GitHub の Actions タブで 3 job（`backend` / `
 docker compose up -d postgres
 cd backend && uv run alembic upgrade head
 
-# stub 採点を有効にして backend 起動
+# stub 採点 + 同期採点で backend 起動（grading-worker 不要）
 CLAUDE_STUB_MODE=true GRADING_ASYNC_ENABLED=false \
-  DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_tutor \
+  DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai_tutor \
+  REDIS_URL=redis://127.0.0.1:6379/0 \
   JWT_SECRET_KEY=test-secret ANTHROPIC_API_KEY=test-key \
-  uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
+  uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 # 別ターミナル
 cd frontend
-VITE_API_BASE_URL=http://127.0.0.1:8001 \
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_tutor \
+VITE_API_BASE_URL=http://127.0.0.1:8000 \
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai_tutor \
 npm run test:e2e
 ```
 

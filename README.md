@@ -81,6 +81,7 @@ make test-frontend             # vitest
 - Sprint 7: `docs/superpowers/plans/2026-06-10-ai-tutor-curriculum-sprint-7.md`
 - Sprint 9: `docs/superpowers/plans/2026-06-13-ai-tutor-curriculum-sprint-9.md`
 - Sprint 10: `docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md`
+- 引き継ぎ（最新）: [`HANDOVER_2026-06-14_sprint10_done.md`](HANDOVER_2026-06-14_sprint10_done.md)
 
 ## 実装進捗
 
