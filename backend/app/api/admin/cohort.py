@@ -1,15 +1,12 @@
 """Sprint 10 — admin cohort summary API."""
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.deps import get_current_admin
 from app.core.limiter import limiter
-from app.data.courses import CourseNotFoundError, get_course
 from app.db.session import get_db
-from app.models.course import Course
 from app.models.user import User
 from app.schemas.admin_cohort import (
     AdminCohortSummaryOut,
@@ -17,6 +14,7 @@ from app.schemas.admin_cohort import (
     TagHeatmapEntryOut,
 )
 from app.services.cohort_summary import compute_cohort_summary
+from app.services.enrollment import CourseNotFoundError, _get_course_by_slug
 
 router = APIRouter(prefix="/api/admin/courses", tags=["admin"])
 
@@ -35,21 +33,12 @@ async def get_cohort_summary(
     db: AsyncSession = Depends(get_db),
 ) -> AdminCohortSummaryOut:
     try:
-        get_course(course_slug)
+        course = await _get_course_by_slug(db, course_slug)
     except CourseNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="course not found",
         ) from None
-
-    course = (
-        await db.execute(select(Course).where(Course.slug == course_slug))
-    ).scalar_one_or_none()
-    if course is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="course not found",
-        )
 
     summary = await compute_cohort_summary(
         db,

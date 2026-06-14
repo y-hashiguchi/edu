@@ -179,7 +179,7 @@ async def test_stuck_no_submissions_after_enroll_threshold(
     stuck = summary.stuck_learners[0]
     assert stuck.reason == "no_submissions"
     assert stuck.submission_count == 0
-    assert stuck.email_masked == "st***@e.com"
+    assert stuck.email_masked == "s***@e.com"
 
 
 @pytest.mark.asyncio
@@ -203,7 +203,7 @@ async def test_stuck_inactive_when_last_submission_old(
         stuck_inactive_days=7,
     )
     reasons = {s.email_masked: s.reason for s in summary.stuck_learners}
-    assert reasons.get("st***@e.com") == "inactive_7d"
+    assert reasons.get("s***@e.com") == "inactive_7d"
 
 
 @pytest.mark.asyncio
@@ -223,7 +223,7 @@ async def test_not_stuck_when_recently_active(
         stuck_inactive_days=7,
     )
     emails = {s.email_masked for s in summary.stuck_learners}
-    assert "ac***@e.com" not in emails
+    assert "a***@e.com" not in emails
 
 
 @pytest.mark.asyncio

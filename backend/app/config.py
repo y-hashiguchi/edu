@@ -1,11 +1,12 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Anthropic
-    anthropic_api_key: str
+    # Anthropic — optional when claude_stub_mode=true (CI / E2E).
+    anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-5"
 
     # HTTP
@@ -44,6 +45,14 @@ class Settings(BaseSettings):
     # journey is reproducible without spending API tokens. NEVER enable
     # in production.
     claude_stub_mode: bool = False
+
+    @model_validator(mode="after")
+    def require_anthropic_key_unless_stub(self) -> "Settings":
+        if not self.claude_stub_mode and not self.anthropic_api_key:
+            raise ValueError(
+                "anthropic_api_key is required when claude_stub_mode is false"
+            )
+        return self
 
     # Rate limiting (Sprint 3)
     rate_limit_enabled: bool = True

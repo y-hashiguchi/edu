@@ -80,14 +80,12 @@ def test_mask_email_keeps_domain_but_redacts_local_part():
     and stderr into CloudWatch/Datadog, which has a wider read-audience
     than the DB. The raw learner email is PII — the CLI must mask the
     local part before printing."""
-    from scripts.promote_admin import _mask_email
+    from app.core.email_mask import mask_email
 
-    assert _mask_email("alice@example.com") == "al***@example.com"
-    # Short local parts (1 char) still get redacted: never reveal the
-    # full local.
-    assert _mask_email("a@example.com") == "a***@example.com"
-    # No-@ fallback so a malformed CLI arg can't blow up the script.
-    assert _mask_email("garbage") == "***"
+    assert mask_email("alice@example.com") == "a***@example.com"
+    assert mask_email("ab@x.com") == "a***@x.com"
+    assert mask_email("a@example.com") == "a***@example.com"
+    assert mask_email("garbage") == "***"
 
 
 @pytest.mark.asyncio
@@ -108,6 +106,6 @@ async def test_promote_logs_masked_email_only(db_session, capsys):
     rc = await promote("bob.alice@corp.example")
     assert rc == 0
     out = capsys.readouterr().out
-    assert "bo***@corp.example" in out
+    assert "b***@corp.example" in out
     # Raw local part must not leak.
     assert "bob.alice" not in out

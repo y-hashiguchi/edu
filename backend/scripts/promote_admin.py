@@ -18,20 +18,9 @@ import sys
 
 from sqlalchemy import select
 
+from app.core.email_mask import mask_email
 from app.db.session import SessionLocal
 from app.models.user import User
-
-
-def _mask_email(email: str) -> str:
-    """MED-2 (sprint-4 security follow-up): mask the local part before
-    emitting an email to stdout/stderr. CloudWatch/Datadog and similar
-    log sinks have a wider read-audience than the DB, so we keep the
-    domain (for ops to triage which tenant/cohort is affected) but drop
-    everything past the first two chars of the local part."""
-    local, sep, domain = email.partition("@")
-    if not sep:
-        return "***"
-    return f"{local[:2]}***@{domain}"
 
 
 async def promote(email: str) -> int:
@@ -39,7 +28,7 @@ async def promote(email: str) -> int:
         user = (
             await session.execute(select(User).where(User.email == email))
         ).scalar_one_or_none()
-        masked = _mask_email(email)
+        masked = mask_email(email)
         if user is None:
             print(f"user not found: {masked}", file=sys.stderr)
             return 1

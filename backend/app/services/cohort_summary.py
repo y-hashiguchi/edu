@@ -10,6 +10,7 @@ from statistics import mean
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.email_mask import mask_email
 from app.config import settings
 from app.data.courses import get_course
 from app.models.enrollment import Enrollment
@@ -47,13 +48,6 @@ class CohortSummary:
     completion_rate: float
     stuck_learners: list[StuckLearner]
     tag_heatmap: list[TagHeatmapEntry]
-
-
-def _mask_email(email: str) -> str:
-    local, sep, domain = email.partition("@")
-    if not sep:
-        return "***"
-    return f"{local[:2]}***@{domain}"
 
 
 def _task_skill_tags(course_slug: str, phase: int, task_no: int) -> list[str]:
@@ -248,7 +242,7 @@ async def compute_cohort_summary(
                 StuckLearner(
                     user_id=user_id,
                     display_name=name,
-                    email_masked=_mask_email(email),
+                    email_masked=mask_email(email),
                     last_activity_at=last_activity,
                     current_phase=current_phase,
                     submission_count=count,

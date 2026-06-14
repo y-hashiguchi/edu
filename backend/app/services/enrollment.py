@@ -5,6 +5,7 @@ course_slug -> course_id mapping is centralised. Admins bypass
 require_active_enrollment in `app/core/course_deps.py` (this module
 stays unaware of admin-ness)."""
 
+import logging
 import uuid
 from dataclasses import dataclass
 
@@ -14,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.data.courses import COURSE_REGISTRY
 from app.models.course import Course
 from app.models.enrollment import Enrollment
+
+logger = logging.getLogger(__name__)
 
 
 class CourseNotFoundError(Exception):
@@ -52,7 +55,11 @@ async def _get_course_by_slug(db: AsyncSession, slug: str) -> Course:
     result = await db.execute(select(Course).where(Course.slug == slug))
     course = result.scalar_one_or_none()
     if course is None:
-        # registry has it but DB row missing — migration issue
+        logger.warning(
+            "course slug %r is in COURSE_REGISTRY but missing from DB — "
+            "run alembic upgrade head",
+            slug,
+        )
         raise CourseNotFoundError(slug)
     return course
 
