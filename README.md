@@ -80,6 +80,7 @@ make test-frontend             # vitest
 - Sprint 6: `docs/superpowers/plans/2026-06-09-ai-tutor-curriculum-sprint-6.md`
 - Sprint 7: `docs/superpowers/plans/2026-06-10-ai-tutor-curriculum-sprint-7.md`
 - Sprint 9: `docs/superpowers/plans/2026-06-13-ai-tutor-curriculum-sprint-9.md`
+- Sprint 10: `docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md`
 
 ## 実装進捗
 
@@ -94,7 +95,8 @@ make test-frontend             # vitest
 - [x] Sprint 7: マルチコース化（courses / enrollments テーブル + 5 テーブルへの course_id FK + Python レジストリ + `?course=` スコープ + 登録時コース選択 + ダッシュボードコーススコープ化 + ai-driven-dev 既存移設 + ai-era-se Phase 1 8 課題パイロット）
 - [x] Sprint 8: 採点非同期化（Redis + arq worker、提出 API は即時返却、フロントはポーリングで結果反映）
 - [x] Sprint 7 follow-up / INFRA: vitest CVE パッチ（`>=3.2.5`）、Playwright headless smoke E2E、GitHub Actions CI
-- [x] Sprint 9: カリキュラム編集 admin GUI（`curriculum_phases` / `curriculum_tasks` 2 テーブル + 起動時 cache 化 + draft→publish 二段階ワークフロー + 500ms debounce PUT + `is_admin` RBAC）+ Sprint 9 review HIGH × 3 件同梱修正
+- [x] Sprint 9: カリキュラム編集 admin GUI（…）+ Sprint 9 review HIGH × 3 件同梱修正
+- [x] Sprint 10: コホート集計 admin dashboard（`GET /api/admin/courses/{slug}/cohort-summary` + `/admin/cohort` ビュー）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -111,9 +113,16 @@ make test-frontend             # vitest
 
 ### CI / E2E
 
-- `.github/workflows/ci.yml`: backend pytest、frontend vitest、`npm audit --audit-level=critical`、Playwright smoke
-- ローカル E2E: `docker compose up -d postgres backend` のあと `cd frontend && npm run test:e2e`
-- vitest は `3.2.6` 以上（GHSA-5xrq-8626-4rwp 対応）。`vitest --ui` はローカル専用
+- `.github/workflows/ci.yml`: backend pytest、frontend vitest、`npm audit --audit-level=critical`、Playwright E2E（**6 passed** 想定）
+- 初回 CI 実走: [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照（remote 未設定時は push 不可）
+- ローカル E2E: `docker compose up -d postgres backend`（`CLAUDE_STUB_MODE=true` 推奨）のあと `cd frontend && npm run test:e2e`
+
+### コホート集計（Sprint 10）
+
+- Admin: `/admin/cohort` — コース selector + 受講者数 / 平均スコア / フェーズ完了率 / stuck 一覧 / skill tag ヒートマップ
+- API: `GET /api/admin/courses/{course_slug}/cohort-summary`（admin RBAC + rate limit）
+- stuck 閾値: `COHORT_STUCK_INACTIVE_DAYS=7`（`backend/app/config.py`）
+- vitest **4.x** / vite **8.x**（dev 専用）。`vitest --ui` はローカル専用
 
 ### 非同期採点（Sprint 8）
 

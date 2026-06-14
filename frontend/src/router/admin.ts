@@ -52,6 +52,11 @@ export const adminRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/AdminCurriculumEditView.vue'),
         props: true,
       },
+      {
+        path: 'cohort',
+        name: 'admin-cohort',
+        component: () => import('@/views/admin/AdminCohortView.vue'),
+      },
     ],
   },
 ];

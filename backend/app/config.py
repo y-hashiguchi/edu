@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     admin_curriculum_write_rate_limit: str = "120/minute"
     admin_curriculum_publish_rate_limit: str = "10/minute"
 
+    # Sprint 10 — cohort dashboard stuck-learner threshold (days)
+    cohort_stuck_inactive_days: int = 7
+    admin_cohort_rate_limit: str = "120/minute"
+
     # Learner write rate limit (sprint-4 follow-up MED-4) — mark-read is
     # idempotent so abuse cannot break state, but a stolen learner token
     # could still loop the SELECT Notification + SELECT User round-trip.

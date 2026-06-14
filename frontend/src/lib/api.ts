@@ -27,6 +27,7 @@ import type {
   AdminTaskEditOut,
   AdminTaskPatch,
 } from '@/types/admin_curriculum';
+import type { AdminCohortSummary } from '@/types/admin_cohort';
 import type {
   AdminNotificationListOut,
   BroadcastNotificationCreatePayload,
@@ -345,6 +346,12 @@ export const api = {
     rawRequest<void>(
       `/api/admin/curriculum/${encodeURIComponent(slug)}/draft`,
       { method: 'POST' },
+    ),
+
+  adminCohortSummary: (courseSlug: string): Promise<AdminCohortSummary> =>
+    rawRequest<AdminCohortSummary>(
+      `/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-summary`,
+      { method: 'GET' },
     ),
 
   // ---- Sprint 4 learner-side /api/me endpoints ----

@@ -21,7 +21,7 @@ FastAPI + Vue 3 + PostgreSQL + pgvector の AI 駆動型開発カリキュラム
 | Frontend | Vue 3 + Pinia + TypeScript + Vue Router + vite 8 + vitest 4 |
 | Auth | JWT (Bearer) + bcrypt + `is_admin` フラグベース RBAC |
 | AI | Claude API (採点=Sonnet, ナッジ=Haiku、stub mode は CI 用 `CLAUDE_STUB_MODE`) |
-| Test | pytest (backend 411 passed) / vitest (frontend 94 passed) / Playwright (E2E 4 + 1 skipped) |
+| Test | pytest (backend 411 passed) / vitest (frontend 94 passed) / Playwright (E2E **5 passed**) |
 | Infra | Docker Compose (`make dev`) + GitHub Actions CI |
 
 詳細は `~/.claude/projects/-Volumes-Seagate3TB-projects-edu/memory/edu_stack_and_conventions.md` を参照。
@@ -64,6 +64,7 @@ brainstorming → spec → writing-plans → subagent-driven-development → rev
 | 7 | マルチコース化 (`courses` / `enrollments` + course_id FK + ai-era-se Phase 1 パイロット) | 完了 |
 | 8 | 採点非同期化 (Redis + arq worker) | 完了 |
 | **9** | **カリキュラム編集 admin GUI (curriculum_phases / curriculum_tasks + draft→publish + cache + RBAC) + follow-up MED×5 + LOW×3** | **完了** |
+| **10** | **コホート集計 admin dashboard（spec/plan 作成済み — 実装未着手）** | **計画済** |
 
 ---
 
@@ -138,23 +139,24 @@ docs/superpowers/specs/2026-06-14-sprint-9-followups.md
 
 - **LOW-2 (multi-worker cache invalidation)**: 現状 uvicorn single-worker 前提。本番マルチワーカー化時に Redis pub/sub or SIGUSR1 trigger reload を追加。Sprint 10+ で対応予定。
 
-### 6.2 Sprint 10 候補 (memory: `edu_sprint10_candidate.md`)
+### 6.2 Sprint 10 — コホート集計 dashboard（完了）
 
-| 候補 | 内容 | 推奨度 |
-|------|------|--------|
-| **A. コホート集計 dashboard** | コース別 / 期別 平均スコア・完了率・stuck 受講者・skill_tags 弱点ヒートマップ。Sprint 5/6 dashboard の延長 | **★ 推奨** |
-| B. ai-era-se Phase 2-4 投入 | Phase 1 (8 課題) のみパイロット投入済。Phase 2-4 (23 課題) を GUI から入力する運用検証も兼ねる | 中 |
-| C. マルチワーカー対応 (INFRA) | LOW-2 同梱 + Redis pub/sub + CI multi-worker テスト | 低 (同梱可) |
-| D. broadcast 通知高度化 | `scheduled_at` 列 + arq でスケジュール配信 + draft 保存 + プレビュー | 中 |
+**2026-06-11 実装:**
+- Backend: `services/cohort_summary.py` + `GET /api/admin/courses/{slug}/cohort-summary`
+- Frontend: `/admin/cohort`（`AdminCohortView.vue` + `stores/admin_cohort.ts`）
+- E2E: `frontend/e2e/admin-cohort.spec.ts`（6 件目）
+- Review follow-ups: [`docs/superpowers/specs/2026-06-14-sprint-10-followups.md`](docs/superpowers/specs/2026-06-14-sprint-10-followups.md)
+- 目標テスト: backend **426** / frontend **100** / E2E **6**
 
-A の推奨理由:
-1. Sprint 5/6 dashboard の延長で技術的飛び地がない
-2. マルチコース化 (Sprint 7) + curriculum 編集 (Sprint 9) の投資を運用価値に変換
-3. 完成時に admin から見て「何が起きているか把握できる」体験が明確に変わる
+Spec/plan:
+- [`docs/superpowers/specs/2026-06-14-sprint-10-cohort-dashboard-design.md`](docs/superpowers/specs/2026-06-14-sprint-10-cohort-dashboard-design.md)
+- [`docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md`](docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md)
 
 ### 6.3 INFRA carry-over
 
-- CI 初回実走 (GitHub remote 未設定のため CI ワークフロー (`.github/workflows/ci.yml`) はローカル定義のみで未実行)
+- CI 初回実走: **remote 未設定** — [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照。`workflow_dispatch` 追加済み（2026-06-14）
+- ローカルベースライン（2026-06-11）: backend **426** / frontend **100** / E2E **6** 想定
+- admin-curriculum E2E: skip 解除 + `promote_admin` ヘルパー（`frontend/e2e/helpers.ts`）
 
 ---
 
