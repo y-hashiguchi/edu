@@ -324,10 +324,24 @@ export const api = {
   adminEnrollUser: (
     userId: string,
     courseSlug: string,
+    cohortLabel?: string | null,
   ): Promise<EnrollmentOut> =>
     rawRequest(`/api/admin/users/${userId}/enrollments`, {
       method: 'POST',
-      body: JSON.stringify({ course_slug: courseSlug }),
+      body: JSON.stringify({
+        course_slug: courseSlug,
+        ...(cohortLabel ? { cohort_label: cohortLabel } : {}),
+      }),
+    }),
+
+  adminPatchEnrollmentCohortLabel: (
+    userId: string,
+    courseSlug: string,
+    cohortLabel: string | null,
+  ): Promise<EnrollmentOut> =>
+    rawRequest(`/api/admin/users/${userId}/enrollments/${encodeURIComponent(courseSlug)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cohort_label: cohortLabel }),
     }),
 
   adminListSentNotifications: (): Promise<AdminNotificationListOut> =>

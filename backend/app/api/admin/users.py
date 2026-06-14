@@ -23,12 +23,16 @@ from app.services import admin_query
 from app.services.enrollment import (
     AlreadyEnrolledError,
     CourseNotFoundError,
+    EnrollmentNotFoundError,
     _get_course_by_slug,
     enroll_user,
+    update_enrollment_cohort_label,
 )
 from app.services.progress import initialize_progress_for_course
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin"])
+
+_COHORT_LABEL_PATTERN = r"^[a-zA-Z0-9._-]{1,80}$"
 
 
 @router.get("", response_model=AdminUserListOut)
@@ -112,7 +116,17 @@ class AdminEnrollRequest(BaseModel):
     """Sprint 7 LOW-2 — admin-driven enroll payload."""
 
     course_slug: str = Field(min_length=1, max_length=64)
-    cohort_label: str | None = Field(default=None, max_length=80, pattern=r"^[a-zA-Z0-9._-]{1,80}$")
+    cohort_label: str | None = Field(
+        default=None, max_length=80, pattern=_COHORT_LABEL_PATTERN
+    )
+
+
+class AdminEnrollmentCohortPatch(BaseModel):
+    """Sprint 13 follow-up — update cohort_label on an existing enrollment."""
+
+    cohort_label: str | None = Field(
+        default=None, max_length=80, pattern=_COHORT_LABEL_PATTERN
+    )
 
 
 @router.post(
@@ -171,6 +185,60 @@ async def admin_enroll(
         [p.phase for p in course_data.phases],
     )
 
+    await db.commit()
+    await db.refresh(enr)
+    return EnrollmentOut(
+        course_slug=db_course.slug,
+        course_title=db_course.title,
+        status=enr.status,
+        enrolled_at=enr.enrolled_at,
+        cohort_label=enr.cohort_label,
+    )
+
+
+@router.patch(
+    "/{user_id}/enrollments/{course_slug}",
+    response_model=EnrollmentOut,
+)
+async def admin_patch_enrollment(
+    user_id: uuid.UUID,
+    course_slug: str,
+    payload: AdminEnrollmentCohortPatch,
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentOut:
+    target = (
+        await db.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
+        )
+
+    if course_slug not in COURSE_REGISTRY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown course_slug: {course_slug!r}",
+        )
+
+    try:
+        enr = await update_enrollment_cohort_label(
+            db,
+            user_id=target.id,
+            course_slug=course_slug,
+            cohort_label=payload.cohort_label,
+        )
+    except CourseNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="course not found"
+        ) from None
+    except EnrollmentNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="enrollment not found",
+        ) from None
+
+    db_course = await _get_course_by_slug(db, course_slug)
     await db.commit()
     await db.refresh(enr)
     return EnrollmentOut(

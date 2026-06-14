@@ -131,6 +131,7 @@ make test-frontend             # vitest
 - API: `GET /api/admin/courses/{course_slug}/cohort-labels` — 入学バッチ一覧
 - Query: `?cohort_label=` で集計・CSV をバッチ単位に絞り込み
 - Admin enroll: `POST /api/admin/users/{id}/enrollments` に optional `cohort_label`
+- Admin enroll: `PATCH /api/admin/users/{id}/enrollments/{course_slug}` で `cohort_label` 更新
 - stuck 閾値: `COHORT_STUCK_INACTIVE_DAYS=7`（`backend/app/config.py`）
 - vitest **4.x** / vite **8.x**（dev 専用）。`vitest --ui` はローカル専用
 

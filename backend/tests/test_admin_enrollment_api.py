@@ -99,3 +99,77 @@ async def test_admin_enroll_adds_course_and_seeds_progress(
         )
     ).scalars().all()
     assert {p.phase for p in se_progress} == {1, 2, 3, 4}
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_enrollment_cohort_label(
+    client, auth_user, admin_token, db_session,
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.patch(
+        f"/api/admin/users/{auth_user.id}/enrollments/ai-driven-dev",
+        json={"cohort_label": "2026-spring"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["cohort_label"] == "2026-spring"
+    assert body["course_slug"] == "ai-driven-dev"
+
+    enr = (
+        await db_session.execute(
+            select(Enrollment).where(Enrollment.user_id == auth_user.id)
+        )
+    ).scalars().first()
+    assert enr.cohort_label == "2026-spring"
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_enrollment_clears_label(
+    client, auth_user, admin_token, db_session, default_course_id,
+):
+    from sqlalchemy import update
+
+    await db_session.execute(
+        update(Enrollment)
+        .where(
+            Enrollment.user_id == auth_user.id,
+            Enrollment.course_id == default_course_id,
+        )
+        .values(cohort_label="old-batch")
+    )
+    await db_session.commit()
+
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.patch(
+        f"/api/admin/users/{auth_user.id}/enrollments/ai-driven-dev",
+        json={"cohort_label": None},
+    )
+    assert res.status_code == 200
+    assert res.json()["cohort_label"] is None
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_enrollment_requires_admin(
+    client, auth_user, auth_token,
+):
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+    res = client.patch(
+        f"/api/admin/users/{auth_user.id}/enrollments/ai-driven-dev",
+        json={"cohort_label": "2026-spring"},
+    )
+    assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_enrollment_404_when_not_enrolled(
+    client, admin_token,
+):
+    import uuid as uuidlib
+
+    ghost = uuidlib.uuid4()
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.patch(
+        f"/api/admin/users/{ghost}/enrollments/ai-driven-dev",
+        json={"cohort_label": "2026-spring"},
+    )
+    assert res.status_code == 404

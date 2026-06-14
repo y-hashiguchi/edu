@@ -39,4 +39,5 @@ export interface EnrollmentOut {
   course_title: string;
   status: EnrollmentStatus;
   enrolled_at: string;
+  cohort_label?: string | null;
 }

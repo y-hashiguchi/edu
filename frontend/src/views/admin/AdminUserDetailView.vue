@@ -31,8 +31,12 @@ const dashboard = ref<AdminDashboardResponse | null>(null);
 const selectedCourseSlug = ref<string>('');
 const catalog = ref<CourseCatalogItem[]>([]);
 const enrollSlug = ref('');
+const enrollCohortLabel = ref('');
 const enrollMessage = ref<string | null>(null);
 const enrolling = ref(false);
+const cohortLabelDraft = ref('');
+const cohortLabelSaving = ref(false);
+const cohortLabelMessage = ref<string | null>(null);
 
 const activeEnrollments = computed(
   () => store.selectedUser?.enrollments.filter((e) => e.status === 'active') ?? [],
@@ -61,9 +65,11 @@ async function enrollInCourse() {
   enrolling.value = true;
   enrollMessage.value = null;
   try {
-    await store.enrollUser(store.selectedUser.id, enrollSlug.value);
+    const label = enrollCohortLabel.value.trim() || null;
+    await store.enrollUser(store.selectedUser.id, enrollSlug.value, label);
     enrollMessage.value = 'コースを追加しました';
     enrollSlug.value = '';
+    enrollCohortLabel.value = '';
     selectedCourseSlug.value =
       activeEnrollments.value[0]?.course_slug ?? '';
     await reloadDashboard();
@@ -72,6 +78,34 @@ async function enrollInCourse() {
       e instanceof Error ? e.message : 'コース追加に失敗しました';
   } finally {
     enrolling.value = false;
+  }
+}
+
+function syncCohortLabelDraft() {
+  const enr = activeEnrollments.value.find(
+    (e) => e.course_slug === selectedCourseSlug.value,
+  );
+  cohortLabelDraft.value = enr?.cohort_label ?? '';
+  cohortLabelMessage.value = null;
+}
+
+async function saveCohortLabel() {
+  if (!store.selectedUser || !selectedCourseSlug.value) return;
+  cohortLabelSaving.value = true;
+  cohortLabelMessage.value = null;
+  try {
+    const label = cohortLabelDraft.value.trim() || null;
+    await store.updateEnrollmentCohortLabel(
+      store.selectedUser.id,
+      selectedCourseSlug.value,
+      label,
+    );
+    cohortLabelMessage.value = '入学バッチを保存しました';
+  } catch (e) {
+    cohortLabelMessage.value =
+      e instanceof Error ? e.message : '保存に失敗しました';
+  } finally {
+    cohortLabelSaving.value = false;
   }
 }
 
@@ -86,6 +120,7 @@ async function load() {
   // the selector empty and the dashboard section unrendered.
   const first = activeEnrollments.value[0];
   selectedCourseSlug.value = first?.course_slug ?? '';
+  syncCohortLabelDraft();
   await reloadDashboard();
 }
 
@@ -93,6 +128,7 @@ onMounted(load);
 watch(userId, load);
 
 watch(selectedCourseSlug, (slug, prev) => {
+  syncCohortLabelDraft();
   // Skip the initial assignment inside `load()` to avoid a redundant
   // round-trip — `load()` already calls `reloadDashboard()`.
   if (slug === prev) return;
@@ -178,6 +214,16 @@ function phaseStatusLabel(status: string): string {
             {{ enrolling ? '追加中…' : '追加する' }}
           </button>
         </div>
+        <label class="cohort-label-field">
+          入学バッチ（任意）
+          <input
+            v-model="enrollCohortLabel"
+            type="text"
+            placeholder="例: 2026-spring"
+            :disabled="enrolling"
+            data-test="enroll-cohort-label"
+          />
+        </label>
         <p v-if="enrollMessage" class="enroll-msg">{{ enrollMessage }}</p>
       </section>
 
@@ -200,6 +246,26 @@ function phaseStatusLabel(status: string): string {
             </option>
           </select>
         </label>
+        <label class="cohort-label-field">
+          入学バッチ
+          <div class="cohort-label-row">
+            <input
+              v-model="cohortLabelDraft"
+              type="text"
+              placeholder="未設定"
+              data-test="cohort-label-input"
+            />
+            <button
+              type="button"
+              data-test="save-cohort-label"
+              :disabled="cohortLabelSaving"
+              @click="saveCohortLabel"
+            >
+              {{ cohortLabelSaving ? '保存中…' : '保存' }}
+            </button>
+          </div>
+        </label>
+        <p v-if="cohortLabelMessage" class="enroll-msg">{{ cohortLabelMessage }}</p>
       </section>
 
       <section v-if="dashboard" class="user-dashboard-section">
@@ -375,6 +441,36 @@ h2 {
   cursor: pointer;
 }
 .enroll-row button:disabled { opacity: 0.5; }
+.cohort-label-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.cohort-label-field input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+}
+.cohort-label-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.cohort-label-row input { flex: 1; }
+.cohort-label-row button {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+}
+.cohort-label-row button:disabled { opacity: 0.5; }
 .enroll-msg {
   margin: 0.5rem 0 0;
   font-size: 0.85rem;

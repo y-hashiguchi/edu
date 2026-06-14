@@ -168,8 +168,28 @@ export const useAdminStore = defineStore('admin', {
       );
     },
 
-    async enrollUser(userId: string, courseSlug: string) {
-      const enr = await api.adminEnrollUser(userId, courseSlug);
+    async enrollUser(
+      userId: string,
+      courseSlug: string,
+      cohortLabel?: string | null,
+    ) {
+      const enr = await api.adminEnrollUser(userId, courseSlug, cohortLabel);
+      if (this.selectedUser?.id === userId) {
+        await this.fetchUserDetail(userId);
+      }
+      return enr;
+    },
+
+    async updateEnrollmentCohortLabel(
+      userId: string,
+      courseSlug: string,
+      cohortLabel: string | null,
+    ) {
+      const enr = await api.adminPatchEnrollmentCohortLabel(
+        userId,
+        courseSlug,
+        cohortLabel,
+      );
       if (this.selectedUser?.id === userId) {
         await this.fetchUserDetail(userId);
       }

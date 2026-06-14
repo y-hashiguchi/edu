@@ -92,6 +92,28 @@ async def enroll_user(
     return enr
 
 
+async def update_enrollment_cohort_label(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    course_slug: str,
+    cohort_label: str | None,
+) -> Enrollment:
+    course = await _get_course_by_slug(db, course_slug)
+    result = await db.execute(
+        select(Enrollment).where(
+            Enrollment.user_id == user_id,
+            Enrollment.course_id == course.id,
+        )
+    )
+    enr = result.scalar_one_or_none()
+    if enr is None:
+        raise EnrollmentNotFoundError(user_id, course.id)
+    enr.cohort_label = cohort_label
+    await db.flush()
+    return enr
+
+
 async def require_active_enrollment(
     db: AsyncSession, *, user_id: uuid.UUID, course_id: uuid.UUID
 ) -> Enrollment:
