@@ -10,6 +10,7 @@ vi.mock('@/lib/api', async () => {
       ...actual.api,
       adminCurriculumList: vi.fn(),
       adminCohortSummary: vi.fn(),
+      downloadCohortCsv: vi.fn(),
     },
   };
 });
@@ -89,5 +90,30 @@ describe('AdminCohortView', () => {
     const w = mount(AdminCohortView);
     await flushPromises();
     expect(w.get('[data-test="tag-table"]').text()).toContain('Git/GitHub');
+  });
+
+  it('triggers CSV download when export is clicked', async () => {
+    (api.adminCurriculumList as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: [{ slug: 'ai-driven-dev', title: 'AI Dev', pending_draft_count: 0 }],
+    });
+    (api.adminCohortSummary as ReturnType<typeof vi.fn>).mockResolvedValue({
+      course_slug: 'ai-driven-dev',
+      course_title: 'AI Dev',
+      enrolled_count: 2,
+      average_score: 80,
+      completion_rate: 0.5,
+      stuck_learners: [],
+      tag_heatmap: [],
+    });
+    (api.downloadCohortCsv as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Blob(['course_slug,course_title'], { type: 'text/csv' }),
+    );
+
+    const w = mount(AdminCohortView);
+    await flushPromises();
+    await w.get('[data-test="export-csv"]').trigger('click');
+    await flushPromises();
+
+    expect(api.downloadCohortCsv).toHaveBeenCalledWith('ai-driven-dev');
   });
 });

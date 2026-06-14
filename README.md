@@ -100,6 +100,7 @@ make test-frontend             # vitest
 - [x] Sprint 9: カリキュラム編集 admin GUI（…）+ Sprint 9 review HIGH × 3 件同梱修正
 - [x] Sprint 10: コホート集計 admin dashboard（`GET /api/admin/courses/{slug}/cohort-summary` + `/admin/cohort` ビュー）
 - [x] Sprint 11: 予約 broadcast 通知（`scheduled_broadcasts` + arq cron + admin 予約一斉 UI）
+- [x] Sprint 12: コホート CSV エクスポート（`GET .../cohort-summary/export` + admin UI ボタン）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -123,8 +124,9 @@ make test-frontend             # vitest
 
 ### コホート集計（Sprint 10）
 
-- Admin: `/admin/cohort` — コース selector + 受講者数 / 平均スコア / フェーズ完了率 / stuck 一覧 / skill tag ヒートマップ
+- Admin: `/admin/cohort` — コース selector + 受講者数 / 平均スコア / フェーズ完了率 / stuck 一覧 / skill tag ヒートマップ / **CSV エクスポート**
 - API: `GET /api/admin/courses/{course_slug}/cohort-summary`（admin RBAC + rate limit）
+- API: `GET /api/admin/courses/{course_slug}/cohort-summary/export`（同上、CSV ダウンロード）
 - stuck 閾値: `COHORT_STUCK_INACTIVE_DAYS=7`（`backend/app/config.py`）
 - vitest **4.x** / vite **8.x**（dev 専用）。`vitest --ui` はローカル専用
 

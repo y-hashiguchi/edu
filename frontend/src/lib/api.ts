@@ -379,6 +379,24 @@ export const api = {
       { method: 'GET' },
     ),
 
+  downloadCohortCsv: async (courseSlug: string): Promise<Blob> => {
+    const token = getToken();
+    const headers = new Headers();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(
+      `${baseUrl}/api/admin/courses/${encodeURIComponent(courseSlug)}/cohort-summary/export`,
+      { headers },
+    );
+    if (response.status === 401) {
+      if (_onUnauthorized) _onUnauthorized();
+      throw new Error('API 401: Unauthorized');
+    }
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    return response.blob();
+  },
+
   // ---- Sprint 4 learner-side /api/me endpoints ----
 
   listMyNotifications: (): Promise<NotificationListOut> =>

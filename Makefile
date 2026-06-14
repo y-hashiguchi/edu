@@ -1,4 +1,4 @@
-.PHONY: dev test test-backend test-frontend test-e2e lint clean migrate revision db-shell seed-embeddings worker
+.PHONY: dev test test-backend test-frontend test-e2e verify lint clean migrate revision db-shell seed-embeddings worker
 
 worker:
 	docker compose up -d redis postgres
@@ -27,6 +27,10 @@ seed-embeddings:
 		uv run python scripts/seed_embeddings.py
 
 test: test-backend test-frontend
+
+# Local CI gate for private repos (E2E requires backend on :8000 with CLAUDE_STUB_MODE).
+verify: test-backend test-frontend
+	@echo "Backend + frontend tests passed. Run 'make test-e2e' when backend is up."
 
 test-backend:
 	docker compose up -d postgres

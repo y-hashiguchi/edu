@@ -53,3 +53,39 @@ async def test_cohort_summary_includes_enrolled_auth_user(
     res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary")
     assert res.status_code == 200
     assert res.json()["enrolled_count"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_cohort_export_requires_admin(
+    client, auth_user, auth_token, seed_curriculum,
+):
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+    res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary/export")
+    assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_cohort_export_returns_csv(
+    client, admin_user, admin_token, auth_user, seed_curriculum,
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary/export")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/csv")
+    assert 'attachment; filename="cohort-ai-driven-dev.csv"' in res.headers[
+        "content-disposition"
+    ]
+    body = res.text
+    assert "course_slug,course_title,enrolled_count" in body
+    assert "ai-driven-dev" in body
+    assert "user_id,display_name,email_masked" in body
+    assert "tag,average_score,submission_count" in body
+
+
+@pytest.mark.asyncio
+async def test_cohort_export_unknown_slug_404(
+    client, admin_user, admin_token, seed_curriculum,
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.get("/api/admin/courses/no-such-course/cohort-summary/export")
+    assert res.status_code == 404

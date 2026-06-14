@@ -1,6 +1,7 @@
 """Sprint 10 — admin cohort summary API."""
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -13,6 +14,7 @@ from app.schemas.admin_cohort import (
     StuckLearnerOut,
     TagHeatmapEntryOut,
 )
+from app.services.cohort_csv import render_cohort_csv
 from app.services.cohort_summary import compute_cohort_summary
 from app.services.enrollment import CourseNotFoundError, _get_course_by_slug
 
@@ -58,4 +60,38 @@ async def get_cohort_summary(
         tag_heatmap=[
             TagHeatmapEntryOut.model_validate(t) for t in summary.tag_heatmap
         ],
+    )
+
+
+@router.get(
+    "/{course_slug}/cohort-summary/export",
+    response_class=Response,
+)
+@limiter.limit(lambda: settings.admin_cohort_rate_limit)
+async def export_cohort_summary_csv(
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    try:
+        course = await _get_course_by_slug(db, course_slug)
+    except CourseNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="course not found",
+        ) from None
+
+    summary = await compute_cohort_summary(
+        db,
+        course_id=course.id,
+        course_slug=course.slug,
+        course_title=course.title,
+    )
+    csv_body = render_cohort_csv(summary)
+    filename = f"cohort-{course.slug}.csv"
+    return Response(
+        content=csv_body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

@@ -6,6 +6,8 @@ import { useAdminCohortStore } from '@/stores/admin_cohort';
 
 const store = useAdminCohortStore();
 const courses = ref<{ slug: string; title: string }[]>([]);
+const exportError = ref<string | null>(null);
+const exporting = ref(false);
 
 const completionPct = computed(() =>
   store.summary
@@ -27,6 +29,25 @@ async function onCourseChange(event: Event) {
   const slug = (event.target as HTMLSelectElement).value;
   await store.fetchSummary(slug);
 }
+
+async function exportCsv() {
+  if (!store.selectedSlug) return;
+  exportError.value = null;
+  exporting.value = true;
+  try {
+    const blob = await api.downloadCohortCsv(store.selectedSlug);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cohort-${store.selectedSlug}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    exportError.value = 'CSV のダウンロードに失敗しました';
+  } finally {
+    exporting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -46,6 +67,18 @@ async function onCourseChange(event: Event) {
         </option>
       </select>
     </label>
+
+    <button
+      v-if="store.summary"
+      type="button"
+      class="export-btn"
+      data-test="export-csv"
+      :disabled="exporting"
+      @click="exportCsv"
+    >
+      {{ exporting ? 'エクスポート中…' : 'CSV エクスポート' }}
+    </button>
+    <p v-if="exportError" class="error">{{ exportError }}</p>
 
     <p v-if="store.loading" data-test="loading">読み込み中…</p>
     <p v-else-if="store.error" class="error">{{ store.error }}</p>
@@ -145,6 +178,19 @@ async function onCourseChange(event: Event) {
   padding: 0.45rem 0.6rem;
   border-radius: 8px;
   border: 1px solid #d1d5db;
+}
+.export-btn {
+  margin-bottom: 1rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .cards {
   display: grid;
