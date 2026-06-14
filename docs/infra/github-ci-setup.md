@@ -1,23 +1,25 @@
 # GitHub Actions CI セットアップ
 
-**最終確認:** 2026-06-14（Sprint 10 完了後）
+**最終確認:** 2026-06-11（Sprint 11 完了後）
 
 ## 現状
 
 | 項目 | 状態 |
 |------|------|
 | ワークフロー定義 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) あり |
-| `git remote` | `origin` → https://github.com/y-hashiguchi/edu（**public**） |
-| CI 初回実走 | **green**（2026-06-14）— backend / frontend / e2e すべて成功 |
-| 手動トリガ | `workflow_dispatch` 対応済み |
+| `git remote` | `origin` → https://github.com/y-hashiguchi/edu |
+| **visibility** | **PRIVATE**（ユーザー方針 2026-06-11） |
+| CI（private 時） | **startup_failure の可能性大** — 下記 § startup_failure 参照 |
+| ローカルゲート | backend **438** / frontend **102** / E2E **7**（Sprint 11 後） |
+| 手動トリガ | `workflow_dispatch` 対応済み（runner 割当があれば） |
 
-## ローカルベースライン（2026-06-14）
+## ローカルベースライン（2026-06-11 — Sprint 11）
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | **426 passed** |
-| frontend vitest | **100 passed (26 files)** |
-| E2E Playwright | **6 passed** |
+| backend pytest | **438 passed** |
+| frontend vitest | **102 passed (27 files)** |
+| E2E Playwright | **7 passed** |
 | frontend build | green |
 | npm audit (critical) | 0 vulnerabilities |
 
@@ -36,15 +38,26 @@ gh repo create <repo-name> --private --source=. --remote=origin --push
 
 push または PR 作成後、GitHub の Actions タブで 3 job（`backend` / `frontend` / `e2e`）が green であることを確認する。
 
-## Actions startup_failure（0 jobs）— private repo 時
+## Actions startup_failure（0 jobs）— **private repo 運用時は想定内**
 
 **症状:** 実行時間 0 秒、`jobs: []`、ログなし。
 
-**原因（2026-06-14 確認）:** private repo + アカウント Actions 制限で hosted runner が割り当てられない。同一アカウントの他 private リポでも同症状。
+**原因:** private repo + アカウント Actions 制限で hosted runner が割り当てられない。
 
-**解決（本リポ）:** リポジトリを **public** に変更したところ CI が正常起動（run `27490943877` green）。
+**本リポ方針（2026-06-11）:** **Private のまま運用**。CI green は保証しない。
 
-**private のまま使う場合:** https://github.com/settings/billing で Actions / spending limit / 支払い方法を設定する。
+**推奨ゲート（push 前）:**
+
+```bash
+cd backend && uv run pytest -q
+cd frontend && npm test -- --run
+# backend 起動後
+cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 npx playwright test
+```
+
+**CI を private で動かす場合:** https://github.com/settings/billing で Actions / spending limit / 支払い方法を設定する。
+
+**参考（2026-06-14）:** 一時 public 化で CI green を確認済み（run `27491047097`）。private に戻すと再び startup_failure になり得る。
 
 ## workflow 構成
 

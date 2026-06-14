@@ -32,9 +32,12 @@ import type {
   AdminNotificationListOut,
   BroadcastNotificationCreatePayload,
   BroadcastNotificationOut,
+  BroadcastScheduleCreatePayload,
   NotificationCreatePayload,
   NotificationListOut,
   NotificationOut,
+  ScheduledBroadcastListOut,
+  ScheduledBroadcastOut,
 } from '@/types/notification';
 import type { EnrollmentOut } from '@/types/course';
 import type { DashboardResponse } from '@/types/dashboard';
@@ -294,6 +297,28 @@ export const api = {
     rawRequest(`/api/admin/notifications/broadcast`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  adminScheduleBroadcast: (
+    payload: BroadcastScheduleCreatePayload,
+  ): Promise<ScheduledBroadcastOut> =>
+    rawRequest(`/api/admin/notifications/broadcast/schedule`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  adminListScheduledBroadcasts: (
+    status = 'pending',
+  ): Promise<ScheduledBroadcastListOut> =>
+    rawRequest(
+      `/api/admin/notifications/scheduled?status=${encodeURIComponent(status)}`,
+    ),
+
+  adminCancelScheduledBroadcast: (
+    id: string,
+  ): Promise<{ id: string; status: string }> =>
+    rawRequest(`/api/admin/notifications/scheduled/${id}`, {
+      method: 'DELETE',
     }),
 
   adminEnrollUser: (

@@ -25,7 +25,12 @@ import type {
   AdminUserDetail,
   AdminUserSummary,
 } from '@/types/admin';
-import type { NotificationCreatePayload, NotificationOut } from '@/types/notification';
+import type {
+  BroadcastNotificationCreatePayload,
+  NotificationCreatePayload,
+  NotificationOut,
+  ScheduledBroadcastOut,
+} from '@/types/notification';
 
 interface State {
   users: AdminUserSummary[];
@@ -35,6 +40,7 @@ interface State {
   submissionsTotal: number;
   selectedSubmission: AdminSubmissionDetail | null;
   sentNotifications: NotificationOut[];
+  scheduledBroadcasts: ScheduledBroadcastOut[];
   loading: boolean;
   error: string | null;
   // MED-4 (sprint-6 follow-up): dedicated field so the dashboard
@@ -56,6 +62,7 @@ export const useAdminStore = defineStore('admin', {
     submissionsTotal: 0,
     selectedSubmission: null,
     sentNotifications: [],
+    scheduledBroadcasts: [],
     loading: false,
     error: null,
     dashboardError: null,
@@ -137,10 +144,28 @@ export const useAdminStore = defineStore('admin', {
       return note;
     },
 
-    async broadcastNotification(
-      payload: import('@/types/notification').BroadcastNotificationCreatePayload,
-    ) {
+    async broadcastNotification(payload: BroadcastNotificationCreatePayload) {
       return api.adminBroadcastNotification(payload);
+    },
+
+    async scheduleBroadcast(
+      payload: import('@/types/notification').BroadcastScheduleCreatePayload,
+    ) {
+      const row = await api.adminScheduleBroadcast(payload);
+      this.scheduledBroadcasts = [row, ...this.scheduledBroadcasts];
+      return row;
+    },
+
+    async fetchScheduledBroadcasts(status = 'pending') {
+      const res = await api.adminListScheduledBroadcasts(status);
+      this.scheduledBroadcasts = res.items;
+    },
+
+    async cancelScheduledBroadcast(id: string) {
+      await api.adminCancelScheduledBroadcast(id);
+      this.scheduledBroadcasts = this.scheduledBroadcasts.filter(
+        (r) => r.id !== id,
+      );
     },
 
     async enrollUser(userId: string, courseSlug: string) {

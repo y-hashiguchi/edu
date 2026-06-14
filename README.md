@@ -81,7 +81,8 @@ make test-frontend             # vitest
 - Sprint 7: `docs/superpowers/plans/2026-06-10-ai-tutor-curriculum-sprint-7.md`
 - Sprint 9: `docs/superpowers/plans/2026-06-13-ai-tutor-curriculum-sprint-9.md`
 - Sprint 10: `docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md`
-- 引き継ぎ（最新）: [`HANDOVER_2026-06-14_sprint10_done.md`](HANDOVER_2026-06-14_sprint10_done.md)
+- Sprint 11: `docs/superpowers/plans/2026-06-11-ai-tutor-curriculum-sprint-11.md`
+- 引き継ぎ（最新）: [`HANDOVER_2026-06-11_sprint11_done.md`](HANDOVER_2026-06-11_sprint11_done.md)
 
 ## 実装進捗
 
@@ -98,6 +99,7 @@ make test-frontend             # vitest
 - [x] Sprint 7 follow-up / INFRA: vitest CVE パッチ（`>=3.2.5`）、Playwright headless smoke E2E、GitHub Actions CI
 - [x] Sprint 9: カリキュラム編集 admin GUI（…）+ Sprint 9 review HIGH × 3 件同梱修正
 - [x] Sprint 10: コホート集計 admin dashboard（`GET /api/admin/courses/{slug}/cohort-summary` + `/admin/cohort` ビュー）
+- [x] Sprint 11: 予約 broadcast 通知（`scheduled_broadcasts` + arq cron + admin 予約一斉 UI）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -110,6 +112,7 @@ make test-frontend             # vitest
 - フロント URL は `/courses/:slug/phases/:phase` 構成。旧 `/phases/:phase` は `ai-driven-dev` への redirect で互換維持
 - 追加 enroll: `POST /api/admin/users/{id}/enrollments`（admin UI の受講者詳細からも操作可能）
 - コース一斉通知: `POST /api/admin/notifications/broadcast`（`course_slug` で active 受講者に配信）
+- 予約一斉通知 (Sprint 11): `POST /api/admin/notifications/broadcast/schedule` + arq 毎分 cron
 - `make seed-embeddings` の `source_ref` は全コース `course:{slug}:phase:N:task:N` 形式に統一済み
 
 ### CI / E2E

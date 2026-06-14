@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * /admin/notify — compose notifications (1:1 or course broadcast).
+ * /admin/notify — compose notifications (1:1, immediate broadcast, or scheduled).
  */
 import { computed, onMounted, ref } from 'vue';
 
@@ -10,13 +10,32 @@ import type { CourseCatalogItem } from '@/types/course';
 
 const store = useAdminStore();
 
-const mode = ref<'single' | 'broadcast'>('single');
+function defaultJstLocal(minutesAhead: number): string {
+  const d = new Date(Date.now() + minutesAhead * 60_000 + 9 * 60 * 60_000);
+  const jst = new Date(d.getTime());
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${jst.getUTCFullYear()}-${pad(jst.getUTCMonth() + 1)}-${pad(jst.getUTCDate())}` +
+    `T${pad(jst.getUTCHours())}:${pad(jst.getUTCMinutes())}`
+  );
+}
+
+function jstLocalToUtcIso(local: string): string {
+  return new Date(`${local}:00+09:00`).toISOString();
+}
+
+function formatScheduledAt(iso: string): string {
+  return new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+}
+
+const mode = ref<'single' | 'broadcast' | 'schedule'>('single');
 const recipientId = ref('');
 const courseSlug = ref('ai-driven-dev');
 const courses = ref<CourseCatalogItem[]>([]);
 const title = ref('');
 const body = ref('');
 const link = ref('');
+const scheduledLocal = ref(defaultJstLocal(15));
 const submitting = ref(false);
 const successMessage = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
@@ -26,15 +45,21 @@ onMounted(async () => {
     await store.fetchUsers(200, 0);
   }
   await store.fetchSentNotifications();
+  await store.fetchScheduledBroadcasts('pending');
   const catalog = await api.listCourseCatalog();
   courses.value = catalog.items;
   if (catalog.items.length > 0 && !courseSlug.value) {
     courseSlug.value = catalog.items[0].slug;
   }
+  scheduledLocal.value = defaultJstLocal(15);
 });
 
 const candidates = computed(() =>
   store.users.filter((u) => !u.is_admin),
+);
+
+const pendingScheduled = computed(() =>
+  store.scheduledBroadcasts.filter((r) => r.status === 'pending'),
 );
 
 async function submit() {
@@ -58,7 +83,7 @@ async function submit() {
         link: link.value.trim() ? link.value.trim() : null,
       });
       successMessage.value = '通知を送信しました';
-    } else {
+    } else if (mode.value === 'broadcast') {
       if (!courseSlug.value) {
         errorMessage.value = 'コースを選択してください';
         return;
@@ -74,6 +99,24 @@ async function submit() {
         (res.skipped_inbox_full > 0
           ? `（受信上限でスキップ ${res.skipped_inbox_full} 件）`
           : '');
+    } else {
+      if (!courseSlug.value) {
+        errorMessage.value = 'コースを選択してください';
+        return;
+      }
+      if (!scheduledLocal.value) {
+        errorMessage.value = '配信日時を入力してください';
+        return;
+      }
+      await store.scheduleBroadcast({
+        course_slug: courseSlug.value,
+        title: title.value.trim(),
+        body: body.value.trim(),
+        link: link.value.trim() ? link.value.trim() : null,
+        scheduled_at: jstLocalToUtcIso(scheduledLocal.value),
+      });
+      successMessage.value = '予約を登録しました';
+      scheduledLocal.value = defaultJstLocal(15);
     }
     title.value = '';
     body.value = '';
@@ -85,6 +128,24 @@ async function submit() {
     submitting.value = false;
   }
 }
+
+async function cancelScheduled(id: string) {
+  errorMessage.value = null;
+  try {
+    await store.cancelScheduledBroadcast(id);
+    successMessage.value = '予約をキャンセルしました';
+  } catch (e) {
+    errorMessage.value =
+      e instanceof Error ? e.message : 'キャンセルに失敗しました';
+  }
+}
+
+const submitLabel = computed(() => {
+  if (submitting.value) return '送信中…';
+  if (mode.value === 'single') return '送信する';
+  if (mode.value === 'broadcast') return '一斉送信する';
+  return '予約する';
+});
 </script>
 
 <template>
@@ -104,7 +165,15 @@ async function submit() {
         :class="{ active: mode === 'broadcast' }"
         @click="mode = 'broadcast'"
       >
-        コース一斉送信
+        即時一斉
+      </button>
+      <button
+        type="button"
+        data-test="mode-schedule"
+        :class="{ active: mode === 'schedule' }"
+        @click="mode = 'schedule'"
+      >
+        予約一斉
       </button>
     </div>
 
@@ -132,10 +201,21 @@ async function submit() {
         </select>
       </label>
 
+      <label v-if="mode === 'schedule'" class="field">
+        <span>配信日時（日本時間 JST）</span>
+        <input
+          v-model="scheduledLocal"
+          data-test="scheduled-at"
+          type="datetime-local"
+          :disabled="submitting"
+        />
+      </label>
+
       <label class="field">
         <span>タイトル</span>
         <input
           v-model="title"
+          data-test="notify-title"
           type="text"
           maxlength="200"
           :disabled="submitting"
@@ -147,6 +227,7 @@ async function submit() {
         <span>本文</span>
         <textarea
           v-model="body"
+          data-test="notify-body"
           rows="4"
           maxlength="2000"
           :disabled="submitting"
@@ -168,11 +249,36 @@ async function submit() {
       <div class="actions">
         <p v-if="successMessage" class="ok">{{ successMessage }}</p>
         <p v-if="errorMessage" class="err">{{ errorMessage }}</p>
-        <button type="submit" :disabled="submitting">
-          {{ submitting ? '送信中…' : mode === 'single' ? '送信する' : '一斉送信する' }}
+        <button type="submit" data-test="notify-submit" :disabled="submitting">
+          {{ submitLabel }}
         </button>
       </div>
     </form>
+
+    <section
+      v-if="mode === 'schedule' && pendingScheduled.length > 0"
+      class="outbox"
+      data-test="scheduled-list"
+    >
+      <h2>予約一覧（pending）</h2>
+      <ul>
+        <li v-for="n in pendingScheduled" :key="n.id">
+          <div class="row-head">
+            <span class="title">{{ n.title }}</span>
+            <time>{{ formatScheduledAt(n.scheduled_at) }}</time>
+          </div>
+          <p class="body">{{ n.body }}</p>
+          <p class="meta">{{ n.course_slug }}</p>
+          <button
+            type="button"
+            class="cancel-btn"
+            @click="cancelScheduled(n.id)"
+          >
+            キャンセル
+          </button>
+        </li>
+      </ul>
+    </section>
 
     <section v-if="store.sentNotifications.length > 0" class="outbox">
       <h2>最近送った通知</h2>
@@ -202,6 +308,7 @@ h1 { margin: 0 0 1rem; font-size: 1.15rem; }
   display: flex;
   gap: 0.4rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 .mode-tabs button {
   border: 1px solid #d1d5db;
@@ -280,11 +387,27 @@ form {
   justify-content: space-between;
   font-size: 0.82rem;
   color: #6b7280;
+  gap: 0.5rem;
 }
 .row-head .title { color: #1f2937; font-weight: 600; }
 .outbox .body {
   margin: 0.3rem 0 0;
   font-size: 0.9rem;
   white-space: pre-wrap;
+}
+.meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+.cancel-btn {
+  margin-top: 0.4rem;
+  border: 1px solid #fca5a5;
+  background: #fff;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  cursor: pointer;
 }
 </style>

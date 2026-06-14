@@ -1,6 +1,9 @@
 """Admin → notifications (send, list-sent)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import status as http_status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,12 +16,36 @@ from app.models.user import User
 from app.schemas.notification import (
     BroadcastNotificationCreate,
     BroadcastNotificationOut,
+    BroadcastScheduleCreate,
     NotificationCreate,
     NotificationOut,
+    ScheduledBroadcastCancelOut,
+    ScheduledBroadcastListOut,
+    ScheduledBroadcastOut,
 )
 from app.services import notification as notification_service
+from app.services import scheduled_broadcast as scheduled_broadcast_service
+from app.models.course import Course
 
 router = APIRouter(prefix="/api/admin/notifications", tags=["admin"])
+
+
+def _scheduled_out(row, course: Course) -> ScheduledBroadcastOut:
+    return ScheduledBroadcastOut(
+        id=row.id,
+        course_slug=course.slug,
+        title=row.title,
+        body=row.body,
+        link=row.link,
+        scheduled_at=row.scheduled_at,
+        status=row.status,
+        sent_at=row.sent_at,
+        sent_count=row.sent_count,
+        skipped_inbox_full=row.skipped_inbox_full,
+        skipped_admin=row.skipped_admin,
+        failure_reason=row.failure_reason,
+        created_at=row.created_at,
+    )
 
 
 class AdminNotificationListOut(BaseModel):
@@ -28,7 +55,7 @@ class AdminNotificationListOut(BaseModel):
 @router.post(
     "",
     response_model=NotificationOut,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 @limiter.limit(lambda: settings.admin_write_rate_limit)
 async def send_notification(
@@ -48,7 +75,7 @@ async def send_notification(
         )
     except notification_service.RecipientNotFoundError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="recipient not found",
         ) from e
     except notification_service.RecipientInboxFullError as e:
@@ -57,7 +84,7 @@ async def send_notification(
         # message without a new branch. Retry-After hints "minutes" —
         # the cap clears as the learner reads existing items.
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=http_status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"recipient inbox full (unread cap {e.cap})",
             headers={"Retry-After": "300"},
         ) from e
@@ -79,7 +106,7 @@ async def send_notification(
 @router.post(
     "/broadcast",
     response_model=BroadcastNotificationOut,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
 )
 @limiter.limit(lambda: settings.admin_write_rate_limit)
 async def broadcast_notification(
@@ -99,7 +126,7 @@ async def broadcast_notification(
         )
     except notification_service.CourseNotFoundForBroadcastError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"unknown course_slug: {e.slug!r}",
         ) from e
 
@@ -109,6 +136,97 @@ async def broadcast_notification(
         skipped_inbox_full=result.skipped_inbox_full,
         skipped_admin=result.skipped_admin,
     )
+
+
+@router.post(
+    "/broadcast/schedule",
+    response_model=ScheduledBroadcastOut,
+    status_code=http_status.HTTP_201_CREATED,
+)
+@limiter.limit(lambda: settings.admin_write_rate_limit)
+async def schedule_broadcast(
+    request: Request,
+    payload: BroadcastScheduleCreate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> ScheduledBroadcastOut:
+    try:
+        row = await scheduled_broadcast_service.create_scheduled_broadcast(
+            db=db,
+            sender_id=admin.id,
+            course_slug=payload.course_slug,
+            title=payload.title,
+            body=payload.body,
+            link=payload.link,
+            scheduled_at=payload.scheduled_at,
+        )
+    except notification_service.CourseNotFoundForBroadcastError as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown course_slug: {e.slug!r}",
+        ) from e
+    except scheduled_broadcast_service.InvalidScheduleTimeError as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.detail,
+        ) from e
+
+    course = (
+        await db.execute(select(Course).where(Course.id == row.course_id))
+    ).scalar_one()
+    return _scheduled_out(row, course)
+
+
+@router.get("/scheduled", response_model=ScheduledBroadcastListOut)
+async def list_scheduled(
+    schedule_status: str = Query(default="pending", alias="status"),
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> ScheduledBroadcastListOut:
+    del admin
+    allowed = {"pending", "sent", "cancelled", "failed", "all"}
+    if schedule_status not in allowed:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"status must be one of {sorted(allowed)}",
+        )
+    rows = await scheduled_broadcast_service.list_scheduled_broadcasts(
+        db=db,
+        status=schedule_status,
+    )
+    return ScheduledBroadcastListOut(
+        items=[_scheduled_out(row, course) for row, course in rows]
+    )
+
+
+@router.delete(
+    "/scheduled/{broadcast_id}",
+    response_model=ScheduledBroadcastCancelOut,
+)
+@limiter.limit(lambda: settings.admin_write_rate_limit)
+async def cancel_scheduled(
+    request: Request,
+    broadcast_id: uuid.UUID,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> ScheduledBroadcastCancelOut:
+    del admin
+    try:
+        row = await scheduled_broadcast_service.cancel_scheduled_broadcast(
+            db=db,
+            broadcast_id=broadcast_id,
+        )
+    except scheduled_broadcast_service.ScheduledBroadcastNotFoundError as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="scheduled broadcast not found",
+        ) from e
+    except scheduled_broadcast_service.ScheduledBroadcastNotPendingError as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="only pending broadcasts can be cancelled",
+        ) from e
+    return ScheduledBroadcastCancelOut(id=row.id, status=row.status)
 
 
 @router.get("", response_model=AdminNotificationListOut)

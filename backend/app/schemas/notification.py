@@ -59,6 +59,39 @@ class BroadcastNotificationOut(BaseModel):
     skipped_admin: int
 
 
+class BroadcastScheduleCreate(BroadcastNotificationCreate):
+    """Schedule a course broadcast for a future time (UTC or offset-aware)."""
+
+    scheduled_at: datetime
+
+
+class ScheduledBroadcastOut(BaseModel):
+    id: uuid.UUID
+    course_slug: str
+    title: str
+    body: str
+    link: str | None
+    scheduled_at: datetime
+    status: str
+    sent_at: datetime | None = None
+    sent_count: int | None = None
+    skipped_inbox_full: int | None = None
+    skipped_admin: int | None = None
+    failure_reason: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ScheduledBroadcastListOut(BaseModel):
+    items: list[ScheduledBroadcastOut]
+
+
+class ScheduledBroadcastCancelOut(BaseModel):
+    id: uuid.UUID
+    status: str
+
+
 class NotificationOut(BaseModel):
     """A single notification with the sender's display name denormalised
     so the client never needs a second request to render."""

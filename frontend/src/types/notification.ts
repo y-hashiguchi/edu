@@ -54,3 +54,27 @@ export interface BroadcastNotificationOut {
   skipped_inbox_full: number;
   skipped_admin: number;
 }
+
+export interface BroadcastScheduleCreatePayload extends BroadcastNotificationCreatePayload {
+  scheduled_at: string;
+}
+
+export interface ScheduledBroadcastOut {
+  id: string;
+  course_slug: string;
+  title: string;
+  body: string;
+  link: string | null;
+  scheduled_at: string;
+  status: string;
+  sent_at: string | null;
+  sent_count: number | null;
+  skipped_inbox_full: number | null;
+  skipped_admin: number | null;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface ScheduledBroadcastListOut {
+  items: ScheduledBroadcastOut[];
+}

@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     cohort_stuck_inactive_days: int = 7
     admin_cohort_rate_limit: str = "120/minute"
 
+    # Sprint 11 — scheduled course broadcast
+    scheduled_broadcast_min_lead_minutes: int = 5
+    scheduled_broadcast_max_horizon_days: int = 90
+    scheduled_broadcast_batch_size: int = 10
+    scheduled_broadcast_cron_enabled: bool = True
+
     # Learner write rate limit (sprint-4 follow-up MED-4) — mark-read is
     # idempotent so abuse cannot break state, but a stolen learner token
     # could still loop the SELECT Notification + SELECT User round-trip.
