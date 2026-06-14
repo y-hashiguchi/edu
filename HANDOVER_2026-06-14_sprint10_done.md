@@ -107,8 +107,9 @@ docs/superpowers/specs/2026-06-14-sprint-10-followups.md
 
 ### 6.1 GitHub Actions
 
-- **remote:** https://github.com/y-hashiguchi/edu（push 済み）
-- **CI:** `startup_failure`（0 jobs）— アカウント Actions 課金/制限を要確認（[docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md)）
+- **remote:** https://github.com/y-hashiguchi/edu（**public**、push 済み）
+- **CI:** green — run `27490943877`（backend / frontend / e2e 成功）
+- private 時は startup_failure → public 化で解消（[docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md)）
 
 ### 6.2 ローカル E2E（Colima + 外部ディスク）
 

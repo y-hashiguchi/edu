@@ -7,8 +7,8 @@
 | 項目 | 状態 |
 |------|------|
 | ワークフロー定義 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) あり |
-| `git remote` | `origin` → https://github.com/y-hashiguchi/edu |
-| CI 初回実走 | push 済み — **startup_failure（0 jobs）** → [課金/Actions 制限](#actions-startup_failure-0-jobs) を確認 |
+| `git remote` | `origin` → https://github.com/y-hashiguchi/edu（**public**） |
+| CI 初回実走 | **green**（2026-06-14）— backend / frontend / e2e すべて成功 |
 | 手動トリガ | `workflow_dispatch` 対応済み |
 
 ## ローカルベースライン（2026-06-14）
@@ -36,19 +36,15 @@ gh repo create <repo-name> --private --source=. --remote=origin --push
 
 push または PR 作成後、GitHub の Actions タブで 3 job（`backend` / `frontend` / `e2e`）が green であることを確認する。
 
-## Actions startup_failure（0 jobs）
+## Actions startup_failure（0 jobs）— private repo 時
 
-**症状:** 実行時間 0 秒、`jobs: []`、ログなし、「workflow file issue」と表示される。
+**症状:** 実行時間 0 秒、`jobs: []`、ログなし。
 
-**原因（2026-06-14 調査）:** ワークフロー YAML 自体は有効（`actionlint` OK）。同一 GitHub アカウントの他 private リポでも同症状のため、**アカウント全体の Actions 利用制限**（課金・spending limit・支払い方法未設定）が疑わしい。
+**原因（2026-06-14 確認）:** private repo + アカウント Actions 制限で hosted runner が割り当てられない。同一アカウントの他 private リポでも同症状。
 
-**対処:**
+**解決（本リポ）:** リポジトリを **public** に変更したところ CI が正常起動（run `27490943877` green）。
 
-1. https://github.com/settings/billing で Actions の利用状況・制限を確認
-2. 必要なら spending limit 設定または支払い方法を追加
-3. 再実行: `gh run rerun --repo y-hashiguchi/edu <run-id>` または Actions タブから Re-run
-
-`ci.yml` の修正だけでは解消しない場合がある。
+**private のまま使う場合:** https://github.com/settings/billing で Actions / spending limit / 支払い方法を設定する。
 
 ## workflow 構成
 
