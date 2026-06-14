@@ -105,9 +105,10 @@ docs/superpowers/specs/2026-06-14-sprint-10-followups.md
 
 ## 6. INFRA / E2E 運用メモ
 
-### 6.1 GitHub remote
+### 6.1 GitHub Actions
 
-**未設定** → **`origin` = https://github.com/y-hashiguchi/edu**（2026-06-14 push 済み）
+- **remote:** https://github.com/y-hashiguchi/edu（push 済み）
+- **CI:** `startup_failure`（0 jobs）— アカウント Actions 課金/制限を要確認（[docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md)）
 
 ### 6.2 ローカル E2E（Colima + 外部ディスク）
 

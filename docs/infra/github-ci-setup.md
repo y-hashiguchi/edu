@@ -8,7 +8,7 @@
 |------|------|
 | ワークフロー定義 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) あり |
 | `git remote` | `origin` → https://github.com/y-hashiguchi/edu |
-| CI 初回実走 | push 済み（2026-06-14）— Actions タブで確認 |
+| CI 初回実走 | push 済み — **startup_failure（0 jobs）** → [課金/Actions 制限](#actions-startup_failure-0-jobs) を確認 |
 | 手動トリガ | `workflow_dispatch` 対応済み |
 
 ## ローカルベースライン（2026-06-14）
@@ -35,6 +35,20 @@ gh repo create <repo-name> --private --source=. --remote=origin --push
 ```
 
 push または PR 作成後、GitHub の Actions タブで 3 job（`backend` / `frontend` / `e2e`）が green であることを確認する。
+
+## Actions startup_failure（0 jobs）
+
+**症状:** 実行時間 0 秒、`jobs: []`、ログなし、「workflow file issue」と表示される。
+
+**原因（2026-06-14 調査）:** ワークフロー YAML 自体は有効（`actionlint` OK）。同一 GitHub アカウントの他 private リポでも同症状のため、**アカウント全体の Actions 利用制限**（課金・spending limit・支払い方法未設定）が疑わしい。
+
+**対処:**
+
+1. https://github.com/settings/billing で Actions の利用状況・制限を確認
+2. 必要なら spending limit 設定または支払い方法を追加
+3. 再実行: `gh run rerun --repo y-hashiguchi/edu <run-id>` または Actions タブから Re-run
+
+`ci.yml` の修正だけでは解消しない場合がある。
 
 ## workflow 構成
 
