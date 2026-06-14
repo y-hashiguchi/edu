@@ -100,3 +100,34 @@ async def test_discard_drafts_returns_204(
     )
     res = client.post("/api/admin/curriculum/ai-driven-dev/draft")
     assert res.status_code == 204
+
+
+# ---------------------------------------------------------------------------
+# Sprint 9 follow-up LOW-1 — course_slug fast-fail regex
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_detail_rejects_invalid_slug_format(
+    client, admin_user, admin_token, seed_curriculum
+):
+    """空白 / 大文字 / 過長スラッグは DB を叩く前に 422。"""
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    # uppercase
+    res = client.get("/api/admin/curriculum/INVALID")
+    assert res.status_code == 422
+    # special characters
+    res = client.get("/api/admin/curriculum/abc!")
+    assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_put_phase_rejects_invalid_slug(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.put(
+        "/api/admin/curriculum/INVALID%20SLUG/phases/1",
+        json={"title": "x"},
+    )
+    assert res.status_code == 422

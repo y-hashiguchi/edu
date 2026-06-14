@@ -11,8 +11,6 @@ from app.core.deps import get_current_admin
 from app.core.limiter import limiter
 from app.data.courses import CourseNotFoundError, runtime
 from app.db.session import get_db
-
-logger = logging.getLogger(__name__)
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
@@ -37,7 +35,14 @@ from app.services.curriculum_edit import (
     put_task_draft,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/admin/curriculum", tags=["admin"])
+
+# Sprint 9 follow-up LOW-1: course_slug の fast-fail regex。a-z / 0-9 /
+# `_` / `-` の最大 80 文字。production の slug (`ai-driven-dev`,
+# `ai-era-se`) は両方このパターンを満たす。
+_SLUG_PATTERN = r"^[a-z0-9_-]{1,80}$"
 
 
 def _task_to_dto(t: CurriculumTask) -> AdminTaskEditOut:
@@ -74,7 +79,9 @@ def _phase_to_dto(
 
 
 @router.get("/", response_model=AdminCurriculumCourseList)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
 async def list_courses(
+    request: Request,
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AdminCurriculumCourseList:
@@ -93,8 +100,10 @@ async def list_courses(
 
 
 @router.get("/{course_slug}", response_model=AdminCurriculumCourseDetail)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
 async def get_detail(
-    course_slug: str = Path(...),
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AdminCurriculumCourseDetail:
@@ -132,7 +141,7 @@ async def get_detail(
 async def put_phase(
     request: Request,
     payload: AdminPhaseUpdateRequest,
-    course_slug: str = Path(...),
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
     phase_no: int = Path(ge=1),
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
@@ -165,7 +174,7 @@ async def put_phase(
 async def put_task(
     request: Request,
     payload: AdminTaskUpdateRequest,
-    course_slug: str = Path(...),
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
     phase_no: int = Path(ge=1),
     task_no: int = Path(ge=1),
     _admin: User = Depends(get_current_admin),
@@ -200,7 +209,7 @@ async def put_task(
 @limiter.limit(lambda: settings.admin_curriculum_publish_rate_limit)
 async def publish(
     request: Request,
-    course_slug: str = Path(...),
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AdminCurriculumPublishOut:
@@ -238,7 +247,7 @@ async def publish(
 @limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
 async def discard(
     request: Request,
-    course_slug: str = Path(...),
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> None:
