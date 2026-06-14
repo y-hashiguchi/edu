@@ -133,6 +133,18 @@ async def get_detail(
     )
 
 
+# Sprint 9 follow-up MED-5 — system_prompt threat model:
+# `system_prompt` (max 8000 chars) は学習者全員の Claude prompt にそのまま
+# 注入される privileged field。コンプロマイズされた admin アカウントから
+# 学習者の chat 振る舞い改変・PII 漏洩誘導・grading 偏向が可能になる。
+# 防御:
+#   1. is_admin RBAC (本ルート)
+#   2. write rate limit (120/min) は publish/discard と書き込み同居
+#   3. publish 時の audit log (admin email を INFO 出力)
+# 未実装の防御 (将来):
+#   - system_prompt 専用の更に厳しい rate limit
+#   - publish 時の二要素認証
+#   - system_prompt 変更前後の diff を audit table に永続化
 @router.put(
     "/{course_slug}/phases/{phase_no}",
     response_model=AdminPhaseEditOut,
