@@ -78,9 +78,13 @@ export const useAdminCurriculumStore = defineStore('admin_curriculum', {
       });
     },
 
+    // Sprint 9 follow-up LOW-4: publish の戻り値を view に渡せるように
+    // PublishOut を返却し、view が「公開件数」message を出せるようにする。
+    // 旧実装は void を返していたので view が api を直接叩いていた。
     async publish(slug: string) {
-      await api.adminPublishCurriculum(slug);
+      const result = await api.adminPublishCurriculum(slug);
       await this.fetchDetail(slug);
+      return result;
     },
 
     async discardDrafts(slug: string) {

@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAdminCurriculumStore } from '@/stores/admin_curriculum';
-import { api } from '@/lib/api';
 import CurriculumPhaseEditor from '@/components/admin/CurriculumPhaseEditor.vue';
 import type {
   AdminCurriculumCourseDetail,
@@ -63,8 +62,7 @@ onMounted(async () => {
 async function confirmPublish() {
   submitting.value = true;
   try {
-    const result = await api.adminPublishCurriculum(slug.value);
-    await store.fetchDetail(slug.value);
+    const result = await store.publish(slug.value);
     message.value = `公開完了: ${result.published_phase_count} phase / ${result.published_task_count} task`;
     showPublishModal.value = false;
   } catch (e) {
