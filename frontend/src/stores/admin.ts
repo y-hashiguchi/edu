@@ -152,7 +152,7 @@ export const useAdminStore = defineStore('admin', {
       payload: import('@/types/notification').BroadcastScheduleCreatePayload,
     ) {
       const row = await api.adminScheduleBroadcast(payload);
-      this.scheduledBroadcasts = [row, ...this.scheduledBroadcasts];
+      await this.fetchScheduledBroadcasts('pending');
       return row;
     },
 

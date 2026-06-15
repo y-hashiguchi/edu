@@ -25,7 +25,7 @@ test.describe('admin scheduled broadcast', () => {
     });
     await expect(page.locator('[data-test="scheduled-list"]')).toBeVisible();
     await expect(
-      page.locator('[data-test="scheduled-list"] .title', { hasText: uniqueTitle }),
+      page.locator('[data-test="scheduled-list"] .title', { hasText: uniqueTitle }).first(),
     ).toBeVisible();
   });
 });

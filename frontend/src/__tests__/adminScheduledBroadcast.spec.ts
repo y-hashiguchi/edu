@@ -19,7 +19,7 @@ describe('admin scheduled broadcast store', () => {
     vi.clearAllMocks();
   });
 
-  it('scheduleBroadcast prepends to scheduledBroadcasts', async () => {
+  it('scheduleBroadcast refreshes scheduledBroadcasts from API', async () => {
     const row = {
       id: 'sb-1',
       course_slug: 'ai-driven-dev',
@@ -36,6 +36,7 @@ describe('admin scheduled broadcast store', () => {
       created_at: '2026-06-11T00:00:00Z',
     };
     vi.mocked(api.adminScheduleBroadcast).mockResolvedValue(row);
+    vi.mocked(api.adminListScheduledBroadcasts).mockResolvedValue({ items: [row] });
 
     const store = useAdminStore();
     await store.scheduleBroadcast({
@@ -46,6 +47,7 @@ describe('admin scheduled broadcast store', () => {
       scheduled_at: row.scheduled_at,
     });
 
+    expect(api.adminListScheduledBroadcasts).toHaveBeenCalledWith('pending');
     expect(store.scheduledBroadcasts[0].id).toBe('sb-1');
   });
 

@@ -63,6 +63,7 @@ const pendingScheduled = computed(() =>
 );
 
 async function submit() {
+  if (submitting.value) return;
   errorMessage.value = null;
   successMessage.value = null;
   if (!title.value.trim() || !body.value.trim()) {
