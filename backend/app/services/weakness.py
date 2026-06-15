@@ -26,6 +26,10 @@ MIN_SUBMISSION_THRESHOLD = 3
 MIN_TAG_SUBMISSIONS = 2
 """タグ集計に含めるための最小提出数（1 件で「弱点」認定はノイズ）。"""
 
+BULK_MIN_TAG_SUBMISSIONS = MIN_TAG_SUBMISSIONS
+"""admin 一覧 bulk 弱点でも learner dashboard と同じタグ最小件数を適用する。
+1 件タグへの fallback は行わない（Sprint 6 MED-2）。"""
+
 
 @dataclass(frozen=True)
 class TagAverage:
@@ -114,9 +118,10 @@ async def compute_top_weakness_tags_bulk(
 
     Sprint 5 の compute_weakness とは違い、MIN_SUBMISSION_THRESHOLD は
     適用しない: 一覧 column では「データがあるなら出す」方が UX の見える
-    機会が増える。MIN_TAG_SUBMISSIONS を満たすタグがあればその中で最低平均
-    のタグを返し、無ければ単発タグも含めて最低平均タグを返す（タグ名で
-    タイブレーク）。提出 0 件のユーザーのみ None を返す。
+    機会が増える。タグは BULK_MIN_TAG_SUBMISSIONS（= MIN_TAG_SUBMISSIONS）
+    を満たすものだけを対象とし、該当タグが無ければ None を返す。
+    learner dashboard の弱点分析と同じタグ閾値で一貫させる（Sprint 6 MED-2）。
+    提出 0 件のユーザーのみ None を返す。
 
     Sprint 7: input は (user_id, course_id) のタプル列。同じ user が
     複数 course を持つケースは admin 一覧では想定しない（admin 側で
@@ -185,11 +190,13 @@ async def compute_top_weakness_tags_bulk(
             continue
         eligible = {
             t: s for t, s in tag_scores.items()
-            if len(s) >= MIN_TAG_SUBMISSIONS
+            if len(s) >= BULK_MIN_TAG_SUBMISSIONS
         }
-        pool = eligible if eligible else tag_scores
+        if not eligible:
+            out[uid] = None
+            continue
         worst = min(
-            pool.items(),
+            eligible.items(),
             key=lambda kv: (mean(kv[1]), kv[0]),
         )
         out[uid] = worst[0]

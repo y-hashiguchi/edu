@@ -53,8 +53,8 @@ Backend: `AdminSubmissionDetail` schema に `course_slug: str` を追加、`admi
 
 | 項目 | 状態 |
 |------|------|
-| MED-2 (bulk weakness threshold) | 判断保留 |
-| MED-6 (admin-on-admin dashboard) | 判断保留 |
+| MED-2 (bulk weakness threshold) | ✅ 2026-06-14 完了 |
+| MED-6 (admin-on-admin dashboard) | ✅ 2026-06-14 完了 |
 | LOW-4 (vitest CVE GHSA-5xrq-8626-4rwp) | ✅ vitest `^3.2.6` に upgrade、CI で `npm audit --audit-level=critical` |
 | LOW-5 / INFRA-1 (Playwright headless CI) | ✅ `frontend/e2e/smoke.spec.ts` + `.github/workflows/ci.yml` |
 

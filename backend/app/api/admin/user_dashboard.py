@@ -40,10 +40,12 @@ async def get_admin_user_dashboard(
     db: AsyncSession = Depends(get_db),
     embedding_client=Depends(get_embedding_client),
 ) -> AdminDashboardResponse:
-    exists = (
-        await db.execute(select(User.id).where(User.id == user_id))
+    target = (
+        await db.execute(select(User).where(User.id == user_id))
     ).scalar_one_or_none()
-    if exists is None:
+    if target is None or target.is_admin:
+        # Sprint 6 MED-6: admin-on-admin dashboard は threat model 外。
+        # 存在有無を漏らさないよう learner と同じ 404 に統一。
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="user not found",

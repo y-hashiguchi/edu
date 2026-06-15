@@ -16,7 +16,7 @@
 | HIGH-3 | ✅ 完了 | `1c36856 fix(sprint-6): tree-wide fanout + CTE depth cap + self-loop guard (HIGH-3, MED-1)` |
 | MED-1 | ✅ 完了 | `1c36856`（HIGH-3 と同梱） |
 | MED-3 / MED-4 / MED-5 | ✅ 完了 | `89ca06f fix(sprint-6): batch follow-ups (MED-3/4/5 + LOW-1/2/3)` |
-| MED-2 / MED-6 | 未着手（判断保留） | — |
+| MED-2 / MED-6 | ✅ 完了 | Sprint 14 follow-up |
 | LOW-1 / LOW-2 / LOW-3 | ✅ 完了 | `89ca06f` |
 | LOW-4 / LOW-5 | 未着手 | — |
 

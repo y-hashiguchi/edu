@@ -100,3 +100,15 @@ async def test_admin_dashboard_returns_404_for_unknown_user(
     _auth(client, admin_user.id)
     r = client.get(f"/api/admin/users/{uuid_mod.uuid4()}/dashboard")
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_dashboard_returns_404_for_admin_target(
+    client, db_session, admin_user, monkeypatch,
+):
+    """Sprint 6 MED-6: admin 同士の dashboard 参照は 404。"""
+    other_admin = await _make_user(db_session, "a2@e.com", is_admin=True)
+    _stub_compose(monkeypatch)
+    _auth(client, admin_user.id)
+    r = client.get(f"/api/admin/users/{other_admin.id}/dashboard")
+    assert r.status_code == 404

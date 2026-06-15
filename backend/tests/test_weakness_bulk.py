@@ -49,9 +49,23 @@ async def test_returns_lowest_average_tag_per_user(
 async def test_tie_breaker_by_tag_name_alphabetical(
     db_session, seed_multiple_learners_with_submissions, default_course_id,
 ):
+    """同平均の eligible タグが複数あるとき、タグ名の辞書順で選ぶ。"""
     users = await seed_multiple_learners_with_submissions([
-        ("c@e.com", [(1, 1, 50), (1, 2, 50)]),
+        ("c@e.com", [(2, 3, 50), (3, 1, 50)]),
     ])
     uid = users[0][0].id
     out = await compute_top_weakness_tags_bulk(db_session, [(uid, default_course_id)])
-    assert out[uid] == "Git/GitHub"
+    assert out[uid] == "AI協調"
+
+
+@pytest.mark.asyncio
+async def test_bulk_returns_none_when_tags_below_min_submissions(
+    db_session, seed_multiple_learners_with_submissions, default_course_id,
+):
+    """Sprint 6 MED-2: 1 件タグのみのとき bulk も None（fallback なし）。"""
+    users = await seed_multiple_learners_with_submissions([
+        ("solo@e.com", [(1, 1, 40)]),
+    ])
+    uid = users[0][0].id
+    out = await compute_top_weakness_tags_bulk(db_session, [(uid, default_course_id)])
+    assert out[uid] is None
