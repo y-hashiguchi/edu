@@ -5,8 +5,8 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` と同期済み） |
-| 最新 HEAD | `139fa58` |
-| GitHub Actions | **success**（backend / frontend / e2e） — [#27628123250](https://github.com/y-hashiguchi/edu/actions/runs/27628123250) |
+| 最新 HEAD | `cc03ffd` |
+| GitHub Actions | **success**（backend / frontend / e2e） — [#27628515482](https://github.com/y-hashiguchi/edu/actions/runs/27628515482) |
 
 ## テストベースライン
 
@@ -74,6 +74,6 @@ cd backend && uv run alembic upgrade head
 - ~~Sprint 16: Course 追加・削除~~ → [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
 - ~~Phase 追加~~ / ~~embeddings 自動生成~~ / ~~catalog UI~~ → [`HANDOVER_2026-06-11_sprint17-19_done.md`](HANDOVER_2026-06-11_sprint17-19_done.md)
 - ~~publish 時 embeddings 差分再生成~~ → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
-- Phase 並び替え（Task move API と同様）
+- ~~Phase 並び替え~~ → [`HANDOVER_2026-06-11_sprint21_done.md`](HANDOVER_2026-06-11_sprint21_done.md)
 - ai-era-se コンテンツ拡充（Phase 2-4 はコード投入済み — 必要ならシラバス追記）
 - TLS / 外部 LB / マネージド DB への production-deploy 拡張

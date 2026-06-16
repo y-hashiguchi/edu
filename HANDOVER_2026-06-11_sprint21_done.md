@@ -5,8 +5,10 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main` |
+| 最新 HEAD | `cc03ffd` |
 | スプリント | Sprint 21 — admin Phase 並び替え |
 | 前提 | Sprint 20 完了 |
+| GitHub Actions | **success** — [#27628515482](https://github.com/y-hashiguchi/edu/actions/runs/27628515482) |
 
 ## 実装サマリ
 
