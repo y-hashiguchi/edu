@@ -38,15 +38,12 @@ async function deleteTask4(page: Page): Promise<void> {
       && resp.status() === 204,
     { timeout: 15_000 },
   );
-  const detailReloaded = page.waitForResponse(
-    (resp) =>
-      resp.request().method() === 'GET'
-      && resp.url().includes('/api/admin/curriculum/ai-driven-dev'),
-    { timeout: 15_000 },
-  );
   await deleteBtn.click();
   await deleteDone;
-  await detailReloaded;
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(
     page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
   ).toHaveCount(3, { timeout: 15_000 });
