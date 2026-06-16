@@ -27,22 +27,29 @@ async function deletePhase1Task4IfPresent(page: Page): Promise<void> {
 
 async function deleteTask4(page: Page): Promise<void> {
   const task4 = page.locator('[data-test="task-edit-4"]');
+  if ((await task4.count()) === 0) return;
   await task4.scrollIntoViewIfNeeded();
   const deleteBtn = task4.locator('[data-test="task-delete"]');
-  await Promise.all([
-    page.waitForResponse(
-      (resp) =>
-        resp.request().method() === 'DELETE'
-        && resp.url().includes('/phases/1/tasks/4')
-        && resp.status() === 204,
-      { timeout: 15_000 },
-    ),
-    (async () => {
-      page.once('dialog', (dialog) => void dialog.accept());
-      await deleteBtn.click();
-    })(),
-  ]);
-  await expect(task4).toHaveCount(0, { timeout: 15_000 });
+  page.once('dialog', (dialog) => void dialog.accept());
+  const deleteDone = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'DELETE'
+      && resp.url().includes('/phases/1/tasks/4')
+      && resp.status() === 204,
+    { timeout: 15_000 },
+  );
+  const detailReloaded = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'GET'
+      && resp.url().includes('/api/admin/curriculum/ai-driven-dev'),
+    { timeout: 15_000 },
+  );
+  await deleteBtn.click();
+  await deleteDone;
+  await detailReloaded;
+  await expect(
+    page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
+  ).toHaveCount(3, { timeout: 15_000 });
 }
 
 test.describe('admin curriculum editing', () => {
@@ -122,8 +129,5 @@ test.describe('admin curriculum editing', () => {
     await login(page, adminEmail);
     await openCurriculumEdit(page);
     await deleteTask4(page);
-    await expect(
-      page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
-    ).toHaveCount(3, { timeout: 15_000 });
   });
 });
