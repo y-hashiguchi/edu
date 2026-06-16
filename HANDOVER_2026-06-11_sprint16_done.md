@@ -4,9 +4,20 @@
 
 | 項目 | 値 |
 |------|-----|
-| branch | `main`（未 push — ローカル実装完了） |
+| branch | `main`（`origin/main` 同期済み） |
+| 最新 HEAD | `f2c6a29` — E2E fix |
+| Sprint 16 本体 | `fd71652` |
+| GitHub Actions | **success** — [#27606460017](https://github.com/y-hashiguchi/edu/actions/runs/27606460017) |
 | スプリント | Sprint 16 — admin Course 追加・削除 |
 | 前提 | Sprint 15（Task 追加・削除・並び替え）完了 |
+
+## テストベースライン（CI）
+
+| スイート | 結果 |
+|----------|------|
+| backend pytest | 478 passed |
+| frontend vitest | 105 passed |
+| Playwright E2E | 10 passed |
 
 ## 実装サマリ
 
