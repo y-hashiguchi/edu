@@ -5,18 +5,18 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` と同期済み） |
-| 最新 HEAD | `1ad1ad0` |
-| GitHub Actions | **success**（backend / frontend / e2e） — [#27606460017](https://github.com/y-hashiguchi/edu/actions/runs/27606460017) |
+| 最新 HEAD | `b6d0246` |
+| GitHub Actions | **success**（backend / frontend / e2e） — [#27609794017](https://github.com/y-hashiguchi/edu/actions/runs/27609794017) |
 
 ## テストベースライン
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | 478 passed |
-| frontend vitest | 105 passed |
-| Playwright E2E | 10 passed |
+| backend pytest | 487 passed |
+| frontend vitest | 106 passed |
+| Playwright E2E | 11 passed |
 
-## 直近の主要機能（Sprint 11〜16 + follow-ups）
+## 直近の主要機能（Sprint 11〜19 + follow-ups）
 
 - 予約 broadcast（arq cron + admin UI）
 - コホート CSV エクスポート + 入学バッチ（`cohort_label`）フィルタ
@@ -24,6 +24,7 @@
 - **Sprint 14**: 入学バッチフィルタ E2E（`admin-cohort.spec.ts` 2 件目）
 - **Sprint 15**: curriculum Phase 内 Task 追加・削除・並び替え → [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
 - **Sprint 16**: admin Course 追加・削除 + DB ベース enrollment → [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
+- **Sprint 17–19**: Phase 追加・削除 / embeddings 自動生成 / catalog 説明表示 → [`HANDOVER_2026-06-11_sprint17-19_done.md`](HANDOVER_2026-06-11_sprint17-19_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 
@@ -50,7 +51,7 @@ cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 \
 ```bash
 cp .env.example .env   # 本番シークレットを設定
 make prod              # docker compose prod overlay
-docker compose exec backend uv run python scripts/seed_embeddings.py  # 初回のみ
+docker compose exec backend uv run python scripts/seed_embeddings.py  # 初回のみ（新規 course は API 作成時に自動 seed）
 ```
 
 必須: migration head、`grading-worker`（採点 + 予約 broadcast）、`CLAUDE_STUB_MODE=false`、本番 `ANTHROPIC_API_KEY`。
@@ -69,8 +70,8 @@ cd backend && uv run alembic upgrade head
 
 - ~~Sprint 15: curriculum Phase/Task 追加・削除・並び替え~~ → [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
 - ~~Sprint 16: Course 追加・削除~~ → [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
-- Phase 追加（`submissions.phase BETWEEN 1 AND 4` CHECK migration 要）
-- 新規 course 作成時の embeddings 自動生成
-- catalog UI で動的 course の説明文表示
+- ~~Phase 追加~~ / ~~embeddings 自動生成~~ / ~~catalog UI~~ → [`HANDOVER_2026-06-11_sprint17-19_done.md`](HANDOVER_2026-06-11_sprint17-19_done.md)
+- publish 時の embeddings 差分再生成
+- Phase 並び替え（Task move API と同様）
 - ai-era-se コンテンツ拡充（Phase 2-4 はコード投入済み — 必要ならシラバス追記）
 - TLS / 外部 LB / マネージド DB への production-deploy 拡張

@@ -195,4 +195,47 @@ test.describe('admin curriculum editing', () => {
     });
     await expect(page.getByRole('link', { name: title })).toHaveCount(0);
   });
+
+  test('admin adds and deletes a phase', async ({ page }) => {
+    const adminEmail = `admin-${Date.now()}@example.com`;
+
+    await registerLearner(page, adminEmail, 'Admin');
+    promoteAdminViaScript(adminEmail);
+    await login(page, adminEmail);
+
+    await deletePhase5IfPresent(page);
+
+    await openCurriculumEdit(page);
+    await expect(page.locator('[data-test^="phase-edit-"]')).toHaveCount(4);
+
+    const addDone = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'POST'
+        && resp.url().includes('/phases')
+        && !resp.url().includes('/tasks')
+        && resp.status() === 201,
+      { timeout: 15_000 },
+    );
+    await page.locator('[data-test="add-phase-btn"]').click();
+    await addDone;
+
+    await expect(page.locator('[data-test="phase-edit-5"]')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    const deleteDone = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'DELETE'
+        && resp.url().includes('/phases/5')
+        && resp.status() === 204,
+      { timeout: 15_000 },
+    );
+    await page.locator('[data-test="phase-delete-5"]').click();
+    await deleteDone;
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-test="phase-edit-5"]')).toHaveCount(0, {
+      timeout: 15_000,
+    });
+  });
 });
