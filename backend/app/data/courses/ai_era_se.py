@@ -423,7 +423,7 @@ AI_ERA_SE_COURSE = CourseData(
     slug="ai-era-se",
     title="AI時代SE育成カリキュラム",
     description=(
-        "12 ヶ月のSE育成カリキュラム（4 フェーズ）。"
+        "12 ヶ月のSE育成カリキュラム（4 フェーズ・31 課題）。"
         "MFRS / Nichinichi Anshin / IES を題材にする。"
     ),
     sort_order=1,

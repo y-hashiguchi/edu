@@ -3,6 +3,7 @@
 import pytest
 from sqlalchemy import select
 
+from app.data.courses import get_course
 from app.models.course import Course
 from app.models.enrollment import Enrollment
 from app.services.progress import initialize_progress_for_course
@@ -15,11 +16,12 @@ async def _enroll_in_se(db_session, auth_user):
     db_session.add(
         Enrollment(user_id=auth_user.id, course_id=se.id, status="active")
     )
-    # Sprint 7 MED-1: is_phase_unlocked is now course-scoped, so
-    # ai-era-se progress rows must exist for the learner before they
-    # can submit. ai-era-se Phase 1 is the only seeded phase.
+    course_data = get_course("ai-era-se")
     await initialize_progress_for_course(
-        db_session, auth_user.id, se.id, phase_numbers=[1]
+        db_session,
+        auth_user.id,
+        se.id,
+        [p.phase for p in course_data.phases],
     )
     await db_session.commit()
     return se

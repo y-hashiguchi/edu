@@ -40,6 +40,17 @@ async def test_catalog_sorted_by_sort_order(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_catalog_ai_era_se_description_reflects_full_syllabus(
+    client, db_session
+):
+    await _get_courses(db_session)
+    res = client.get("/api/courses/catalog")
+    se = next(i for i in res.json()["items"] if i["slug"] == "ai-era-se")
+    assert "4 フェーズ" in se["description"]
+    assert "31 課題" in se["description"]
+
+
+@pytest.mark.asyncio
 async def test_my_courses_requires_auth(client):
     res = client.get("/api/courses")
     assert res.status_code == 401

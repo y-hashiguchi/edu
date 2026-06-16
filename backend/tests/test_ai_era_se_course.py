@@ -20,3 +20,9 @@ def test_each_phase_system_prompt_includes_eval_criteria():
     for p in course.phases:
         assert "評価基準" in p.system_prompt
         assert f"Phase {p.phase}" in p.system_prompt
+
+
+def test_ai_era_se_description_mentions_full_syllabus():
+    course = get_course("ai-era-se")
+    assert "4 フェーズ" in course.description
+    assert "31 課題" in course.description

@@ -114,13 +114,14 @@ make test-e2e                  # Playwright（backend 起動後）
 - [x] Sprint 19: 登録フォームで動的 course の description 表示
 - [x] Sprint 20: publish 時 task title 差分 embeddings 再生成（arq worker）
 - [x] Sprint 21: Phase 並び替え（admin GUI + embeddings 全件 refresh）
+- [x] Sprint 22: ai-era-se 全シラバス運用（catalog 説明・DB description 同期）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
 
 ## マルチコース運用（Sprint 7〜）
 
-- 2 コース運用: `ai-driven-dev`（既存 4 フェーズ、各 3 課題）と `ai-era-se`（Phase 1 パイロット、8 課題）
+- 2 コース運用: `ai-driven-dev`（4 フェーズ、各 3 課題）と `ai-era-se`（4 フェーズ、計 31 課題: 8+10+8+5）
 - 新規登録時にコース必須選択: `/login` → 新規登録 → コース select
 - API は `?course={slug}` クエリでスコープ。未指定時は `ai-driven-dev` に解決
 - フロント URL は `/courses/:slug/phases/:phase` 構成。旧 `/phases/:phase` は `ai-driven-dev` への redirect で互換維持
@@ -173,6 +174,7 @@ uv run python -m scripts.promote_admin instructor@example.com
 - **Sprint 15**: Phase 内 Task の追加・削除・並び替え（即 published 反映 + cache reload）
 - **Sprint 16**: コース一覧から Course 追加（4 phase × 1 task scaffold）・削除（組み込み 2 コースは保護）
 - **Sprint 17**: Phase 追加（末尾 scaffold）・削除（番号リマップ + progress backfill）
+- **Sprint 21**: Phase 並び替え（↑↓ UI + submission/progress リマップ + embeddings 全件 refresh）
 - **Sprint 18**: course / Phase 作成時に embeddings を自動 seed（削除時も連動削除）
 - **Sprint 20**: publish 時に変更された task title の embeddings のみ arq で再生成
 - 編集は debounce 500ms で `draft_*` 列に保存（公開には影響しない）
