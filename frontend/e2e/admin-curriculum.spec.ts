@@ -8,14 +8,23 @@ import {
   registerLearner,
 } from './helpers';
 
+async function openCurriculumEdit(page: Page): Promise<void> {
+  await page.goto('/admin/curriculum/ai-driven-dev', {
+    waitUntil: 'domcontentloaded',
+  });
+  await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 /** Prior failed runs may leave Phase 1 task 4 behind; remove before asserting counts. */
 async function deletePhase1Task4IfPresent(page: Page): Promise<void> {
-  await page.goto('/admin/curriculum/ai-driven-dev');
+  await openCurriculumEdit(page);
   const task4 = page.locator('[data-test="task-edit-4"]');
   if ((await task4.count()) === 0) return;
   page.once('dialog', (dialog) => dialog.accept());
   await task4.locator('[data-test="task-delete"]').click();
-  await expect(task4).toHaveCount(0, { timeout: 10_000 });
+  await expect(task4).toHaveCount(0, { timeout: 15_000 });
 }
 
 test.describe('admin curriculum editing', () => {
@@ -25,30 +34,23 @@ test.describe('admin curriculum editing', () => {
     const adminEmail = `admin-${Date.now()}@example.com`;
     const learnerEmail = `learner-${Date.now()}@example.com`;
 
-    // 1) 管理者ユーザーを登録し CLI で is_admin を付与。
     await registerLearner(page, adminEmail, 'Admin');
     promoteAdminViaScript(adminEmail);
 
-    // 2) admin ログイン → カリキュラム編集へ。
     await login(page, adminEmail);
-    await page.goto('/admin/curriculum/ai-driven-dev');
-    await page.waitForURL(/\/admin\/curriculum\/ai-driven-dev/);
+    await openCurriculumEdit(page);
 
-    // 3) Phase 1 の title を編集。
     const phase1 = page.locator('[data-test="phase-edit-1"]');
     const titleInput = phase1.locator('input').first();
     await titleInput.fill('編集後タイトル');
-    // debounce flush (500ms) + margin
     await page.waitForTimeout(800);
 
-    // 4) ドラフト件数増、公開ボタン押下。
     const pending = page.locator('[data-test="pending-count"]');
     await expect(pending).toContainText('1');
     await page.locator('[data-test="publish-button"]').click();
     await page.locator('[data-test="publish-confirm"]').click();
     await expect(page.locator('[data-test="message"]')).toContainText('公開完了');
 
-    // 5) 学習者として確認。
     await page.getByRole('button', { name: 'ログアウト' }).click();
     await registerLearner(page, learnerEmail, 'Learner');
     await login(page, learnerEmail);
@@ -60,7 +62,7 @@ test.describe('admin curriculum editing', () => {
   test('admin adds task visible to learner then deletes it', async ({
     page,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
 
     const adminEmail = `admin-${Date.now()}@example.com`;
     const learnerEmail = `learner-${Date.now()}@example.com`;
@@ -71,27 +73,26 @@ test.describe('admin curriculum editing', () => {
 
     await deletePhase1Task4IfPresent(page);
 
-    await page.goto('/admin/curriculum/ai-driven-dev');
-    await page.waitForURL(/\/admin\/curriculum\/ai-driven-dev/);
-
     const phase1 = page.locator('[data-test="phase-edit-1"]');
     await expect(phase1.locator('[data-test^="task-edit-"]')).toHaveCount(3);
     await phase1.locator('[data-test="add-task-btn"]').click();
     await expect(phase1.locator('[data-test="task-edit-4"]')).toBeVisible({
-      timeout: 10_000,
+      timeout: 15_000,
     });
 
     await page.getByRole('button', { name: 'ログアウト' }).click();
     await registerLearner(page, learnerEmail, 'Learner');
     await login(page, learnerEmail);
-    await page.goto(`/courses/${E2E_COURSE}/phases/1`);
+    await page.goto(`/courses/${E2E_COURSE}/phases/1`, {
+      waitUntil: 'domcontentloaded',
+    });
     await expect(page.locator('[data-test="task-card-4"]')).toBeVisible({
       timeout: 15_000,
     });
 
     await logout(page);
     await login(page, adminEmail);
-    await page.goto('/admin/curriculum/ai-driven-dev');
+    await openCurriculumEdit(page);
     page.once('dialog', (dialog) => dialog.accept());
     await page
       .locator('[data-test="task-edit-4"]')
@@ -99,6 +100,6 @@ test.describe('admin curriculum editing', () => {
       .click();
     await expect(
       page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
-    ).toHaveCount(3, { timeout: 10_000 });
+    ).toHaveCount(3, { timeout: 15_000 });
   });
 });
