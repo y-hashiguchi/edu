@@ -5,7 +5,7 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` と同期済み） |
-| 最新 HEAD | `4b62c49` |
+| 最新 HEAD | `504efe7` |
 | GitHub Actions | **success**（backend / frontend / e2e） |
 
 ## テストベースライン
@@ -41,6 +41,18 @@ cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 \
   npx playwright test
 ```
 
+## 本番デプロイ
+
+[`docs/infra/production-deploy.md`](docs/infra/production-deploy.md) を参照。
+
+```bash
+cp .env.example .env   # 本番シークレットを設定
+make prod              # docker compose prod overlay
+docker compose exec backend uv run python scripts/seed_embeddings.py  # 初回のみ
+```
+
+必須: migration head、`grading-worker`（採点 + 予約 broadcast）、`CLAUDE_STUB_MODE=false`、本番 `ANTHROPIC_API_KEY`。
+
 ## DB 不整合時
 
 `alembic_version` のみでテーブルが空の場合（**pytest 実行後に dev DB を共有していると発生し得る**）:
@@ -53,6 +65,6 @@ cd backend && uv run alembic upgrade head
 
 ## 次候補
 
-- ai-era-se Phase 2-4 コンテンツ投入
-- Sprint 9 out-of-scope: curriculum Phase/Task 追加・削除・並び替え
-- 本番デプロイ（migration + arq worker + Redis）
+- Sprint 15: curriculum Phase/Task 追加・削除・並び替え（Sprint 9 out-of-scope）
+- ai-era-se コンテンツ拡充（Phase 2-4 はコード投入済み — 必要ならシラバス追記）
+- TLS / 外部 LB / マネージド DB への production-deploy 拡張

@@ -17,6 +17,7 @@ cp .env.example .env
 
 ```bash
 make dev                # postgres + backend + frontend を起動 (alembic upgrade head を自動実行)
+make prod               # 本番 Compose overlay（nginx 静的 frontend、--reload なし）
 make seed-embeddings    # Sprint 2 用 — カリキュラム埋め込みを 1 回だけ DB に投入 (28 行)
 ```
 
@@ -125,6 +126,7 @@ make test-e2e                  # Playwright（backend 起動後）
 - 最新 CI: `main` push で green（backend / frontend / e2e ジョブ）
 - 初回 CI 実走: [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照（remote 未設定時は push 不可）
 - ローカル E2E: `docker compose up -d postgres backend`（`CLAUDE_STUB_MODE=true` 推奨）のあと `cd frontend && npm run test:e2e`
+- 本番デプロイ: [docs/infra/production-deploy.md](docs/infra/production-deploy.md)
 
 ### コホート集計（Sprint 10）
 

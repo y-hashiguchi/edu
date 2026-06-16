@@ -1,4 +1,7 @@
-.PHONY: dev test test-backend test-frontend test-e2e verify lint clean migrate revision db-shell seed-embeddings worker
+.PHONY: dev prod test test-backend test-frontend test-e2e verify lint clean migrate revision db-shell seed-embeddings worker
+
+prod:
+	docker compose -f docker-compose.prod.yml up -d --build
 
 worker:
 	docker compose up -d redis postgres
