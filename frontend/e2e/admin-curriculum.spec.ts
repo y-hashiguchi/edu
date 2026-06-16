@@ -22,8 +22,26 @@ async function deletePhase1Task4IfPresent(page: Page): Promise<void> {
   await openCurriculumEdit(page);
   const task4 = page.locator('[data-test="task-edit-4"]');
   if ((await task4.count()) === 0) return;
-  page.once('dialog', (dialog) => dialog.accept());
-  await task4.locator('[data-test="task-delete"]').click();
+  await deleteTask4(page);
+}
+
+async function deleteTask4(page: Page): Promise<void> {
+  const task4 = page.locator('[data-test="task-edit-4"]');
+  await task4.scrollIntoViewIfNeeded();
+  const deleteBtn = task4.locator('[data-test="task-delete"]');
+  await Promise.all([
+    page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'DELETE'
+        && resp.url().includes('/phases/1/tasks/4')
+        && resp.status() === 204,
+      { timeout: 15_000 },
+    ),
+    (async () => {
+      page.once('dialog', (dialog) => void dialog.accept());
+      await deleteBtn.click();
+    })(),
+  ]);
   await expect(task4).toHaveCount(0, { timeout: 15_000 });
 }
 
@@ -75,7 +93,17 @@ test.describe('admin curriculum editing', () => {
 
     const phase1 = page.locator('[data-test="phase-edit-1"]');
     await expect(phase1.locator('[data-test^="task-edit-"]')).toHaveCount(3);
-    await phase1.locator('[data-test="add-task-btn"]').click();
+    await Promise.all([
+      page.waitForResponse(
+        (resp) =>
+          resp.request().method() === 'POST'
+          && resp.url().includes('/phases/1/tasks')
+          && !resp.url().includes('/move')
+          && resp.status() === 201,
+        { timeout: 15_000 },
+      ),
+      phase1.locator('[data-test="add-task-btn"]').click(),
+    ]);
     await expect(phase1.locator('[data-test="task-edit-4"]')).toBeVisible({
       timeout: 15_000,
     });
@@ -93,11 +121,7 @@ test.describe('admin curriculum editing', () => {
     await logout(page);
     await login(page, adminEmail);
     await openCurriculumEdit(page);
-    page.once('dialog', (dialog) => dialog.accept());
-    await page
-      .locator('[data-test="task-edit-4"]')
-      .locator('[data-test="task-delete"]')
-      .click();
+    await deleteTask4(page);
     await expect(
       page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
     ).toHaveCount(3, { timeout: 15_000 });
