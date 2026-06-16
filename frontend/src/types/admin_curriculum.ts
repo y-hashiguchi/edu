@@ -69,3 +69,21 @@ export interface AdminTaskPatch {
 export interface AdminTaskMoveRequest {
   to_task_no: number;
 }
+
+export interface AdminCourseCreateRequest {
+  slug: string;
+  title: string;
+  description?: string | null;
+}
+
+export interface AdminCourseCreateOut {
+  slug: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  phase_count: number;
+  created_at: string;
+}
+
+/** Built-in courses that cannot be deleted via admin UI/API. */
+export const PROTECTED_COURSE_SLUGS = ['ai-driven-dev', 'ai-era-se'] as const;

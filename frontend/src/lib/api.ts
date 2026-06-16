@@ -19,6 +19,8 @@ import type {
   LearnerCommentOut,
 } from '@/types/admin';
 import type {
+  AdminCourseCreateOut,
+  AdminCourseCreateRequest,
   AdminCurriculumCourseDetail,
   AdminCurriculumCourseList,
   AdminCurriculumPublishOut,
@@ -413,6 +415,20 @@ export const api = {
     rawRequest<AdminPhaseEditOut>(
       `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}/tasks/${taskNo}/move`,
       { method: 'POST', body: JSON.stringify(body) },
+    ),
+
+  adminCreateCurriculumCourse: (
+    body: AdminCourseCreateRequest,
+  ): Promise<AdminCourseCreateOut> =>
+    rawRequest<AdminCourseCreateOut>('/api/admin/curriculum/courses', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  adminDeleteCurriculumCourse: (slug: string): Promise<void> =>
+    rawRequest<void>(
+      `/api/admin/curriculum/courses/${encodeURIComponent(slug)}`,
+      { method: 'DELETE' },
     ),
 
   adminCohortSummary: (

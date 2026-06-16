@@ -16,6 +16,8 @@ vi.mock('@/lib/api', async () => {
       adminAddCurriculumTask: vi.fn(),
       adminDeleteCurriculumTask: vi.fn(),
       adminMoveCurriculumTask: vi.fn(),
+      adminCreateCurriculumCourse: vi.fn(),
+      adminDeleteCurriculumCourse: vi.fn(),
     },
   };
 });
@@ -80,5 +82,32 @@ describe('admin_curriculum store', () => {
     await store.addTask('a', 1);
     expect(api.adminAddCurriculumTask).toHaveBeenCalledWith('a', 1);
     expect(api.adminCurriculumDetail).toHaveBeenCalledWith('a');
+  });
+
+  it('createCourse refetches list', async () => {
+    (api.adminCreateCurriculumCourse as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({
+        slug: 'new', title: 'New', description: null,
+        sort_order: 2, phase_count: 4, created_at: '2026-06-14T00:00:00Z',
+      });
+    (api.adminCurriculumList as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({ items: [] });
+    const store = useAdminCurriculumStore();
+    await store.createCourse({ slug: 'new', title: 'New' });
+    expect(api.adminCreateCurriculumCourse).toHaveBeenCalledWith({
+      slug: 'new', title: 'New',
+    });
+    expect(api.adminCurriculumList).toHaveBeenCalled();
+  });
+
+  it('deleteCourse refetches list', async () => {
+    (api.adminDeleteCurriculumCourse as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(undefined);
+    (api.adminCurriculumList as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({ items: [] });
+    const store = useAdminCurriculumStore();
+    await store.deleteCourse('tmp');
+    expect(api.adminDeleteCurriculumCourse).toHaveBeenCalledWith('tmp');
+    expect(api.adminCurriculumList).toHaveBeenCalled();
   });
 });

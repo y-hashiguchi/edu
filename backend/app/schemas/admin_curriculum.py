@@ -68,6 +68,23 @@ class AdminCurriculumPublishOut(BaseModel):
     published_at: datetime
 
 
+class AdminCourseCreateOut(BaseModel):
+    """POST /api/admin/curriculum/courses のレスポンス。"""
+
+    slug: str
+    title: str
+    description: str | None
+    sort_order: int
+    phase_count: int
+    created_at: datetime
+
+
+class AdminCourseCreateRequest(BaseModel):
+    slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9_-]+$")
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+
+
 # ---------------------------------------------------------------------------
 # Request DTOs — exclude_unset セマンティクス用に全フィールド Optional
 # ---------------------------------------------------------------------------

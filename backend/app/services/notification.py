@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dataclasses import dataclass
 
 from app.config import settings
-from app.data.courses import COURSE_REGISTRY
 from app.models.enrollment import Enrollment
 from app.models.notification import Notification
 from app.models.user import User
-from app.services.enrollment import _get_course_by_slug
+from app.services.enrollment import (
+    CourseNotFoundError as EnrollCourseNotFoundError,
+    _get_course_by_slug,
+)
 
 
 class RecipientNotFoundError(Exception):
@@ -123,9 +125,10 @@ async def broadcast_to_course(
     Admins are skipped (they are not the broadcast audience). Recipients
     at the unread inbox cap are skipped individually so one full inbox
     does not block the rest of the cohort."""
-    if course_slug not in COURSE_REGISTRY:
-        raise CourseNotFoundForBroadcastError(course_slug)
-    course = await _get_course_by_slug(db, course_slug)
+    try:
+        course = await _get_course_by_slug(db, course_slug)
+    except EnrollCourseNotFoundError as e:
+        raise CourseNotFoundForBroadcastError(course_slug) from e
 
     rows = (
         await db.execute(

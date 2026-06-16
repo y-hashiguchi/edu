@@ -204,3 +204,68 @@ async def test_move_task_reorders(
     assert res.status_code == 200
     tasks = res.json()["tasks"]
     assert tasks[0]["task_no"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Sprint 16 — course create / delete API
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_course_returns_201(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.post(
+        "/api/admin/curriculum/courses",
+        json={
+            "slug": "new-course",
+            "title": "新規コース",
+            "description": "説明",
+        },
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["slug"] == "new-course"
+    assert body["phase_count"] == 4
+
+    listed = client.get("/api/admin/curriculum/").json()["items"]
+    assert any(it["slug"] == "new-course" for it in listed)
+
+    detail = client.get("/api/admin/curriculum/new-course").json()
+    assert len(detail["phases"]) == 4
+    assert len(detail["phases"][0]["tasks"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_course_duplicate_slug_returns_409(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    payload = {"slug": "dup-course", "title": "A"}
+    assert client.post("/api/admin/curriculum/courses", json=payload).status_code == 201
+    res = client.post("/api/admin/curriculum/courses", json=payload)
+    assert res.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_delete_course_returns_204(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    client.post(
+        "/api/admin/curriculum/courses",
+        json={"slug": "del-me", "title": "Del"},
+    )
+    res = client.delete("/api/admin/curriculum/courses/del-me")
+    assert res.status_code == 204
+    assert client.get("/api/admin/curriculum/del-me").status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_protected_course_returns_409(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.delete("/api/admin/curriculum/courses/ai-driven-dev")
+    assert res.status_code == 409

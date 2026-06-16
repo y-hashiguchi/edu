@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
-from app.data.courses import COURSE_REGISTRY, get_course
+from app.data.courses import CourseNotFoundError as RuntimeCourseNotFoundError, get_course
+from app.data.courses import runtime
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
@@ -23,7 +24,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 async def register(
     payload: RegisterRequest, db: AsyncSession = Depends(get_db)
 ) -> UserOut:
-    if payload.course_slug not in COURSE_REGISTRY:
+    try:
+        db_course = await _get_course_by_slug(db, payload.course_slug)
+    except CourseNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"unknown course_slug: {payload.course_slug!r}",
@@ -50,8 +53,12 @@ async def register(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
 
-    course_data = get_course(payload.course_slug)
-    db_course = await _get_course_by_slug(db, payload.course_slug)
+    try:
+        course_data = get_course(payload.course_slug)
+    except RuntimeCourseNotFoundError:
+        await runtime.reload_course(db, payload.course_slug)
+        course_data = get_course(payload.course_slug)
+
     await initialize_progress_for_course(
         db,
         user.id,

@@ -131,6 +131,11 @@ async def reload_course(db: AsyncSession, slug: str) -> None:
     _CACHE[slug] = _build_course(course, pairs)
 
 
+def evict_course(slug: str) -> None:
+    """course 削除後に cache から除去する。"""
+    _CACHE.pop(slug, None)
+
+
 def get_cached_course(slug: str) -> CourseData:
     """同期 API。`get_course(slug)` から呼ばれる。
 

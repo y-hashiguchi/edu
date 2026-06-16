@@ -88,3 +88,32 @@ async def test_register_seeds_progress_for_chosen_course(client, db_session):
     # ai-era-se has 4 phases; phase 1 in_progress, 2-4 locked
     assert {r.phase for r in rows} == {1, 2, 3, 4}
     assert all(r.course_id == b.id for r in rows)
+
+
+@pytest.mark.asyncio
+async def test_register_accepts_db_only_course(client, db_session):
+    """Sprint 16: admin が追加した course も DB + cache があれば登録可能。"""
+    from app.services.curriculum_course import add_course
+    from app.data.courses import runtime
+
+    await add_course(db_session, slug="dynamic-course", title="Dynamic")
+    await db_session.commit()
+    await runtime.reload_course(db_session, "dynamic-course")
+
+    res = client.post(
+        "/api/auth/register",
+        json={
+            "email": "dyn@e.com",
+            "name": "Dyn",
+            "password": "password123",
+            "course_slug": "dynamic-course",
+        },
+    )
+    assert res.status_code == 201
+
+    enr = (
+        await db_session.execute(
+            select(Enrollment).where(Enrollment.user_id == res.json()["id"])
+        )
+    ).scalar_one()
+    assert enr.status == "active"

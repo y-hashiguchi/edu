@@ -127,4 +127,50 @@ test.describe('admin curriculum editing', () => {
     await openCurriculumEdit(page);
     await deleteTask4(page);
   });
+
+  test('admin creates and deletes a course from list', async ({ page }) => {
+    const adminEmail = `admin-${Date.now()}@example.com`;
+    const slug = `e2e-course-${Date.now()}`;
+    const title = 'E2E テストコース';
+
+    await registerLearner(page, adminEmail, 'Admin');
+    promoteAdminViaScript(adminEmail);
+    await login(page, adminEmail);
+
+    await page.goto('/admin/curriculum', { waitUntil: 'domcontentloaded' });
+    await page.locator('[data-test="create-course-btn"]').click();
+    await expect(page.locator('[data-test="create-course-form"]')).toBeVisible();
+
+    await page.locator('[data-test="create-course-slug"]').fill(slug);
+    await page.locator('[data-test="create-course-title"]').fill(title);
+
+    const createDone = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'POST'
+        && resp.url().includes('/api/admin/curriculum/courses')
+        && resp.status() === 201,
+      { timeout: 15_000 },
+    );
+    await page.locator('[data-test="create-course-submit"]').click();
+    await createDone;
+
+    await expect(page.getByRole('link', { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    const deleteDone = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'DELETE'
+        && resp.url().includes(`/api/admin/curriculum/courses/${slug}`)
+        && resp.status() === 204,
+      { timeout: 15_000 },
+    );
+    await page.locator(`[data-test="delete-course-${slug}"]`).click();
+    await deleteDone;
+
+    await expect(page.getByRole('link', { name: title })).toHaveCount(0, {
+      timeout: 15_000,
+    });
+  });
 });

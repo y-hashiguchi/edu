@@ -9,13 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.data.courses import COURSE_REGISTRY
 from app.models.course import Course
 from app.models.scheduled_broadcast import (
     ScheduledBroadcast,
     ScheduledBroadcastStatus,
 )
-from app.services.enrollment import _get_course_by_slug
+from app.services.enrollment import (
+    CourseNotFoundError as EnrollCourseNotFoundError,
+    _get_course_by_slug,
+)
 from app.services.notification import (
     CourseNotFoundForBroadcastError,
     broadcast_to_course,
@@ -65,10 +67,11 @@ async def create_scheduled_broadcast(
     link: str | None,
     scheduled_at: datetime,
 ) -> ScheduledBroadcast:
-    if course_slug not in COURSE_REGISTRY:
-        raise CourseNotFoundForBroadcastError(course_slug)
     _validate_scheduled_at(scheduled_at)
-    course = await _get_course_by_slug(db, course_slug)
+    try:
+        course = await _get_course_by_slug(db, course_slug)
+    except EnrollCourseNotFoundError as e:
+        raise CourseNotFoundForBroadcastError(course_slug) from e
     row = ScheduledBroadcast(
         sender_user_id=sender_id,
         course_id=course.id,

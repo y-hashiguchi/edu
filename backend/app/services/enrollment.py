@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.data.courses import COURSE_REGISTRY
 from app.models.course import Course
 from app.models.enrollment import Enrollment
 
@@ -50,16 +49,9 @@ class MyCourseProjection:
 
 
 async def _get_course_by_slug(db: AsyncSession, slug: str) -> Course:
-    if slug not in COURSE_REGISTRY:
-        raise CourseNotFoundError(slug)
     result = await db.execute(select(Course).where(Course.slug == slug))
     course = result.scalar_one_or_none()
     if course is None:
-        logger.warning(
-            "course slug %r is in COURSE_REGISTRY but missing from DB — "
-            "run alembic upgrade head",
-            slug,
-        )
         raise CourseNotFoundError(slug)
     return course
 

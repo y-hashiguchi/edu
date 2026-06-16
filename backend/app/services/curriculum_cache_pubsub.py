@@ -27,6 +27,11 @@ async def apply_invalidation(slug: str) -> None:
     from app.data.courses import runtime
     from app.db.session import SessionLocal
 
+    if slug.startswith("-"):
+        runtime.evict_course(slug[1:])
+        logger.info("curriculum cache evicted from pub/sub slug=%r", slug[1:])
+        return
+
     async with SessionLocal() as db:
         if slug == "*":
             await runtime.reload_from_db(db)

@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_admin
-from app.data.courses import COURSE_REGISTRY, get_course
+from app.data.courses import CourseNotFoundError as RuntimeCourseNotFoundError, get_course
+from app.data.courses import runtime
 from app.db.session import get_db
 from app.models.progress import ProgressStatus
 from app.models.user import User
@@ -146,12 +147,6 @@ async def admin_enroll(
     into a second course was direct SQL. This route reuses ``enroll_user``
     and seeds per-course progress so the learner can immediately start
     on the new course."""
-    if payload.course_slug not in COURSE_REGISTRY:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"unknown course_slug: {payload.course_slug!r}",
-        )
-
     target = (
         await db.execute(select(User).where(User.id == user_id))
     ).scalar_one_or_none()
@@ -176,7 +171,12 @@ async def admin_enroll(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         ) from e
 
-    course_data = get_course(payload.course_slug)
+    try:
+        course_data = get_course(payload.course_slug)
+    except RuntimeCourseNotFoundError:
+        await runtime.reload_course(db, payload.course_slug)
+        course_data = get_course(payload.course_slug)
+
     db_course = await _get_course_by_slug(db, payload.course_slug)
     await initialize_progress_for_course(
         db,
@@ -213,12 +213,6 @@ async def admin_patch_enrollment(
     if target is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
-        )
-
-    if course_slug not in COURSE_REGISTRY:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"unknown course_slug: {course_slug!r}",
         )
 
     try:

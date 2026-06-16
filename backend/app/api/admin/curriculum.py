@@ -16,6 +16,8 @@ from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
 from app.models.user import User
 from app.schemas.admin_curriculum import (
+    AdminCourseCreateOut,
+    AdminCourseCreateRequest,
     AdminCurriculumCourseDetail,
     AdminCurriculumCourseList,
     AdminCurriculumCourseSummary,
@@ -25,6 +27,16 @@ from app.schemas.admin_curriculum import (
     AdminTaskEditOut,
     AdminTaskMoveRequest,
     AdminTaskUpdateRequest,
+)
+from app.services.curriculum_course import (
+    CourseHasEnrollmentsError,
+    CourseHasSubmissionsError,
+    CourseNotFoundError as AdminCourseNotFoundError,
+    CourseSlugExistsError,
+    CourseSlugInvalidError,
+    ProtectedCourseError,
+    add_course,
+    delete_course,
 )
 from app.services.curriculum_edit import (
     CannotDeleteLastTaskError,
@@ -93,6 +105,14 @@ async def _reload_course_cache(db: AsyncSession, course_slug: str) -> None:
     await notify_cache_reload(course_slug)
 
 
+async def _evict_course_cache(course_slug: str) -> None:
+    """course 削除後に runtime cache から除去する。"""
+    runtime.evict_course(course_slug)
+    from app.services.curriculum_cache_pubsub import notify_cache_reload
+
+    await notify_cache_reload(f"-{course_slug}")
+
+
 @router.get("/", response_model=AdminCurriculumCourseList)
 @limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
 async def list_courses(
@@ -112,6 +132,81 @@ async def list_courses(
             )
         )
     return AdminCurriculumCourseList(items=items)
+
+
+@router.post(
+    "/courses",
+    response_model=AdminCourseCreateOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def create_course(
+    request: Request,
+    payload: AdminCourseCreateRequest,
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminCourseCreateOut:
+    try:
+        result = await add_course(
+            db,
+            slug=payload.slug,
+            title=payload.title,
+            description=payload.description,
+        )
+    except CourseSlugInvalidError:
+        raise HTTPException(status_code=422, detail="invalid course slug")
+    except CourseSlugExistsError:
+        raise HTTPException(status_code=409, detail="course slug already exists")
+    await db.commit()
+    await _reload_course_cache(db, result.slug)
+    logger.info(
+        "curriculum.create_course slug=%s by=%s",
+        result.slug,
+        _admin.email,
+    )
+    return AdminCourseCreateOut(
+        slug=result.slug,
+        title=result.title,
+        description=result.description,
+        sort_order=result.sort_order,
+        phase_count=result.phase_count,
+        created_at=result.created_at,
+    )
+
+
+@router.delete(
+    "/courses/{course_slug}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def remove_course(
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await delete_course(db, slug=course_slug)
+    except AdminCourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    except ProtectedCourseError:
+        raise HTTPException(status_code=409, detail="protected course cannot be deleted")
+    except CourseHasEnrollmentsError:
+        raise HTTPException(
+            status_code=409, detail="course has enrollments and cannot be deleted"
+        )
+    except CourseHasSubmissionsError:
+        raise HTTPException(
+            status_code=409, detail="course has submissions and cannot be deleted"
+        )
+    await db.commit()
+    await _evict_course_cache(course_slug)
+    logger.info(
+        "curriculum.delete_course slug=%s by=%s",
+        course_slug,
+        _admin.email,
+    )
+    return None
 
 
 @router.get("/{course_slug}", response_model=AdminCurriculumCourseDetail)
