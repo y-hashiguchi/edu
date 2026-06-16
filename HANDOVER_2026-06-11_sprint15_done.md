@@ -1,5 +1,13 @@
 # HANDOVER — Sprint 15 完了（2026-06-11）
 
+## 状態
+
+| 項目 | 値 |
+|------|-----|
+| branch | `main`（`origin/main` と同期済み） |
+| 最新 HEAD | `0af99bb` |
+| GitHub Actions | **success** — [#27601713700](https://github.com/y-hashiguchi/edu/actions/runs/27601713700) |
+
 ## 実装内容
 
 ### Curriculum Task 構造編集（Sprint 9 out-of-scope）
@@ -28,7 +36,7 @@
 |----------|------|
 | backend pytest | **469 passed** |
 | frontend vitest | **103 passed** |
-| Playwright E2E | **9 passed**（+1、要 API + DB 起動）
+| Playwright E2E | **9 passed** |
 
 ## ローカル確認
 
@@ -44,4 +52,3 @@ cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 \
 - Course 追加・削除
 - Phase 追加（CHECK 制約 migration 要）
 - embeddings 自動再生成（Task タイトル変更時）
-- `git commit` / `push` / CI（明示依頼時）
