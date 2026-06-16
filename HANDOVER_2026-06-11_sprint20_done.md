@@ -4,7 +4,10 @@
 
 | 項目 | 値 |
 |------|-----|
+| branch | `main` |
 | 最新 HEAD | `139fa58` |
+| スプリント | Sprint 20 — publish 時 embeddings 差分再生成（arq） |
+| 前提 | Sprint 17–19 完了（`bbb938a`） |
 | GitHub Actions | **success** — [#27628123250](https://github.com/y-hashiguchi/edu/actions/runs/27628123250) |
 
 ## 実装サマリ
