@@ -5,8 +5,8 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` と同期済み） |
-| 最新 HEAD | `b6d0246` |
-| GitHub Actions | **success**（backend / frontend / e2e） — [#27609794017](https://github.com/y-hashiguchi/edu/actions/runs/27609794017) |
+| 最新 HEAD | `2e99f80` |
+| GitHub Actions | **success**（backend / frontend / e2e） — [#27613760450](https://github.com/y-hashiguchi/edu/actions/runs/27613760450) |
 
 ## テストベースライン
 

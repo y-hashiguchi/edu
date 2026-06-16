@@ -5,9 +5,9 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main` |
-| 最新 HEAD | `b6d0246`（本体）+ E2E / docs 追記コミット予定 |
+| 最新 HEAD | `2e99f80` |
 | Sprint 17–19 本体 | `b6d0246` |
-| GitHub Actions | **success** — [#27609794017](https://github.com/y-hashiguchi/edu/actions/runs/27609794017) |
+| GitHub Actions | **success** — [#27613760450](https://github.com/y-hashiguchi/edu/actions/runs/27613760450) |
 | スプリント | Sprint 17 Phase 追加・削除 / Sprint 18 embeddings 自動生成 / Sprint 19 catalog UI |
 | 前提 | Sprint 16（Course 追加・削除）完了 |
 
@@ -60,6 +60,7 @@
 ## コミット履歴
 
 ```
+2e99f80 docs(sprint-17-19): handover, README, and phase add/delete E2E
 b6d0246 feat(sprint-17-19): phase add/delete, auto embeddings, catalog descriptions
 e96dcd5 docs(handover): sync local-dev-ready and README for Sprint 16 closure
 1ad1ad0 docs(handover): record Sprint 16 CI green at f2c6a29
