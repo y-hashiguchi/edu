@@ -29,7 +29,11 @@ from app.schemas.admin_curriculum import (
     AdminTaskMoveRequest,
     AdminTaskUpdateRequest,
 )
-from app.worker.enqueue import enqueue_curriculum_embeddings
+from app.services.curriculum_embeddings import task_embedding_source_ref
+from app.worker.enqueue import (
+    enqueue_curriculum_embeddings,
+    enqueue_curriculum_embeddings_full,
+)
 from app.services.curriculum_course import (
     CourseHasEnrollmentsError,
     CourseHasSubmissionsError,
@@ -430,6 +434,10 @@ async def post_task(
     await db.commit()
     await _reload_course_cache(db, course_slug)
     await db.refresh(row)
+    await enqueue_curriculum_embeddings(
+        course_slug,
+        [task_embedding_source_ref(course_slug, phase_no, row.task_no - 1)],
+    )
     logger.info(
         "curriculum.add_task slug=%s phase=%d task_no=%d by=%s",
         course_slug,
@@ -522,6 +530,7 @@ async def reorder_task(
     tasks = (await db.execute(
         select(CurriculumTask).where(CurriculumTask.phase_id == row.id)
     )).scalars().all()
+    await enqueue_curriculum_embeddings_full(course_slug)
     logger.info(
         "curriculum.move_task slug=%s phase=%d task_no=%d to=%d by=%s",
         course_slug,
@@ -559,8 +568,6 @@ async def reorder_phase(
         raise HTTPException(status_code=422, detail="invalid phase move")
     await db.commit()
     await _reload_course_cache(db, course_slug)
-    from app.worker.enqueue import enqueue_curriculum_embeddings_full
-
     await enqueue_curriculum_embeddings_full(course_slug)
     logger.info(
         "curriculum.move_phase slug=%s phase_no=%d to=%d by=%s",

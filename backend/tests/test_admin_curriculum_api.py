@@ -145,14 +145,26 @@ async def test_put_phase_rejects_invalid_slug(
 
 @pytest.mark.asyncio
 async def test_post_task_adds_at_end(
-    client, admin_user, admin_token, seed_curriculum
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    enqueued: list[tuple[str, list[str]]] = []
+
+    async def fake_enqueue(course_slug, source_refs):
+        enqueued.append((course_slug, list(source_refs)))
+
+    monkeypatch.setattr(
+        "app.api.admin.curriculum.enqueue_curriculum_embeddings",
+        fake_enqueue,
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.post("/api/admin/curriculum/ai-driven-dev/phases/1/tasks")
     assert res.status_code == 201
     body = res.json()
     assert body["task_no"] == 4
     assert body["title"] == "新しい Task"
+    assert enqueued == [
+        ("ai-driven-dev", ["course:ai-driven-dev:phase:1:task:3"]),
+    ]
 
     detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
     p1 = detail["phases"][0]
@@ -199,8 +211,17 @@ async def test_delete_task_with_submissions_returns_409(
 
 @pytest.mark.asyncio
 async def test_move_task_reorders(
-    client, admin_user, admin_token, seed_curriculum
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    full_calls: list[str] = []
+
+    async def _noop_full(slug: str) -> None:
+        full_calls.append(slug)
+
+    monkeypatch.setattr(
+        "app.api.admin.curriculum.enqueue_curriculum_embeddings_full",
+        _noop_full,
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.post(
         "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/3/move",
@@ -209,6 +230,7 @@ async def test_move_task_reorders(
     assert res.status_code == 200
     tasks = res.json()["tasks"]
     assert tasks[0]["task_no"] == 1
+    assert full_calls == ["ai-driven-dev"]
 
 
 @pytest.mark.asyncio
@@ -219,7 +241,7 @@ async def test_move_phase_reorders(
         return None
 
     monkeypatch.setattr(
-        "app.worker.enqueue.enqueue_curriculum_embeddings_full",
+        "app.api.admin.curriculum.enqueue_curriculum_embeddings_full",
         _noop_full,
     )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})

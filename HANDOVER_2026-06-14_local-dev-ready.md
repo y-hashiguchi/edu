@@ -28,6 +28,7 @@
 - **Sprint 20**: publish 時 task title 差分 embeddings 再生成（arq） → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
 - **Sprint 21**: Phase 並び替え + embeddings 全件 refresh → [`HANDOVER_2026-06-11_sprint21_done.md`](HANDOVER_2026-06-11_sprint21_done.md)
 - **Sprint 22**: ai-era-se 全シラバス catalog 説明同期 → [`HANDOVER_2026-06-11_sprint22_done.md`](HANDOVER_2026-06-11_sprint22_done.md)
+- **Sprint 23**: add_task / move_task 後 embeddings 整合 → [`HANDOVER_2026-06-11_sprint23_done.md`](HANDOVER_2026-06-11_sprint23_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 
@@ -77,4 +78,5 @@ cd backend && uv run alembic upgrade head
 - ~~publish 時 embeddings 差分再生成~~ → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
 - ~~Phase 並び替え~~ → [`HANDOVER_2026-06-11_sprint21_done.md`](HANDOVER_2026-06-11_sprint21_done.md)
 - ~~ai-era-se コンテンツ拡充~~ → [`HANDOVER_2026-06-11_sprint22_done.md`](HANDOVER_2026-06-11_sprint22_done.md)
+- ~~add_task / move_task embeddings 整合~~ → [`HANDOVER_2026-06-11_sprint23_done.md`](HANDOVER_2026-06-11_sprint23_done.md)
 - TLS / 外部 LB / マネージド DB への production-deploy 拡張
