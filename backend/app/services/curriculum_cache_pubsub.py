@@ -41,8 +41,17 @@ async def notify_cache_reload(slug: str) -> None:
     client = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
         await client.publish(settings.curriculum_cache_invalidate_channel, slug)
+    except Exception:
+        # Best-effort: publish must succeed even when Redis is unavailable
+        # (CI E2E, single-worker dev without Redis, transient outages).
+        logger.warning(
+            "curriculum cache pub/sub notify failed slug=%r",
+            slug,
+            exc_info=True,
+        )
     finally:
-        await client.aclose()
+        with asyncio.suppress(Exception):
+            await client.aclose()
 
 
 async def _listen_loop() -> None:

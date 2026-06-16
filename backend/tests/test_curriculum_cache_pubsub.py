@@ -41,6 +41,23 @@ async def test_notify_cache_reload_publishes_slug(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_notify_cache_reload_swallows_redis_errors(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.curriculum_cache_pubsub.settings.curriculum_cache_pubsub_enabled",
+        True,
+    )
+    client = AsyncMock()
+    client.publish = AsyncMock(side_effect=ConnectionError("redis down"))
+    client.aclose = AsyncMock()
+    with patch(
+        "app.services.curriculum_cache_pubsub.Redis.from_url",
+        return_value=client,
+    ):
+        await pubsub.notify_cache_reload("ai-driven-dev")
+    client.aclose.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_apply_invalidation_reloads_single_course(
     db_session, seed_curriculum,
 ):

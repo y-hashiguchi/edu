@@ -35,6 +35,7 @@ jobs:
       GRADING_ASYNC_ENABLED: "false"
       RATE_LIMIT_ENABLED: "false"
       BCRYPT_ROUNDS: "4"
+      CURRICULUM_CACHE_PUBSUB_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -90,6 +91,7 @@ jobs:
       GRADING_ASYNC_ENABLED: "false"
       RATE_LIMIT_ENABLED: "false"
       BCRYPT_ROUNDS: "4"
+      CURRICULUM_CACHE_PUBSUB_ENABLED: "false"
       CORS_ALLOW_ORIGINS: http://localhost:4173
       VITE_API_BASE_URL: http://localhost:8000
       PLAYWRIGHT_BASE_URL: http://localhost:4173
