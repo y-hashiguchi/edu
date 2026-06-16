@@ -28,6 +28,10 @@ const canSubmit = computed(() => {
   return !submitting.value;
 });
 
+const selectedCourse = computed(() =>
+  catalog.value.find((c) => c.slug === courseSlug.value) ?? null,
+);
+
 onMounted(async () => {
   // Load the catalog regardless of which tab is active — the user
   // may flip to "register" without leaving the page.
@@ -135,6 +139,13 @@ const submit = async () => {
             {{ c.title }}
           </option>
         </select>
+        <p
+          v-if="selectedCourse?.description"
+          class="course-desc"
+          data-test="selected-course-description"
+        >
+          {{ selectedCourse.description }}
+        </p>
         <small v-if="catalogError" class="course-help error-text">
           {{ catalogError }}
         </small>
@@ -216,6 +227,12 @@ const submit = async () => {
   margin: 0;
 }
 .error-text { color: #b91c1c; font-size: 0.78rem; }
+.course-desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
 .course-help { margin: 0; }
 .notice {
   background: #dcfce7;

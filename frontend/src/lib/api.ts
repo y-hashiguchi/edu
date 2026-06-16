@@ -431,6 +431,21 @@ export const api = {
       { method: 'DELETE' },
     ),
 
+  adminAddCurriculumPhase: (slug: string): Promise<AdminPhaseEditOut> =>
+    rawRequest<AdminPhaseEditOut>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases`,
+      { method: 'POST' },
+    ),
+
+  adminDeleteCurriculumPhase: (
+    slug: string,
+    phaseNo: number,
+  ): Promise<void> =>
+    rawRequest<void>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}`,
+      { method: 'DELETE' },
+    ),
+
   adminCohortSummary: (
     courseSlug: string,
     cohortLabel?: string | null,

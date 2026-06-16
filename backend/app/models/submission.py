@@ -25,7 +25,7 @@ class Submission(Base):
             "user_id", "course_id", "phase", "task_no",
             name="uq_submissions_user_course_phase_task",
         ),
-        CheckConstraint("phase BETWEEN 1 AND 4", name="ck_submissions_phase"),
+        CheckConstraint("phase >= 1", name="ck_submissions_phase"),
         CheckConstraint(
             "score IS NULL OR score BETWEEN 0 AND 100", name="ck_submissions_score"
         ),

@@ -9,11 +9,15 @@ from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
 from app.models.submission import Submission
 from app.services.curriculum_edit import (
+    CannotDeleteLastPhaseError,
     CannotDeleteLastTaskError,
+    PhaseHasSubmissionsError,
     PhaseNotFoundError,
     TaskHasSubmissionsError,
     TaskNotFoundError,
+    add_phase,
     add_task,
+    delete_phase,
     delete_task,
     discard_drafts,
     move_task,
@@ -344,3 +348,75 @@ async def test_move_task_reorders_and_updates_submissions(
     )).scalar_one()
     assert sub.task_no == 1
     assert sub.content == "task3"
+
+
+@pytest.mark.asyncio
+async def test_add_phase_appends_with_one_task(db_session, seed_curriculum):
+    row = await add_phase(db_session, course_slug="ai-driven-dev")
+    await db_session.commit()
+    await runtime.reload_course(db_session, "ai-driven-dev")
+
+    assert row.phase_no == 5
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    tasks = (await db_session.execute(
+        select(CurriculumTask)
+        .join(CurriculumPhase, CurriculumTask.phase_id == CurriculumPhase.id)
+        .where(CurriculumPhase.course_id == dev_id, CurriculumPhase.phase_no == 5)
+    )).scalars().all()
+    assert len(tasks) == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_phase_renumbers(db_session, seed_curriculum):
+    await add_phase(db_session, course_slug="ai-driven-dev")
+    await db_session.commit()
+    await delete_phase(db_session, course_slug="ai-driven-dev", phase_no=5)
+    await db_session.commit()
+
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    phases = (await db_session.execute(
+        select(CurriculumPhase)
+        .where(CurriculumPhase.course_id == dev_id)
+        .order_by(CurriculumPhase.phase_no)
+    )).scalars().all()
+    assert len(phases) == 4
+    assert [p.phase_no for p in phases] == [1, 2, 3, 4]
+
+
+@pytest.mark.asyncio
+async def test_delete_phase_with_submissions_raises(
+    db_session, seed_curriculum, auth_user, default_course_id
+):
+    db_session.add(
+        Submission(
+            user_id=auth_user.id,
+            course_id=default_course_id,
+            phase=2,
+            task_no=1,
+            content="x",
+        )
+    )
+    await db_session.commit()
+
+    with pytest.raises(PhaseHasSubmissionsError):
+        await delete_phase(db_session, course_slug="ai-driven-dev", phase_no=2)
+
+
+@pytest.mark.asyncio
+async def test_cannot_delete_last_phase(db_session, seed_curriculum):
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    phases = (await db_session.execute(
+        select(CurriculumPhase).where(CurriculumPhase.course_id == dev_id)
+    )).scalars().all()
+    for p in phases[1:]:
+        await delete_phase(db_session, course_slug="ai-driven-dev", phase_no=p.phase_no)
+        await db_session.commit()
+
+    with pytest.raises(CannotDeleteLastPhaseError):
+        await delete_phase(db_session, course_slug="ai-driven-dev", phase_no=1)

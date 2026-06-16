@@ -39,13 +39,17 @@ from app.services.curriculum_course import (
     delete_course,
 )
 from app.services.curriculum_edit import (
+    CannotDeleteLastPhaseError,
     CannotDeleteLastTaskError,
     InvalidTaskMoveError,
+    PhaseHasSubmissionsError,
     PhaseNotFoundError,
     TaskHasSubmissionsError,
     TaskNotFoundError,
+    add_phase,
     add_task,
     count_pending_drafts,
+    delete_phase,
     delete_task,
     discard_drafts,
     move_task,
@@ -159,6 +163,10 @@ async def create_course(
         raise HTTPException(status_code=409, detail="course slug already exists")
     await db.commit()
     await _reload_course_cache(db, result.slug)
+    from app.services.curriculum_embeddings import seed_course_embeddings
+
+    await seed_course_embeddings(db, result.slug)
+    await db.commit()
     logger.info(
         "curriculum.create_course slug=%s by=%s",
         result.slug,
@@ -322,6 +330,78 @@ async def put_task(
     await db.commit()
     await db.refresh(row)
     return _task_to_dto(row)
+
+
+@router.post(
+    "/{course_slug}/phases",
+    response_model=AdminPhaseEditOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def post_phase(
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminPhaseEditOut:
+    try:
+        row = await add_phase(db, course_slug=course_slug)
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    await db.commit()
+    await _reload_course_cache(db, course_slug)
+    from app.services.curriculum_embeddings import seed_course_embeddings
+
+    await seed_course_embeddings(db, course_slug)
+    await db.commit()
+    await db.refresh(row)
+    tasks = (await db.execute(
+        select(CurriculumTask).where(CurriculumTask.phase_id == row.id)
+    )).scalars().all()
+    logger.info(
+        "curriculum.add_phase slug=%s phase_no=%d by=%s",
+        course_slug,
+        row.phase_no,
+        _admin.email,
+    )
+    return _phase_to_dto(row, list(tasks))
+
+
+@router.delete(
+    "/{course_slug}/phases/{phase_no}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def remove_phase(
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    phase_no: int = Path(ge=1),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await delete_phase(db, course_slug=course_slug, phase_no=phase_no)
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    except PhaseNotFoundError:
+        raise HTTPException(status_code=404, detail="phase not found")
+    except CannotDeleteLastPhaseError:
+        raise HTTPException(
+            status_code=409, detail="cannot delete the last phase in course"
+        )
+    except PhaseHasSubmissionsError:
+        raise HTTPException(
+            status_code=409, detail="phase has submissions and cannot be deleted"
+        )
+    await db.commit()
+    await _reload_course_cache(db, course_slug)
+    logger.info(
+        "curriculum.delete_phase slug=%s phase_no=%d by=%s",
+        course_slug,
+        phase_no,
+        _admin.email,
+    )
+    return None
 
 
 @router.post(

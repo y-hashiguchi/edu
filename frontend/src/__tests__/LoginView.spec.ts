@@ -112,6 +112,21 @@ describe('LoginView (Sprint 7 course selection)', () => {
     expect(submit.attributes('disabled')).toBeUndefined();
   });
 
+  it('shows selected course description in register mode', async () => {
+    const router = buildRouter();
+    await router.push('/login');
+    const w = mount(LoginView, { global: { plugins: [router] } });
+    await flushPromises();
+    const tabs = w.findAll('[role="tab"]');
+    await tabs[1].trigger('click');
+    await flushPromises();
+    await w.find('[data-test="course-select"]').setValue('ai-driven-dev');
+    await flushPromises();
+    const desc = w.find('[data-test="selected-course-description"]');
+    expect(desc.exists()).toBe(true);
+    expect(desc.text()).toBe('desc');
+  });
+
   it('routes to /courses/{slug} on login when the user has exactly one course', async () => {
     mockedRawRequest.mockImplementation(async (path: string) => {
       if (path === '/api/auth/login') {

@@ -18,9 +18,13 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.courses import CourseNotFoundError
+from app.models.chat_history import ChatHistory
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
+from app.models.embedding import Embedding
+from app.models.enrollment import Enrollment
+from app.models.progress import Progress, ProgressStatus
 from app.models.submission import Submission
 
 
@@ -72,9 +76,31 @@ class InvalidTaskMoveError(Exception):
         self.to_task_no = to_task_no
 
 
+class CannotDeleteLastPhaseError(Exception):
+    def __init__(self, slug: str) -> None:
+        super().__init__(f"cannot delete the last phase in course {slug!r}")
+        self.slug = slug
+
+
+class PhaseHasSubmissionsError(Exception):
+    def __init__(self, slug: str, phase_no: int) -> None:
+        super().__init__(
+            f"phase {phase_no} in course {slug!r} has submissions"
+        )
+        self.slug = slug
+        self.phase_no = phase_no
+
+
 _TASK_NO_OFFSET = 100_000
+_PHASE_NO_OFFSET = 100_000
 _DEFAULT_NEW_TASK_TITLE = "新しい Task"
 _DEFAULT_NEW_TASK_DESCRIPTION = "説明を入力してください。"
+_DEFAULT_NEW_PHASE_TITLE = "新しい Phase"
+_DEFAULT_NEW_PHASE_GOAL = "目標を入力してください。"
+_DEFAULT_NEW_SYSTEM_PROMPT = (
+    "あなたは教育AIチューターです。\n"
+    "研修生の質問に3〜5文程度の日本語で答えてください。"
+)
 
 
 @dataclass(frozen=True)
@@ -534,3 +560,226 @@ async def move_task(
     phase.updated_at = datetime.now(UTC)
     await db.flush()
     return phase
+
+
+# ---------------------------------------------------------------------------
+# Phase structure (Sprint 17 — add / delete within a course)
+# ---------------------------------------------------------------------------
+
+
+async def _list_phases_ordered(
+    db: AsyncSession, course_id
+) -> list[CurriculumPhase]:
+    result = await db.execute(
+        select(CurriculumPhase)
+        .where(CurriculumPhase.course_id == course_id)
+        .order_by(CurriculumPhase.phase_no)
+    )
+    return list(result.scalars().all())
+
+
+async def _remap_phase_numbers(
+    db: AsyncSession,
+    *,
+    course_id,
+    mapping: dict[int, int],
+) -> None:
+    """old phase_no -> new phase_no。UNIQUE 制約回避のため一時オフセット経由。"""
+    if not mapping:
+        return
+    changed_old = set(mapping.keys())
+    now = datetime.now(UTC)
+
+    phases = (
+        await db.execute(
+            select(CurriculumPhase).where(
+                CurriculumPhase.course_id == course_id,
+                CurriculumPhase.phase_no.in_(changed_old),
+            )
+        )
+    ).scalars().all()
+
+    for p in phases:
+        p.phase_no = _PHASE_NO_OFFSET + p.phase_no
+    await db.flush()
+
+    for table, col in (
+        (Submission, Submission.phase),
+        (Progress, Progress.phase),
+        (ChatHistory, ChatHistory.phase),
+    ):
+        for old_no in changed_old:
+            await db.execute(
+                update(table)
+                .where(
+                    table.course_id == course_id,
+                    col == old_no,
+                )
+                .values({col.key: _PHASE_NO_OFFSET + old_no})
+            )
+    for old_no in changed_old:
+        await db.execute(
+            update(Embedding)
+            .where(
+                Embedding.course_id == course_id,
+                Embedding.phase == old_no,
+            )
+            .values(phase=_PHASE_NO_OFFSET + old_no)
+        )
+    await db.flush()
+
+    for p in phases:
+        orig = p.phase_no - _PHASE_NO_OFFSET
+        p.phase_no = mapping[orig]
+        p.updated_at = now
+    await db.flush()
+
+    for old_no, new_no in mapping.items():
+        offset = _PHASE_NO_OFFSET + old_no
+        for table, col in (
+            (Submission, Submission.phase),
+            (Progress, Progress.phase),
+            (ChatHistory, ChatHistory.phase),
+        ):
+            await db.execute(
+                update(table)
+                .where(
+                    table.course_id == course_id,
+                    col == offset,
+                )
+                .values({col.key: new_no})
+            )
+        await db.execute(
+            update(Embedding)
+            .where(
+                Embedding.course_id == course_id,
+                Embedding.phase == offset,
+            )
+            .values(phase=new_no)
+        )
+    await db.flush()
+
+
+async def _backfill_locked_progress_for_phase(
+    db: AsyncSession,
+    *,
+    course_id,
+    phase_no: int,
+) -> None:
+    """新 Phase 追加時、active enrollment に locked progress 行を追加。"""
+    user_ids = (
+        await db.execute(
+            select(Enrollment.user_id).where(
+                Enrollment.course_id == course_id,
+                Enrollment.status == "active",
+            )
+        )
+    ).scalars().all()
+    if not user_ids:
+        return
+
+    existing = set(
+        (
+            await db.execute(
+                select(Progress.user_id).where(
+                    Progress.course_id == course_id,
+                    Progress.phase == phase_no,
+                )
+            )
+        ).scalars().all()
+    )
+    for user_id in user_ids:
+        if user_id in existing:
+            continue
+        db.add(
+            Progress(
+                user_id=user_id,
+                course_id=course_id,
+                phase=phase_no,
+                status=ProgressStatus.LOCKED.value,
+            )
+        )
+    await db.flush()
+
+
+async def add_phase(
+    db: AsyncSession,
+    *,
+    course_slug: str,
+) -> CurriculumPhase:
+    """Course 末尾に published phase + 1 task を追加する。"""
+    course = await _get_course_by_slug(db, course_slug)
+    phases = await _list_phases_ordered(db, course.id)
+    next_no = (max(p.phase_no for p in phases) if phases else 0) + 1
+    now = datetime.now(UTC)
+    row = CurriculumPhase(
+        course_id=course.id,
+        phase_no=next_no,
+        title=f"{_DEFAULT_NEW_PHASE_TITLE} {next_no}",
+        goal=_DEFAULT_NEW_PHASE_GOAL,
+        system_prompt=_DEFAULT_NEW_SYSTEM_PROMPT,
+        updated_at=now,
+    )
+    db.add(row)
+    await db.flush()
+    db.add(
+        CurriculumTask(
+            phase_id=row.id,
+            task_no=1,
+            title=_DEFAULT_NEW_TASK_TITLE,
+            description=_DEFAULT_NEW_TASK_DESCRIPTION,
+            skill_tags=[],
+            deliverable=None,
+            week_label=None,
+            updated_at=now,
+        )
+    )
+    await _backfill_locked_progress_for_phase(
+        db, course_id=course.id, phase_no=next_no
+    )
+    await db.flush()
+    return row
+
+
+async def delete_phase(
+    db: AsyncSession,
+    *,
+    course_slug: str,
+    phase_no: int,
+) -> None:
+    """Phase を削除し、後続 phase_no と関連行を繰り下げる。"""
+    course = await _get_course_by_slug(db, course_slug)
+    phases = await _list_phases_ordered(db, course.id)
+    if len(phases) <= 1:
+        raise CannotDeleteLastPhaseError(course_slug)
+
+    row = await _get_phase_or_raise(db, course_slug, course.id, phase_no)
+
+    sub_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Submission)
+            .where(
+                Submission.course_id == course.id,
+                Submission.phase == phase_no,
+            )
+        )
+    ).scalar_one()
+    if sub_count > 0:
+        raise PhaseHasSubmissionsError(course_slug, phase_no)
+
+    await db.execute(delete(CurriculumPhase).where(CurriculumPhase.id == row.id))
+    await db.flush()
+
+    await db.execute(
+        delete(Progress).where(
+            Progress.course_id == course.id,
+            Progress.phase == phase_no,
+        )
+    )
+    await db.flush()
+
+    mapping = {
+        p.phase_no: p.phase_no - 1 for p in phases if p.phase_no > phase_no
+    }
+    await _remap_phase_numbers(db, course_id=course.id, mapping=mapping)

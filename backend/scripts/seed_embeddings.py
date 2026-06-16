@@ -8,49 +8,16 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Allow `python scripts/seed_embeddings.py` from the backend root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.core.embedding_client import EmbeddingClient  # noqa: E402
-from app.data.courses import COURSE_REGISTRY
-from app.data.curriculum import CURRICULUM
-from app.db.session import SessionLocal
-from app.services.embedding import upsert_embeddings
+from app.db.session import SessionLocal  # noqa: E402
+from app.services.curriculum_embeddings import seed_all_course_embeddings  # noqa: E402
 
 
 async def main() -> None:
-    client = EmbeddingClient()
     async with SessionLocal() as db:
-        total = 0
-        for slug, course in COURSE_REGISTRY.items():
-            items: list[tuple[str, str, int | None, str]] = []
-            if slug == "ai-driven-dev":
-                for phase_no, phase in CURRICULUM.items():
-                    for i, skill in enumerate(phase["skills"]):
-                        items.append(
-                            (
-                                "curriculum_skill",
-                                f"course:{slug}:phase:{phase_no}:skill:{i}",
-                                phase_no,
-                                skill,
-                            )
-                        )
-            for phase in course.phases:
-                for i, task in enumerate(phase.tasks):
-                    items.append(
-                        (
-                            "curriculum_task",
-                            f"course:{slug}:phase:{phase.phase}:task:{i}",
-                            phase.phase,
-                            task.title,
-                        )
-                    )
-            await upsert_embeddings(
-                db, client, user_id=None, course_id=course.id, items=items
-            )
-            total += len(items)
+        total = await seed_all_course_embeddings(db)
         await db.commit()
-
     print(f"Seeded {total} embedding rows.")
 
 

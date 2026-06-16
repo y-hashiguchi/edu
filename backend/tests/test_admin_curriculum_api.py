@@ -207,14 +207,85 @@ async def test_move_task_reorders(
 
 
 # ---------------------------------------------------------------------------
-# Sprint 16 — course create / delete API
+# Sprint 17 — phase add / delete API
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_create_course_returns_201(
-    client, admin_user, admin_token, seed_curriculum
+async def test_post_phase_adds_at_end(
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    async def _noop_seed(db, slug, *, client=None):
+        return 0
+
+    monkeypatch.setattr(
+        "app.services.curriculum_embeddings.seed_course_embeddings",
+        _noop_seed,
+    )
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.post("/api/admin/curriculum/ai-driven-dev/phases")
+    assert res.status_code == 201
+    body = res.json()
+    assert body["phase_no"] == 5
+    assert len(body["tasks"]) == 1
+
+    detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
+    assert len(detail["phases"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_delete_phase_returns_204(
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
+):
+    async def _noop_seed(db, slug, *, client=None):
+        return 0
+
+    monkeypatch.setattr(
+        "app.services.curriculum_embeddings.seed_course_embeddings",
+        _noop_seed,
+    )
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    client.post("/api/admin/curriculum/ai-driven-dev/phases")
+    res = client.delete("/api/admin/curriculum/ai-driven-dev/phases/5")
+    assert res.status_code == 204
+    detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
+    assert len(detail["phases"]) == 4
+
+
+@pytest.mark.asyncio
+async def test_delete_phase_with_submissions_returns_409(
+    client, admin_user, admin_token, auth_user, default_course_id, db_session
+):
+    from app.models.submission import Submission
+
+    db_session.add(
+        Submission(
+            user_id=auth_user.id,
+            course_id=default_course_id,
+            phase=1,
+            task_no=1,
+            content="x",
+        )
+    )
+    await db_session.commit()
+
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.delete("/api/admin/curriculum/ai-driven-dev/phases/1")
+    assert res.status_code == 409
+
+
+
+@pytest.mark.asyncio
+async def test_create_course_returns_201(
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
+):
+    async def _noop_seed(db, slug, *, client=None):
+        return 0
+
+    monkeypatch.setattr(
+        "app.services.curriculum_embeddings.seed_course_embeddings",
+        _noop_seed,
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.post(
         "/api/admin/curriculum/courses",
@@ -239,8 +310,15 @@ async def test_create_course_returns_201(
 
 @pytest.mark.asyncio
 async def test_create_course_duplicate_slug_returns_409(
-    client, admin_user, admin_token, seed_curriculum
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    async def _noop_seed(db, slug, *, client=None):
+        return 0
+
+    monkeypatch.setattr(
+        "app.services.curriculum_embeddings.seed_course_embeddings",
+        _noop_seed,
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     payload = {"slug": "dup-course", "title": "A"}
     assert client.post("/api/admin/curriculum/courses", json=payload).status_code == 201
@@ -250,8 +328,15 @@ async def test_create_course_duplicate_slug_returns_409(
 
 @pytest.mark.asyncio
 async def test_delete_course_returns_204(
-    client, admin_user, admin_token, seed_curriculum
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    async def _noop_seed(db, slug, *, client=None):
+        return 0
+
+    monkeypatch.setattr(
+        "app.services.curriculum_embeddings.seed_course_embeddings",
+        _noop_seed,
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     client.post(
         "/api/admin/curriculum/courses",

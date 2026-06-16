@@ -7,6 +7,7 @@ import type { AdminPhaseEditOut } from '@/types/admin_curriculum';
 const props = defineProps<{
   courseSlug: string;
   phase: AdminPhaseEditOut;
+  phaseCount: number;
 }>();
 
 const store = useAdminCurriculumStore();
@@ -24,6 +25,14 @@ const systemPromptValue = computed({
   get: () => props.phase.draft_system_prompt ?? props.phase.system_prompt,
   set: (v: string) => store.putPhase(props.courseSlug, props.phase.phase_no, { system_prompt: v }),
 });
+
+async function confirmDeletePhase() {
+  if (props.phaseCount <= 1) return;
+  if (!window.confirm(`Phase ${props.phase.phase_no} を削除しますか？\n提出がある Phase は削除できません。`)) {
+    return;
+  }
+  await store.deletePhase(props.courseSlug, props.phase.phase_no);
+}
 </script>
 
 <template>
@@ -31,6 +40,15 @@ const systemPromptValue = computed({
     <header @click="collapsed = !collapsed">
       <span class="toggle">{{ collapsed ? '▶' : '▼' }}</span>
       <h2>Phase {{ phase.phase_no }}: {{ phase.title }}</h2>
+      <button
+        v-if="phaseCount > 1"
+        type="button"
+        class="phase-delete"
+        :data-test="`phase-delete-${phase.phase_no}`"
+        @click.stop="confirmDeletePhase"
+      >
+        削除
+      </button>
     </header>
 
     <div v-if="!collapsed" class="body">
@@ -82,7 +100,13 @@ header {
   display: flex; align-items: baseline; gap: 0.6rem;
   cursor: pointer;
 }
-header h2 { margin: 0; font-size: 1rem; }
+header h2 { margin: 0; font-size: 1rem; flex: 1; }
+.phase-delete {
+  margin-left: auto;
+  border: 1px solid #fecaca; border-radius: 6px;
+  background: #fef2f2; color: #b91c1c;
+  padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;
+}
 .toggle { color: #6b7280; }
 .lbl { display: block; font-size: 0.85rem; color: #374151; margin-top: 0.6rem; }
 .ind { color: #d97706; }

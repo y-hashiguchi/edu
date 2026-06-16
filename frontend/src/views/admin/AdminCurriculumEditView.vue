@@ -126,11 +126,22 @@ function backToList() {
     <p v-if="message" class="message" data-test="message">{{ message }}</p>
 
     <section v-if="store.detail">
+      <div class="phase-toolbar">
+        <button
+          type="button"
+          class="add-phase"
+          data-test="add-phase-btn"
+          @click="store.addPhase(slug)"
+        >
+          + Phase を追加
+        </button>
+      </div>
       <CurriculumPhaseEditor
         v-for="phase in store.detail.phases"
         :key="phase.phase_no"
         :course-slug="slug"
         :phase="phase"
+        :phase-count="store.detail.phases.length"
       />
     </section>
 
@@ -195,4 +206,9 @@ function backToList() {
 .loading { color: #6b7280; }
 .error { color: #b91c1c; }
 .message { color: #047857; padding: 0.6rem; background: #ecfdf5; border-radius: 6px; }
+.phase-toolbar { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
+.add-phase {
+  border: 1px dashed #9ca3af; border-radius: 8px;
+  background: #fff; padding: 0.35rem 0.75rem; cursor: pointer; font: inherit;
+}
 </style>

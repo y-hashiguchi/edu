@@ -49,6 +49,26 @@ async function deleteTask4(page: Page): Promise<void> {
   ).toHaveCount(3, { timeout: 15_000 });
 }
 
+async function deletePhase5IfPresent(page: Page): Promise<void> {
+  await openCurriculumEdit(page);
+  const phase5 = page.locator('[data-test="phase-edit-5"]');
+  if ((await phase5.count()) === 0) return;
+  page.once('dialog', (dialog) => void dialog.accept());
+  const deleteDone = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'DELETE'
+      && resp.url().includes('/phases/5')
+      && resp.status() === 204,
+    { timeout: 15_000 },
+  );
+  await page.locator('[data-test="phase-delete-5"]').click();
+  await deleteDone;
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 test.describe('admin curriculum editing', () => {
   test('admin edits title and publish reflects on learner view', async ({
     page,

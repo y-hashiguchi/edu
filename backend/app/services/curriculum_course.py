@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
+from app.models.embedding import Embedding
 from app.models.enrollment import Enrollment
 from app.models.submission import Submission
 
@@ -194,5 +195,6 @@ async def delete_course(db: AsyncSession, *, slug: str) -> None:
             delete(CurriculumPhase).where(CurriculumPhase.id.in_(phase_ids))
         )
 
+    await db.execute(delete(Embedding).where(Embedding.course_id == course.id))
     await db.execute(delete(Course).where(Course.id == course.id))
     await db.flush()
