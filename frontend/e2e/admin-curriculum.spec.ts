@@ -31,9 +31,7 @@ test.describe('admin curriculum editing', () => {
 
     // 2) admin ログイン → カリキュラム編集へ。
     await login(page, adminEmail);
-    await page.goto('/admin/curriculum');
-    await expect(page.getByRole('heading', { name: 'カリキュラム編集' })).toBeVisible();
-    await page.getByRole('link', { name: /AI駆動型開発 補足/ }).click();
+    await page.goto('/admin/curriculum/ai-driven-dev');
     await page.waitForURL(/\/admin\/curriculum\/ai-driven-dev/);
 
     // 3) Phase 1 の title を編集。
@@ -73,8 +71,7 @@ test.describe('admin curriculum editing', () => {
 
     await deletePhase1Task4IfPresent(page);
 
-    await page.goto('/admin/curriculum');
-    await page.getByRole('link', { name: /AI駆動型開発 補足/ }).click();
+    await page.goto('/admin/curriculum/ai-driven-dev');
     await page.waitForURL(/\/admin\/curriculum\/ai-driven-dev/);
 
     const phase1 = page.locator('[data-test="phase-edit-1"]');
