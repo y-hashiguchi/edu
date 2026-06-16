@@ -168,9 +168,11 @@ test.describe('admin curriculum editing', () => {
     );
     await page.locator(`[data-test="delete-course-${slug}"]`).click();
     await deleteDone;
+    await page.reload({ waitUntil: 'domcontentloaded' });
 
-    await expect(page.getByRole('link', { name: title })).toHaveCount(0, {
+    await expect(page.locator(`[data-test="delete-course-${slug}"]`)).toHaveCount(0, {
       timeout: 15_000,
     });
+    await expect(page.getByRole('link', { name: title })).toHaveCount(0);
   });
 });
