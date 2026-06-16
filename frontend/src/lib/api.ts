@@ -25,6 +25,7 @@ import type {
   AdminCurriculumCourseList,
   AdminCurriculumPublishOut,
   AdminPhaseEditOut,
+  AdminPhaseMoveRequest,
   AdminPhasePatch,
   AdminTaskEditOut,
   AdminTaskMoveRequest,
@@ -444,6 +445,16 @@ export const api = {
     rawRequest<void>(
       `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}`,
       { method: 'DELETE' },
+    ),
+
+  adminMoveCurriculumPhase: (
+    slug: string,
+    phaseNo: number,
+    body: AdminPhaseMoveRequest,
+  ): Promise<void> =>
+    rawRequest<void>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}/move`,
+      { method: 'POST', body: JSON.stringify(body) },
     ),
 
   adminCohortSummary: (

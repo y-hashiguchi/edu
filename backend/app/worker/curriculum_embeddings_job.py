@@ -32,3 +32,21 @@ async def run_curriculum_embeddings_job(
         len(source_refs),
         count,
     )
+
+
+async def run_curriculum_embeddings_full_job(
+    _ctx: dict,
+    course_slug: str,
+) -> None:
+    from app.services.curriculum_embeddings import seed_course_embeddings
+
+    client = EmbeddingClient()
+    async with SessionLocal() as db:
+        await runtime.reload_course(db, course_slug)
+        count = await seed_course_embeddings(db, course_slug, client=client)
+        await db.commit()
+    logger.info(
+        "curriculum embeddings full job slug=%s embedded=%d",
+        course_slug,
+        count,
+    )

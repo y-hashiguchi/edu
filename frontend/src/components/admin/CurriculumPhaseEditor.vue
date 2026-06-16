@@ -8,6 +8,8 @@ const props = defineProps<{
   courseSlug: string;
   phase: AdminPhaseEditOut;
   phaseCount: number;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }>();
 
 const store = useAdminCurriculumStore();
@@ -33,6 +35,22 @@ async function confirmDeletePhase() {
   }
   await store.deletePhase(props.courseSlug, props.phase.phase_no);
 }
+
+function onMoveUp() {
+  void store.movePhase(
+    props.courseSlug,
+    props.phase.phase_no,
+    props.phase.phase_no - 1,
+  );
+}
+
+function onMoveDown() {
+  void store.movePhase(
+    props.courseSlug,
+    props.phase.phase_no,
+    props.phase.phase_no + 1,
+  );
+}
 </script>
 
 <template>
@@ -40,15 +58,37 @@ async function confirmDeletePhase() {
     <header @click="collapsed = !collapsed">
       <span class="toggle">{{ collapsed ? '▶' : '▼' }}</span>
       <h2>Phase {{ phase.phase_no }}: {{ phase.title }}</h2>
-      <button
-        v-if="phaseCount > 1"
-        type="button"
-        class="phase-delete"
-        :data-test="`phase-delete-${phase.phase_no}`"
-        @click.stop="confirmDeletePhase"
-      >
-        削除
-      </button>
+      <div class="phase-actions">
+        <button
+          type="button"
+          class="phase-move"
+          data-test="phase-move-up"
+          :disabled="!canMoveUp"
+          title="上へ"
+          @click.stop="onMoveUp"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          class="phase-move"
+          data-test="phase-move-down"
+          :disabled="!canMoveDown"
+          title="下へ"
+          @click.stop="onMoveDown"
+        >
+          ↓
+        </button>
+        <button
+          v-if="phaseCount > 1"
+          type="button"
+          class="phase-delete"
+          :data-test="`phase-delete-${phase.phase_no}`"
+          @click.stop="confirmDeletePhase"
+        >
+          削除
+        </button>
+      </div>
     </header>
 
     <div v-if="!collapsed" class="body">
@@ -101,8 +141,13 @@ header {
   cursor: pointer;
 }
 header h2 { margin: 0; font-size: 1rem; flex: 1; }
+.phase-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+.phase-move {
+  border: 1px solid #d1d5db; border-radius: 6px;
+  background: #fff; padding: 0.15rem 0.45rem; cursor: pointer; font: inherit;
+}
+.phase-move:disabled { opacity: 0.4; cursor: not-allowed; }
 .phase-delete {
-  margin-left: auto;
   border: 1px solid #fecaca; border-radius: 6px;
   background: #fef2f2; color: #b91c1c;
   padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;

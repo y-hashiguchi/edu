@@ -16,6 +16,7 @@ vi.mock('@/lib/api', async () => {
       adminAddCurriculumTask: vi.fn(),
       adminDeleteCurriculumTask: vi.fn(),
       adminMoveCurriculumTask: vi.fn(),
+      adminMoveCurriculumPhase: vi.fn(),
       adminCreateCurriculumCourse: vi.fn(),
       adminDeleteCurriculumCourse: vi.fn(),
     },
@@ -109,5 +110,18 @@ describe('admin_curriculum store', () => {
     await store.deleteCourse('tmp');
     expect(api.adminDeleteCurriculumCourse).toHaveBeenCalledWith('tmp');
     expect(api.adminCurriculumList).toHaveBeenCalled();
+  });
+
+  it('movePhase refetches detail', async () => {
+    (api.adminMoveCurriculumPhase as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(undefined);
+    (api.adminCurriculumDetail as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({ slug: 'a', title: 'A', phases: [] });
+    const store = useAdminCurriculumStore();
+    await store.movePhase('a', 2, 1);
+    expect(api.adminMoveCurriculumPhase).toHaveBeenCalledWith('a', 2, {
+      to_phase_no: 1,
+    });
+    expect(api.adminCurriculumDetail).toHaveBeenCalledWith('a');
   });
 });

@@ -211,6 +211,28 @@ async def test_move_task_reorders(
     assert tasks[0]["task_no"] == 1
 
 
+@pytest.mark.asyncio
+async def test_move_phase_reorders(
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
+):
+    async def _noop_full(slug: str) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "app.worker.enqueue.enqueue_curriculum_embeddings_full",
+        _noop_full,
+    )
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.post(
+        "/api/admin/curriculum/ai-driven-dev/phases/4/move",
+        json={"to_phase_no": 1},
+    )
+    assert res.status_code == 204
+    detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
+    assert detail["phases"][0]["phase_no"] == 1
+    assert detail["phases"][0]["title"] != ""
+
+
 # ---------------------------------------------------------------------------
 # Sprint 17 — phase add / delete API
 # ---------------------------------------------------------------------------

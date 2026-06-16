@@ -77,6 +77,16 @@ class InvalidTaskMoveError(Exception):
         self.to_task_no = to_task_no
 
 
+class InvalidPhaseMoveError(Exception):
+    def __init__(self, slug: str, phase_no: int, to_phase_no: int) -> None:
+        super().__init__(
+            f"invalid move phase {phase_no} -> {to_phase_no} in course {slug!r}"
+        )
+        self.slug = slug
+        self.phase_no = phase_no
+        self.to_phase_no = to_phase_no
+
+
 class CannotDeleteLastPhaseError(Exception):
     def __init__(self, slug: str) -> None:
         super().__init__(f"cannot delete the last phase in course {slug!r}")
@@ -587,6 +597,42 @@ async def move_task(
     phase.updated_at = datetime.now(UTC)
     await db.flush()
     return phase
+
+
+async def move_phase(
+    db: AsyncSession,
+    *,
+    course_slug: str,
+    phase_no: int,
+    to_phase_no: int,
+) -> Course:
+    """phase_no の行を to_phase_no 位置へ並び替える (1-based)。"""
+    course = await _get_course_by_slug(db, course_slug)
+    phases = await _list_phases_ordered(db, course.id)
+    phase_nos = {p.phase_no for p in phases}
+    if phase_no not in phase_nos or to_phase_no not in phase_nos:
+        raise InvalidPhaseMoveError(course_slug, phase_no, to_phase_no)
+    if phase_no == to_phase_no:
+        return course
+
+    ordered = list(phases)
+    moving_idx = next(i for i, p in enumerate(ordered) if p.phase_no == phase_no)
+    moving = ordered.pop(moving_idx)
+    ordered.insert(to_phase_no - 1, moving)
+
+    mapping: dict[int, int] = {}
+    for p in phases:
+        new_no = next(i + 1 for i, o in enumerate(ordered) if o.id == p.id)
+        if p.phase_no != new_no:
+            mapping[p.phase_no] = new_no
+
+    await _remap_phase_numbers(
+        db,
+        course_id=course.id,
+        mapping=mapping,
+    )
+    await db.flush()
+    return course
 
 
 # ---------------------------------------------------------------------------

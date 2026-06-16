@@ -113,6 +113,7 @@ make test-e2e                  # Playwright（backend 起動後）
 - [x] Sprint 18: 新規 course / Phase 作成時の embeddings 自動生成
 - [x] Sprint 19: 登録フォームで動的 course の description 表示
 - [x] Sprint 20: publish 時 task title 差分 embeddings 再生成（arq worker）
+- [x] Sprint 21: Phase 並び替え（admin GUI + embeddings 全件 refresh）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。

@@ -70,6 +70,10 @@ export interface AdminTaskMoveRequest {
   to_task_no: number;
 }
 
+export interface AdminPhaseMoveRequest {
+  to_phase_no: number;
+}
+
 export interface AdminCourseCreateRequest {
   slug: string;
   title: string;

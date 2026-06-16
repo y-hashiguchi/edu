@@ -38,6 +38,27 @@ async def test_enqueue_curriculum_embeddings_noop_on_empty_refs():
 
 
 @pytest.mark.asyncio
+async def test_enqueue_curriculum_embeddings_full_inline_when_async_disabled(
+    monkeypatch,
+):
+    calls: list[str] = []
+
+    async def fake_job(_ctx, course_slug):
+        calls.append(course_slug)
+
+    monkeypatch.setattr(settings, "grading_async_enabled", False)
+    monkeypatch.setattr(
+        "app.worker.enqueue.run_curriculum_embeddings_full_job",
+        fake_job,
+    )
+
+    from app.worker.enqueue import enqueue_curriculum_embeddings_full
+
+    await enqueue_curriculum_embeddings_full("ai-driven-dev")
+    assert calls == ["ai-driven-dev"]
+
+
+@pytest.mark.asyncio
 async def test_publish_enqueues_embedding_refresh(
     client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):

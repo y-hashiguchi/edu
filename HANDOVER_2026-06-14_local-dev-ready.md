@@ -5,15 +5,15 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` と同期済み） |
-| 最新 HEAD | `2e99f80` |
-| GitHub Actions | **success**（backend / frontend / e2e） — [#27613760450](https://github.com/y-hashiguchi/edu/actions/runs/27613760450) |
+| 最新 HEAD | `139fa58` |
+| GitHub Actions | **success**（backend / frontend / e2e） — [#27628123250](https://github.com/y-hashiguchi/edu/actions/runs/27628123250) |
 
 ## テストベースライン
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | 492 passed |
-| frontend vitest | 106 passed |
+| backend pytest | 495 passed |
+| frontend vitest | 107 passed |
 | Playwright E2E | 11 passed |
 
 ## 直近の主要機能（Sprint 11〜19 + follow-ups）
@@ -26,6 +26,7 @@
 - **Sprint 16**: admin Course 追加・削除 + DB ベース enrollment → [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
 - **Sprint 17–19**: Phase 追加・削除 / embeddings 自動生成 / catalog 説明表示 → [`HANDOVER_2026-06-11_sprint17-19_done.md`](HANDOVER_2026-06-11_sprint17-19_done.md)
 - **Sprint 20**: publish 時 task title 差分 embeddings 再生成（arq） → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
+- **Sprint 21**: Phase 並び替え + embeddings 全件 refresh → [`HANDOVER_2026-06-11_sprint21_done.md`](HANDOVER_2026-06-11_sprint21_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 

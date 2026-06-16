@@ -21,6 +21,7 @@ from app.services.curriculum_edit import (
     delete_phase,
     delete_task,
     discard_drafts,
+    move_phase,
     move_task,
     publish_course,
     put_phase_draft,
@@ -370,6 +371,49 @@ async def test_move_task_reorders_and_updates_submissions(
     )).scalar_one()
     assert sub.task_no == 1
     assert sub.content == "task3"
+
+
+@pytest.mark.asyncio
+async def test_move_phase_reorders_and_updates_submissions(
+    db_session, seed_curriculum, auth_user, default_course_id
+):
+    db_session.add(
+        Submission(
+            user_id=auth_user.id,
+            course_id=default_course_id,
+            phase=4,
+            task_no=1,
+            content="phase4",
+        )
+    )
+    await db_session.commit()
+
+    await move_phase(
+        db_session,
+        course_slug="ai-driven-dev",
+        phase_no=4,
+        to_phase_no=1,
+    )
+    await db_session.commit()
+
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    phases = (await db_session.execute(
+        select(CurriculumPhase)
+        .where(CurriculumPhase.course_id == dev_id)
+        .order_by(CurriculumPhase.phase_no)
+    )).scalars().all()
+    assert len(phases) == 4
+    assert phases[0].phase_no == 1
+
+    sub = (await db_session.execute(
+        select(Submission).where(
+            Submission.user_id == auth_user.id,
+            Submission.content == "phase4",
+        )
+    )).scalar_one()
+    assert sub.phase == 1
 
 
 @pytest.mark.asyncio

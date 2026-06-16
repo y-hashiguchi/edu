@@ -8,7 +8,10 @@ from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 
 from app.config import settings
-from app.worker.curriculum_embeddings_job import run_curriculum_embeddings_job
+from app.worker.curriculum_embeddings_job import (
+    run_curriculum_embeddings_full_job,
+    run_curriculum_embeddings_job,
+)
 from app.worker.grading_job import run_grading_job
 
 _pool: ArqRedis | None = None
@@ -57,3 +60,13 @@ async def enqueue_curriculum_embeddings(
         course_slug,
         source_refs,
     )
+
+
+async def enqueue_curriculum_embeddings_full(course_slug: str) -> None:
+    """Re-embed all curriculum rows for one course (phase reorder path)."""
+    if not settings.grading_async_enabled:
+        await run_curriculum_embeddings_full_job({}, course_slug)
+        return
+    if _pool is None:
+        raise RuntimeError("grading pool not initialised — call init_grading_pool()")
+    await _pool.enqueue_job("run_curriculum_embeddings_full_job", course_slug)

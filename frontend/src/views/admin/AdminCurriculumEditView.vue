@@ -142,6 +142,8 @@ function backToList() {
         :course-slug="slug"
         :phase="phase"
         :phase-count="store.detail.phases.length"
+        :can-move-up="phase.phase_no > 1"
+        :can-move-down="phase.phase_no < store.detail.phases.length"
       />
     </section>
 

@@ -181,6 +181,19 @@ export const useAdminCurriculumStore = defineStore('admin_curriculum', {
       }
     },
 
+    async movePhase(slug: string, phaseNo: number, toPhaseNo: number) {
+      try {
+        await api.adminMoveCurriculumPhase(slug, phaseNo, {
+          to_phase_no: toPhaseNo,
+        });
+        this.saveError = null;
+        await this.fetchDetail(slug);
+      } catch (e) {
+        this.saveError = e instanceof Error ? e.message : String(e);
+        throw e;
+      }
+    },
+
     _scheduleDebounced(
       key: string,
       payload: AdminPhasePatch | AdminTaskPatch,

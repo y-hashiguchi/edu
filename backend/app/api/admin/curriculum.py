@@ -23,6 +23,7 @@ from app.schemas.admin_curriculum import (
     AdminCurriculumCourseSummary,
     AdminCurriculumPublishOut,
     AdminPhaseEditOut,
+    AdminPhaseMoveRequest,
     AdminPhaseUpdateRequest,
     AdminTaskEditOut,
     AdminTaskMoveRequest,
@@ -42,6 +43,7 @@ from app.services.curriculum_course import (
 from app.services.curriculum_edit import (
     CannotDeleteLastPhaseError,
     CannotDeleteLastTaskError,
+    InvalidPhaseMoveError,
     InvalidTaskMoveError,
     PhaseHasSubmissionsError,
     PhaseNotFoundError,
@@ -53,6 +55,7 @@ from app.services.curriculum_edit import (
     delete_phase,
     delete_task,
     discard_drafts,
+    move_phase,
     move_task,
     publish_course,
     put_phase_draft,
@@ -528,6 +531,45 @@ async def reorder_task(
         _admin.email,
     )
     return _phase_to_dto(row, list(tasks))
+
+
+@router.post(
+    "/{course_slug}/phases/{phase_no}/move",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def reorder_phase(
+    request: Request,
+    payload: AdminPhaseMoveRequest,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    phase_no: int = Path(ge=1),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await move_phase(
+            db,
+            course_slug=course_slug,
+            phase_no=phase_no,
+            to_phase_no=payload.to_phase_no,
+        )
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    except InvalidPhaseMoveError:
+        raise HTTPException(status_code=422, detail="invalid phase move")
+    await db.commit()
+    await _reload_course_cache(db, course_slug)
+    from app.worker.enqueue import enqueue_curriculum_embeddings_full
+
+    await enqueue_curriculum_embeddings_full(course_slug)
+    logger.info(
+        "curriculum.move_phase slug=%s phase_no=%d to=%d by=%s",
+        course_slug,
+        phase_no,
+        payload.to_phase_no,
+        _admin.email,
+    )
+    return None
 
 
 @router.post(

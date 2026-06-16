@@ -155,3 +155,9 @@ class AdminTaskMoveRequest(BaseModel):
     """POST body — task を phase 内の 1-based 位置へ移動。"""
 
     to_task_no: int = Field(ge=1)
+
+
+class AdminPhaseMoveRequest(BaseModel):
+    """POST body — phase を course 内の 1-based 位置へ移動。"""
+
+    to_phase_no: int = Field(ge=1)

@@ -4,7 +4,10 @@ from arq.connections import RedisSettings
 from arq.cron import cron
 
 from app.config import settings
-from app.worker.curriculum_embeddings_job import run_curriculum_embeddings_job
+from app.worker.curriculum_embeddings_job import (
+    run_curriculum_embeddings_full_job,
+    run_curriculum_embeddings_job,
+)
 from app.worker.grading_job import run_grading_job
 from app.worker.scheduled_broadcast_job import run_scheduled_broadcast_cron
 
@@ -16,7 +19,7 @@ def _scheduled_broadcast_cron_jobs() -> list:
 
 
 class WorkerSettings:
-    functions = [run_grading_job, run_curriculum_embeddings_job]
+    functions = [run_grading_job, run_curriculum_embeddings_job, run_curriculum_embeddings_full_job]
     cron_jobs = _scheduled_broadcast_cron_jobs()
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 10
