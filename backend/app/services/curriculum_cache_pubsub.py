@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 
 from redis.asyncio import Redis
 
@@ -50,7 +51,7 @@ async def notify_cache_reload(slug: str) -> None:
             exc_info=True,
         )
     finally:
-        with asyncio.suppress(Exception):
+        with suppress(Exception):
             await client.aclose()
 
 
