@@ -5,7 +5,7 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` 同期済み） |
-| 最新 HEAD | `f2c6a29` — E2E fix |
+| 最新 HEAD | `1ad1ad0` |
 | Sprint 16 本体 | `fd71652` |
 | GitHub Actions | **success** — [#27606460017](https://github.com/y-hashiguchi/edu/actions/runs/27606460017) |
 | スプリント | Sprint 16 — admin Course 追加・削除 |
@@ -51,15 +51,22 @@
 | `test_curriculum_course_service.py` | 新規 4 件 |
 | `test_admin_curriculum_api.py` | create/delete API 4 件 |
 | `test_auth_api_course.py` | dynamic course register 1 件 |
-| `admin_curriculum.store.spec.ts` | create/delete store 2 件 |
+| `admin-curriculum.spec.ts` | course create/delete E2E 1 件 |
 
-**backend pytest（フル）:** 478 passed
+**E2E 修正:** DELETE 204 後に `page.reload()`（Sprint 15 task delete と同パターン、`f2c6a29`）
+
+## コミット履歴
+
+```
+1ad1ad0 docs(handover): record Sprint 16 CI green at f2c6a29
+f2c6a29 fix(e2e): reload curriculum list after course delete for stable assert
+fd71652 feat(sprint-16): add admin course create/delete and DB-based enrollment
+6281e8a docs(handover): record Sprint 15 CI green at 0af99bb
+```
 
 ## 未実施（次セッション）
 
-- [x] git commit / push / CI（本セッションで実施）
-- [x] Playwright E2E（course create → list 表示 → delete）
-- [ ] `HANDOVER_2026-06-14_local-dev-ready.md` HEAD 更新（CI green 後）
+- [x] `HANDOVER_2026-06-14_local-dev-ready.md` HEAD 更新
 
 ## 将来候補
 

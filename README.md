@@ -85,7 +85,8 @@ make test-e2e                  # Playwright（backend 起動後）
 - Sprint 9: `docs/superpowers/plans/2026-06-13-ai-tutor-curriculum-sprint-9.md`
 - Sprint 10: `docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md`
 - Sprint 11: `docs/superpowers/plans/2026-06-11-ai-tutor-curriculum-sprint-11.md`
-- 引き継ぎ（最新）: [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
+- 引き継ぎ（最新）: [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
+- ローカル開発・CI 概要: [`HANDOVER_2026-06-14_local-dev-ready.md`](HANDOVER_2026-06-14_local-dev-ready.md)
 
 ## 実装進捗
 
@@ -105,6 +106,9 @@ make test-e2e                  # Playwright（backend 起動後）
 - [x] Sprint 11: 予約 broadcast 通知（`scheduled_broadcasts` + arq cron + admin 予約一斉 UI）
 - [x] Sprint 12: コホート CSV エクスポート（`GET .../cohort-summary/export` + admin UI ボタン）
 - [x] Sprint 13: 入学バッチ（`cohort_label`）フィルタ + admin enroll 時ラベル指定
+- [x] Sprint 14: 入学バッチフィルタ E2E（`admin-cohort.spec.ts`）
+- [x] Sprint 15: curriculum Phase 内 Task 追加・削除・並び替え（admin GUI + cache reload）
+- [x] Sprint 16: admin Course 追加・削除 + DB ベース enrollment / register
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -122,7 +126,7 @@ make test-e2e                  # Playwright（backend 起動後）
 
 ### CI / E2E
 
-- `.github/workflows/ci.yml`: backend pytest、frontend vitest、`npm audit --audit-level=critical`、Playwright E2E（**8 passed** 想定）
+- `.github/workflows/ci.yml`: backend pytest、frontend vitest、`npm audit --audit-level=critical`、Playwright E2E（**10 passed** 想定）
 - 最新 CI: `main` push で green（backend / frontend / e2e ジョブ）
 - 初回 CI 実走: [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照（remote 未設定時は push 不可）
 - ローカル E2E: `docker compose up -d postgres backend`（`CLAUDE_STUB_MODE=true` 推奨）のあと `cd frontend && npm run test:e2e`
@@ -162,6 +166,7 @@ uv run python -m scripts.promote_admin instructor@example.com
 
 - admin GUI: `/admin/curriculum` → コース選択 → title / description / skill_tags / deliverable / system_prompt を編集
 - **Sprint 15**: Phase 内 Task の追加・削除・並び替え（即 published 反映 + cache reload）
+- **Sprint 16**: コース一覧から Course 追加（4 phase × 1 task scaffold）・削除（組み込み 2 コースは保護）
 - 編集は debounce 500ms で `draft_*` 列に保存（公開には影響しない）
 - 「公開」ボタンで draft を published 列に COPY し、in-process cache を再ロード
 - 「ドラフト破棄」で未公開の編集を全て NULL に戻す
