@@ -39,6 +39,9 @@ export async function registerLearner(
   await page.getByLabel('メールアドレス').fill(email);
   await page.getByLabel('お名前').fill(name);
   await page.locator('[data-test="course-select"]').waitFor();
+  await expect(
+    page.locator(`[data-test="course-select"] option[value="${courseSlug}"]`),
+  ).toHaveCount(1, { timeout: 15_000 });
   await page.locator('[data-test="course-select"]').selectOption(courseSlug);
   await page.getByLabel('パスワード').fill(E2E_PASSWORD);
   await page.getByRole('button', { name: '登録する' }).click();
@@ -50,6 +53,7 @@ export async function login(
   email?: string,
   password = E2E_PASSWORD,
 ): Promise<void> {
+  await page.goto('/login');
   await page.getByRole('tab', { name: 'ログイン' }).click();
   if (email) {
     await page.getByLabel('メールアドレス').fill(email);
@@ -57,4 +61,9 @@ export async function login(
   await page.getByLabel('パスワード').fill(password);
   await page.getByRole('button', { name: 'ログイン' }).click();
   await page.waitForURL(/\/courses/, { timeout: 15_000 });
+}
+
+export async function logout(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'ログアウト' }).click();
+  await page.waitForURL(/\/login/, { timeout: 15_000 });
 }
