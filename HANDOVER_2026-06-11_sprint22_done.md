@@ -5,8 +5,10 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main` |
+| 最新 HEAD | `e11235a` |
 | スプリント | Sprint 22 — ai-era-se catalog / docs 同期 |
 | 前提 | Sprint 21 完了 |
+| GitHub Actions | **success** — [#27629342997](https://github.com/y-hashiguchi/edu/actions/runs/27629342997) |
 
 ## 背景
 
