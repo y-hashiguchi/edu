@@ -28,6 +28,7 @@ from app.schemas.admin_curriculum import (
     AdminTaskMoveRequest,
     AdminTaskUpdateRequest,
 )
+from app.worker.enqueue import enqueue_curriculum_embeddings
 from app.services.curriculum_course import (
     CourseHasEnrollmentsError,
     CourseHasSubmissionsError,
@@ -546,6 +547,9 @@ async def publish(
         raise HTTPException(status_code=404, detail="course not found")
     await db.commit()
     await _reload_course_cache(db, course_slug)
+    await enqueue_curriculum_embeddings(
+        course_slug, list(result.embedding_source_refs)
+    )
     # Sprint 9 review HIGH (security-reviewer): publish is irreversible and
     # affects every learner in the course. Log who triggered it.
     logger.info(

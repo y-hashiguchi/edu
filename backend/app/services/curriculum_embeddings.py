@@ -21,6 +21,12 @@ from app.services.embedding import upsert_embeddings
 logger = logging.getLogger(__name__)
 
 
+def task_embedding_source_ref(
+    course_slug: str, phase_no: int, task_index: int
+) -> str:
+    return f"course:{course_slug}:phase:{phase_no}:task:{task_index}"
+
+
 def build_embedding_items(course_slug: str) -> list[tuple[str, str, int | None, str]]:
     """Return (source_type, source_ref, phase, content) tuples for one course."""
     course_data = get_course(course_slug)
@@ -43,12 +49,48 @@ def build_embedding_items(course_slug: str) -> list[tuple[str, str, int | None, 
             items.append(
                 (
                     "curriculum_task",
-                    f"course:{course_slug}:phase:{phase.phase}:task:{i}",
+                    task_embedding_source_ref(course_slug, phase.phase, i),
                     phase.phase,
                     task.title,
                 )
             )
     return items
+
+
+async def seed_course_embeddings_refs(
+    db: AsyncSession,
+    course_slug: str,
+    source_refs: list[str],
+    *,
+    client: EmbeddingClient | None = None,
+) -> int:
+    """Re-embed only the given source_ref rows (publish diff path)."""
+    if not source_refs:
+        return 0
+    ref_set = set(source_refs)
+    if client is None:
+        client = EmbeddingClient()
+    course_row = (
+        await db.execute(select(Course).where(Course.slug == course_slug))
+    ).scalar_one_or_none()
+    if course_row is None:
+        return 0
+    try:
+        items = build_embedding_items(course_slug)
+    except CourseNotFoundError:
+        await runtime.reload_course(db, course_slug)
+        items = build_embedding_items(course_slug)
+    filtered = [it for it in items if it[1] in ref_set]
+    if not filtered:
+        return 0
+    await upsert_embeddings(
+        db,
+        client,
+        user_id=None,
+        course_id=course_row.id,
+        items=filtered,
+    )
+    return len(filtered)
 
 
 async def seed_course_embeddings(

@@ -8,6 +8,7 @@ from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 
 from app.config import settings
+from app.worker.curriculum_embeddings_job import run_curriculum_embeddings_job
 from app.worker.grading_job import run_grading_job
 
 _pool: ArqRedis | None = None
@@ -37,3 +38,22 @@ async def enqueue_grading(submission_id: uuid.UUID) -> None:
     if _pool is None:
         raise RuntimeError("grading pool not initialised — call init_grading_pool()")
     await _pool.enqueue_job("run_grading_job", str(submission_id))
+
+
+async def enqueue_curriculum_embeddings(
+    course_slug: str,
+    source_refs: list[str],
+) -> None:
+    """Dispatch publish-time embedding refresh. Inline when async is off."""
+    if not source_refs:
+        return
+    if not settings.grading_async_enabled:
+        await run_curriculum_embeddings_job({}, course_slug, source_refs)
+        return
+    if _pool is None:
+        raise RuntimeError("grading pool not initialised — call init_grading_pool()")
+    await _pool.enqueue_job(
+        "run_curriculum_embeddings_job",
+        course_slug,
+        source_refs,
+    )

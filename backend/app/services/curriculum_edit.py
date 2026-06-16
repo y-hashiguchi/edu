@@ -26,6 +26,7 @@ from app.models.embedding import Embedding
 from app.models.enrollment import Enrollment
 from app.models.progress import Progress, ProgressStatus
 from app.models.submission import Submission
+from app.services.curriculum_embeddings import task_embedding_source_ref
 
 
 class PhaseNotFoundError(Exception):
@@ -109,6 +110,7 @@ class PublishResult:
     published_phase_count: int
     published_task_count: int
     published_at: datetime
+    embedding_source_refs: tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -265,9 +267,13 @@ async def publish_course(
         select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))
     )).scalars().all() if phase_ids else []
 
+    phase_id_to_no = {p.id: p.phase_no for p in phases}
+    task_title_published: list[tuple[Any, int]] = []
+
     published_task = 0
     for t in tasks:
         dirty = False
+        title_dirty = t.draft_title is not None
         if t.draft_title is not None:
             t.title = t.draft_title
             t.draft_title = None
@@ -292,14 +298,35 @@ async def publish_course(
         if dirty:
             published_task += 1
             t.updated_at = datetime.now(UTC)
+            if title_dirty:
+                task_title_published.append((t.phase_id, t.task_no))
 
     await db.flush()
+
+    embedding_source_refs: list[str] = []
+    if task_title_published:
+        tasks_by_phase: dict[Any, list[CurriculumTask]] = {}
+        for t in tasks:
+            tasks_by_phase.setdefault(t.phase_id, []).append(t)
+        published_by_phase: dict[Any, set[int]] = {}
+        for phase_id, task_no in task_title_published:
+            published_by_phase.setdefault(phase_id, set()).add(task_no)
+        for phase_id, phase_tasks in tasks_by_phase.items():
+            phase_no = phase_id_to_no[phase_id]
+            phase_tasks.sort(key=lambda row: row.task_no)
+            published_nos = published_by_phase.get(phase_id, set())
+            for i, t in enumerate(phase_tasks):
+                if t.task_no in published_nos:
+                    embedding_source_refs.append(
+                        task_embedding_source_ref(course_slug, phase_no, i)
+                    )
 
     return PublishResult(
         slug=course_slug,
         published_phase_count=published_phase,
         published_task_count=published_task,
         published_at=datetime.now(UTC),
+        embedding_source_refs=tuple(embedding_source_refs),
     )
 
 

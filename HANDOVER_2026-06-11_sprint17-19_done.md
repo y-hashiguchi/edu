@@ -68,7 +68,7 @@ e96dcd5 docs(handover): sync local-dev-ready and README for Sprint 16 closure
 
 ## 未実施（次セッション）
 
-- [ ] publish 時の embeddings 差分再生成（Sprint 9 設計メモ参照）
+- [x] publish 時の embeddings 差分再生成 → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
 - [ ] Phase 並び替え（Task move API と同様）
 
 ## 将来候補

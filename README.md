@@ -112,6 +112,7 @@ make test-e2e                  # Playwright（backend 起動後）
 - [x] Sprint 17: curriculum Phase 追加・削除（admin GUI + progress backfill + migration）
 - [x] Sprint 18: 新規 course / Phase 作成時の embeddings 自動生成
 - [x] Sprint 19: 登録フォームで動的 course の description 表示
+- [x] Sprint 20: publish 時 task title 差分 embeddings 再生成（arq worker）
 
 > Sprint 5 で curriculum タスク構造が `list[str]` から `list[TaskItem]` に変わったため、既存環境では `make seed-embeddings` を再実行して embeddings.content を最新タイトルに揃えてください。
 > Sprint 7 で embeddings/progress/submissions/chat_history/user_nudges に `course_id` 列が必要になりました。既存ユーザは `make migrate` で自動的に `ai-driven-dev` コースに enroll + バックフィルされます。
@@ -172,6 +173,7 @@ uv run python -m scripts.promote_admin instructor@example.com
 - **Sprint 16**: コース一覧から Course 追加（4 phase × 1 task scaffold）・削除（組み込み 2 コースは保護）
 - **Sprint 17**: Phase 追加（末尾 scaffold）・削除（番号リマップ + progress backfill）
 - **Sprint 18**: course / Phase 作成時に embeddings を自動 seed（削除時も連動削除）
+- **Sprint 20**: publish 時に変更された task title の embeddings のみ arq で再生成
 - 編集は debounce 500ms で `draft_*` 列に保存（公開には影響しない）
 - 「公開」ボタンで draft を published 列に COPY し、in-process cache を再ロード
 - 「ドラフト破棄」で未公開の編集を全て NULL に戻す

@@ -1,6 +1,7 @@
 """Sprint 9 — admin curriculum HTTP API tests."""
 
 import pytest
+from unittest.mock import AsyncMock
 
 
 @pytest.mark.asyncio
@@ -71,8 +72,12 @@ async def test_put_task_records_draft_skill_tags(
 
 @pytest.mark.asyncio
 async def test_publish_promotes_drafts_idempotent(
-    client, admin_user, admin_token, seed_curriculum
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    monkeypatch.setattr(
+        "app.api.admin.curriculum.enqueue_curriculum_embeddings",
+        AsyncMock(),
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     client.put(
         "/api/admin/curriculum/ai-driven-dev/phases/1",

@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import select
+from unittest.mock import AsyncMock, patch
 
 from app.data.courses import runtime
 from app.models.course import Course
@@ -147,6 +148,9 @@ async def test_publish_course_promotes_drafts_and_reloads_cache(
     await runtime.reload_course(db_session, "ai-driven-dev")
     assert result.published_phase_count == 1
     assert result.published_task_count == 1
+    assert result.embedding_source_refs == (
+        "course:ai-driven-dev:phase:1:task:0",
+    )
 
     # cache が新値を返す
     course = runtime.get_cached_course("ai-driven-dev")
@@ -165,6 +169,24 @@ async def test_publish_course_promotes_drafts_and_reloads_cache(
     )).scalar_one()
     assert p.draft_title is None
     assert p.title == "公開対象タイトル"
+
+
+@pytest.mark.asyncio
+async def test_publish_course_skips_embedding_refs_when_title_unchanged(
+    db_session, seed_curriculum
+):
+    await put_task_draft(
+        db_session,
+        course_slug="ai-driven-dev",
+        phase_no=1,
+        task_no=1,
+        payload={"skill_tags": ["TAG_ONLY"]},
+    )
+    await db_session.commit()
+
+    result = await publish_course(db_session, course_slug="ai-driven-dev")
+    assert result.published_task_count == 1
+    assert result.embedding_source_refs == ()
 
 
 @pytest.mark.asyncio

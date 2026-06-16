@@ -12,7 +12,7 @@
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | 487 passed |
+| backend pytest | 492 passed |
 | frontend vitest | 106 passed |
 | Playwright E2E | 11 passed |
 
@@ -25,6 +25,7 @@
 - **Sprint 15**: curriculum Phase 内 Task 追加・削除・並び替え → [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
 - **Sprint 16**: admin Course 追加・削除 + DB ベース enrollment → [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
 - **Sprint 17–19**: Phase 追加・削除 / embeddings 自動生成 / catalog 説明表示 → [`HANDOVER_2026-06-11_sprint17-19_done.md`](HANDOVER_2026-06-11_sprint17-19_done.md)
+- **Sprint 20**: publish 時 task title 差分 embeddings 再生成（arq） → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 
@@ -71,7 +72,7 @@ cd backend && uv run alembic upgrade head
 - ~~Sprint 15: curriculum Phase/Task 追加・削除・並び替え~~ → [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
 - ~~Sprint 16: Course 追加・削除~~ → [`HANDOVER_2026-06-11_sprint16_done.md`](HANDOVER_2026-06-11_sprint16_done.md)
 - ~~Phase 追加~~ / ~~embeddings 自動生成~~ / ~~catalog UI~~ → [`HANDOVER_2026-06-11_sprint17-19_done.md`](HANDOVER_2026-06-11_sprint17-19_done.md)
-- publish 時の embeddings 差分再生成
+- ~~publish 時 embeddings 差分再生成~~ → [`HANDOVER_2026-06-11_sprint20_done.md`](HANDOVER_2026-06-11_sprint20_done.md)
 - Phase 並び替え（Task move API と同様）
 - ai-era-se コンテンツ拡充（Phase 2-4 はコード投入済み — 必要ならシラバス追記）
 - TLS / 外部 LB / マネージド DB への production-deploy 拡張
