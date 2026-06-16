@@ -13,6 +13,9 @@ vi.mock('@/lib/api', async () => {
       adminPutCurriculumTask: vi.fn(),
       adminPublishCurriculum: vi.fn(),
       adminDiscardCurriculumDrafts: vi.fn(),
+      adminAddCurriculumTask: vi.fn(),
+      adminDeleteCurriculumTask: vi.fn(),
+      adminMoveCurriculumTask: vi.fn(),
     },
   };
 });
@@ -68,14 +71,14 @@ describe('admin_curriculum store', () => {
     expect(store.detail?.slug).toBe('a');
   });
 
-  it('discardDrafts then refetches detail', async () => {
-    (api.adminDiscardCurriculumDrafts as unknown as ReturnType<typeof vi.fn>)
-      .mockResolvedValue(undefined as never);
+  it('addTask refetches detail', async () => {
+    (api.adminAddCurriculumTask as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({ task_no: 4 } as never);
     (api.adminCurriculumDetail as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValue({ slug: 'a', title: 'A', phases: [] });
     const store = useAdminCurriculumStore();
-    await store.discardDrafts('a');
-    expect(api.adminDiscardCurriculumDrafts).toHaveBeenCalledWith('a');
+    await store.addTask('a', 1);
+    expect(api.adminAddCurriculumTask).toHaveBeenCalledWith('a', 1);
     expect(api.adminCurriculumDetail).toHaveBeenCalledWith('a');
   });
 });

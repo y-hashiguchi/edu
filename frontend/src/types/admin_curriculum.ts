@@ -65,3 +65,7 @@ export interface AdminTaskPatch {
   deliverable?: string | null;
   week_label?: string | null;
 }
+
+export interface AdminTaskMoveRequest {
+  to_task_no: number;
+}

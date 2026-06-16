@@ -7,10 +7,16 @@ from app.data.courses import runtime
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
+from app.models.submission import Submission
 from app.services.curriculum_edit import (
+    CannotDeleteLastTaskError,
     PhaseNotFoundError,
+    TaskHasSubmissionsError,
     TaskNotFoundError,
+    add_task,
+    delete_task,
     discard_drafts,
+    move_task,
     publish_course,
     put_phase_draft,
     put_task_draft,
@@ -192,3 +198,149 @@ async def test_discard_drafts_clears_all_drafts_for_course(
         .where(CurriculumPhase.course_id == dev_id)
     )).scalars().all()
     assert all(t.draft_description is None for t in t_rows)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 15 — task structure (add / delete / reorder)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_add_task_appends_at_end(db_session, seed_curriculum):
+    row = await add_task(
+        db_session, course_slug="ai-driven-dev", phase_no=1
+    )
+    await db_session.commit()
+    assert row.task_no == 4
+    assert row.title == "新しい Task"
+
+
+@pytest.mark.asyncio
+async def test_delete_task_renumbers_following_tasks(db_session, seed_curriculum):
+    await add_task(db_session, course_slug="ai-driven-dev", phase_no=1)
+    await db_session.commit()
+    await delete_task(
+        db_session,
+        course_slug="ai-driven-dev",
+        phase_no=1,
+        task_no=2,
+    )
+    await db_session.commit()
+
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    tasks = (await db_session.execute(
+        select(CurriculumTask)
+        .join(CurriculumPhase, CurriculumTask.phase_id == CurriculumPhase.id)
+        .where(CurriculumPhase.course_id == dev_id, CurriculumPhase.phase_no == 1)
+        .order_by(CurriculumTask.task_no)
+    )).scalars().all()
+    assert [t.task_no for t in tasks] == [1, 2, 3]
+    assert tasks[1].title != "新しい Task"  # old task 3 became 2
+
+
+@pytest.mark.asyncio
+async def test_delete_last_task_in_phase_raises(db_session, seed_curriculum):
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    phase_id = (await db_session.execute(
+        select(CurriculumPhase.id).where(
+            CurriculumPhase.course_id == dev_id,
+            CurriculumPhase.phase_no == 1,
+        )
+    )).scalar_one()
+
+    while True:
+        tasks = (await db_session.execute(
+            select(CurriculumTask).where(CurriculumTask.phase_id == phase_id)
+        )).scalars().all()
+        if len(tasks) <= 1:
+            break
+        last_no = max(t.task_no for t in tasks)
+        await delete_task(
+            db_session,
+            course_slug="ai-driven-dev",
+            phase_no=1,
+            task_no=last_no,
+        )
+        await db_session.flush()
+
+    with pytest.raises(CannotDeleteLastTaskError):
+        await delete_task(
+            db_session,
+            course_slug="ai-driven-dev",
+            phase_no=1,
+            task_no=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_task_with_submissions_raises(
+    db_session, seed_curriculum, auth_user, default_course_id
+):
+    db_session.add(
+        Submission(
+            user_id=auth_user.id,
+            course_id=default_course_id,
+            phase=1,
+            task_no=1,
+            content="hello",
+        )
+    )
+    await db_session.commit()
+
+    with pytest.raises(TaskHasSubmissionsError):
+        await delete_task(
+            db_session,
+            course_slug="ai-driven-dev",
+            phase_no=1,
+            task_no=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_move_task_reorders_and_updates_submissions(
+    db_session, seed_curriculum, auth_user, default_course_id
+):
+    db_session.add(
+        Submission(
+            user_id=auth_user.id,
+            course_id=default_course_id,
+            phase=1,
+            task_no=3,
+            content="task3",
+        )
+    )
+    await db_session.commit()
+
+    await move_task(
+        db_session,
+        course_slug="ai-driven-dev",
+        phase_no=1,
+        task_no=3,
+        to_task_no=1,
+    )
+    await db_session.commit()
+
+    dev_id = (await db_session.execute(
+        select(Course.id).where(Course.slug == "ai-driven-dev")
+    )).scalar_one()
+    tasks = (await db_session.execute(
+        select(CurriculumTask)
+        .join(CurriculumPhase, CurriculumTask.phase_id == CurriculumPhase.id)
+        .where(CurriculumPhase.course_id == dev_id, CurriculumPhase.phase_no == 1)
+        .order_by(CurriculumTask.task_no)
+    )).scalars().all()
+    assert len(tasks) == 3
+    assert tasks[0].task_no == 1
+
+    sub = (await db_session.execute(
+        select(Submission).where(
+            Submission.user_id == auth_user.id,
+            Submission.phase == 1,
+        )
+    )).scalar_one()
+    assert sub.task_no == 1
+    assert sub.content == "task3"

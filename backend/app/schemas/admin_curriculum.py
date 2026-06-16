@@ -132,3 +132,9 @@ class AdminTaskUpdateRequest(BaseModel):
             seen.add(t)
             out.append(t)
         return out
+
+
+class AdminTaskMoveRequest(BaseModel):
+    """POST body — task を phase 内の 1-based 位置へ移動。"""
+
+    to_task_no: int = Field(ge=1)

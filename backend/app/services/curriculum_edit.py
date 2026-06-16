@@ -14,13 +14,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.courses import CourseNotFoundError
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
+from app.models.submission import Submission
 
 
 class PhaseNotFoundError(Exception):
@@ -38,6 +39,42 @@ class TaskNotFoundError(Exception):
         self.slug = slug
         self.phase_no = phase_no
         self.task_no = task_no
+
+
+class CannotDeleteLastTaskError(Exception):
+    def __init__(self, slug: str, phase_no: int) -> None:
+        super().__init__(
+            f"cannot delete the last task in phase {phase_no} of course {slug!r}"
+        )
+        self.slug = slug
+        self.phase_no = phase_no
+
+
+class TaskHasSubmissionsError(Exception):
+    def __init__(self, slug: str, phase_no: int, task_no: int) -> None:
+        super().__init__(
+            f"task {task_no} in phase {phase_no} of course {slug!r} has submissions"
+        )
+        self.slug = slug
+        self.phase_no = phase_no
+        self.task_no = task_no
+
+
+class InvalidTaskMoveError(Exception):
+    def __init__(self, slug: str, phase_no: int, task_no: int, to_task_no: int) -> None:
+        super().__init__(
+            f"invalid move task {task_no} -> {to_task_no} "
+            f"in phase {phase_no} of course {slug!r}"
+        )
+        self.slug = slug
+        self.phase_no = phase_no
+        self.task_no = task_no
+        self.to_task_no = to_task_no
+
+
+_TASK_NO_OFFSET = 100_000
+_DEFAULT_NEW_TASK_TITLE = "新しい Task"
+_DEFAULT_NEW_TASK_DESCRIPTION = "説明を入力してください。"
 
 
 @dataclass(frozen=True)
@@ -308,3 +345,192 @@ async def count_pending_drafts(db: AsyncSession, *, course_slug: str) -> int:
                 if getattr(t, f) is not None
             )
     return n
+
+
+# ---------------------------------------------------------------------------
+# Task structure (Sprint 15 — add / delete / reorder within a phase)
+# ---------------------------------------------------------------------------
+
+
+async def _list_phase_tasks_ordered(
+    db: AsyncSession, phase_id
+) -> list[CurriculumTask]:
+    result = await db.execute(
+        select(CurriculumTask)
+        .where(CurriculumTask.phase_id == phase_id)
+        .order_by(CurriculumTask.task_no)
+    )
+    return list(result.scalars().all())
+
+
+async def _remap_task_numbers(
+    db: AsyncSession,
+    *,
+    course_id,
+    phase_no: int,
+    mapping: dict[int, int],
+) -> None:
+    """old task_no -> new task_no。UNIQUE 制約回避のため一時オフセット経由。"""
+    if not mapping:
+        return
+    changed_old = set(mapping.keys())
+    now = datetime.now(UTC)
+
+    tasks = (
+        await db.execute(
+            select(CurriculumTask).where(
+                CurriculumTask.phase_id.in_(
+                    select(CurriculumPhase.id).where(
+                        CurriculumPhase.course_id == course_id,
+                        CurriculumPhase.phase_no == phase_no,
+                    )
+                ),
+                CurriculumTask.task_no.in_(changed_old),
+            )
+        )
+    ).scalars().all()
+
+    for t in tasks:
+        t.task_no = _TASK_NO_OFFSET + t.task_no
+    await db.flush()
+
+    for old_no in changed_old:
+        await db.execute(
+            update(Submission)
+            .where(
+                Submission.course_id == course_id,
+                Submission.phase == phase_no,
+                Submission.task_no == old_no,
+            )
+            .values(task_no=_TASK_NO_OFFSET + old_no)
+        )
+    await db.flush()
+
+    for t in tasks:
+        orig = t.task_no - _TASK_NO_OFFSET
+        t.task_no = mapping[orig]
+        t.updated_at = now
+    await db.flush()
+
+    for old_no, new_no in mapping.items():
+        await db.execute(
+            update(Submission)
+            .where(
+                Submission.course_id == course_id,
+                Submission.phase == phase_no,
+                Submission.task_no == _TASK_NO_OFFSET + old_no,
+            )
+            .values(task_no=new_no)
+        )
+    await db.flush()
+
+
+async def add_task(
+    db: AsyncSession,
+    *,
+    course_slug: str,
+    phase_no: int,
+) -> CurriculumTask:
+    """Phase 末尾に published task を 1 行追加する。"""
+    course = await _get_course_by_slug(db, course_slug)
+    phase = await _get_phase_or_raise(db, course_slug, course.id, phase_no)
+    tasks = await _list_phase_tasks_ordered(db, phase.id)
+    next_no = (max(t.task_no for t in tasks) if tasks else 0) + 1
+    row = CurriculumTask(
+        phase_id=phase.id,
+        task_no=next_no,
+        title=_DEFAULT_NEW_TASK_TITLE,
+        description=_DEFAULT_NEW_TASK_DESCRIPTION,
+        skill_tags=[],
+        deliverable=None,
+        week_label=None,
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def delete_task(
+    db: AsyncSession,
+    *,
+    course_slug: str,
+    phase_no: int,
+    task_no: int,
+) -> None:
+    """Task を削除し、後続 task_no と submission を繰り下げる。"""
+    course = await _get_course_by_slug(db, course_slug)
+    phase = await _get_phase_or_raise(db, course_slug, course.id, phase_no)
+    tasks = await _list_phase_tasks_ordered(db, phase.id)
+    if len(tasks) <= 1:
+        raise CannotDeleteLastTaskError(course_slug, phase_no)
+
+    row = await _get_task_or_raise(
+        db, course_slug, phase_no, phase.id, task_no
+    )
+
+    sub_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Submission)
+            .where(
+                Submission.course_id == course.id,
+                Submission.phase == phase_no,
+                Submission.task_no == task_no,
+            )
+        )
+    ).scalar_one()
+    if sub_count > 0:
+        raise TaskHasSubmissionsError(course_slug, phase_no, task_no)
+
+    await db.execute(delete(CurriculumTask).where(CurriculumTask.id == row.id))
+    await db.flush()
+
+    mapping = {
+        t.task_no: t.task_no - 1 for t in tasks if t.task_no > task_no
+    }
+    await _remap_task_numbers(
+        db,
+        course_id=course.id,
+        phase_no=phase_no,
+        mapping=mapping,
+    )
+
+
+async def move_task(
+    db: AsyncSession,
+    *,
+    course_slug: str,
+    phase_no: int,
+    task_no: int,
+    to_task_no: int,
+) -> CurriculumPhase:
+    """task_no の行を to_task_no 位置へ並び替える (1-based)。"""
+    course = await _get_course_by_slug(db, course_slug)
+    phase = await _get_phase_or_raise(db, course_slug, course.id, phase_no)
+    tasks = await _list_phase_tasks_ordered(db, phase.id)
+    task_nos = {t.task_no for t in tasks}
+    if task_no not in task_nos or to_task_no not in task_nos:
+        raise InvalidTaskMoveError(course_slug, phase_no, task_no, to_task_no)
+    if task_no == to_task_no:
+        return phase
+
+    ordered = list(tasks)
+    moving_idx = next(i for i, t in enumerate(ordered) if t.task_no == task_no)
+    moving = ordered.pop(moving_idx)
+    ordered.insert(to_task_no - 1, moving)
+
+    mapping: dict[int, int] = {}
+    for t in tasks:
+        new_no = next(i + 1 for i, o in enumerate(ordered) if o.id == t.id)
+        if t.task_no != new_no:
+            mapping[t.task_no] = new_no
+
+    await _remap_task_numbers(
+        db,
+        course_id=course.id,
+        phase_no=phase_no,
+        mapping=mapping,
+    )
+    phase.updated_at = datetime.now(UTC)
+    await db.flush()
+    return phase

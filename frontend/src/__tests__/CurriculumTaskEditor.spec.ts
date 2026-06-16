@@ -47,7 +47,14 @@ describe('CurriculumTaskEditor', () => {
   it('debounce fires putTask once with the last value', async () => {
     vi.useFakeTimers();
     const w = mount(CurriculumTaskEditor, {
-      props: { courseSlug: 'ai-driven-dev', phaseNo: 1, task: makeTask() },
+      props: {
+        courseSlug: 'ai-driven-dev',
+        phaseNo: 1,
+        task: makeTask(),
+        taskCount: 3,
+        canMoveUp: false,
+        canMoveDown: true,
+      },
     });
     const input = w.find('[data-test="task-title-input"]');
     await input.setValue('A');
@@ -67,6 +74,9 @@ describe('CurriculumTaskEditor', () => {
         courseSlug: 'ai-driven-dev',
         phaseNo: 1,
         task: makeTask({ draft_title: 'Draft' }),
+        taskCount: 3,
+        canMoveUp: false,
+        canMoveDown: true,
       },
     });
     expect(w.find('[data-test="title-draft-indicator"]').exists()).toBe(true);

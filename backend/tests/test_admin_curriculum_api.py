@@ -131,3 +131,76 @@ async def test_put_phase_rejects_invalid_slug(
         json={"title": "x"},
     )
     assert res.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Sprint 15 — task structure API
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_post_task_adds_at_end(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.post("/api/admin/curriculum/ai-driven-dev/phases/1/tasks")
+    assert res.status_code == 201
+    body = res.json()
+    assert body["task_no"] == 4
+    assert body["title"] == "新しい Task"
+
+    detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
+    p1 = detail["phases"][0]
+    assert len(p1["tasks"]) == 4
+
+
+@pytest.mark.asyncio
+async def test_delete_task_returns_204(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    client.post("/api/admin/curriculum/ai-driven-dev/phases/1/tasks")
+    res = client.delete(
+        "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/4"
+    )
+    assert res.status_code == 204
+    detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
+    assert len(detail["phases"][0]["tasks"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_delete_task_with_submissions_returns_409(
+    client, admin_user, admin_token, auth_user, default_course_id, db_session
+):
+    from app.models.submission import Submission
+
+    db_session.add(
+        Submission(
+            user_id=auth_user.id,
+            course_id=default_course_id,
+            phase=1,
+            task_no=1,
+            content="x",
+        )
+    )
+    await db_session.commit()
+
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.delete(
+        "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/1"
+    )
+    assert res.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_move_task_reorders(
+    client, admin_user, admin_token, seed_curriculum
+):
+    client.headers.update({"Authorization": f"Bearer {admin_token}"})
+    res = client.post(
+        "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/3/move",
+        json={"to_task_no": 1},
+    )
+    assert res.status_code == 200
+    tasks = res.json()["tasks"]
+    assert tasks[0]["task_no"] == 1

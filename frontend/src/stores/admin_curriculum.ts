@@ -92,6 +92,46 @@ export const useAdminCurriculumStore = defineStore('admin_curriculum', {
       await this.fetchDetail(slug);
     },
 
+    async addTask(slug: string, phaseNo: number) {
+      try {
+        await api.adminAddCurriculumTask(slug, phaseNo);
+        this.saveError = null;
+        await this.fetchDetail(slug);
+      } catch (e) {
+        this.saveError = e instanceof Error ? e.message : String(e);
+        throw e;
+      }
+    },
+
+    async deleteTask(slug: string, phaseNo: number, taskNo: number) {
+      try {
+        await api.adminDeleteCurriculumTask(slug, phaseNo, taskNo);
+        this.saveError = null;
+        await this.fetchDetail(slug);
+      } catch (e) {
+        this.saveError = e instanceof Error ? e.message : String(e);
+        throw e;
+      }
+    },
+
+    async moveTask(
+      slug: string,
+      phaseNo: number,
+      taskNo: number,
+      toTaskNo: number,
+    ) {
+      try {
+        await api.adminMoveCurriculumTask(slug, phaseNo, taskNo, {
+          to_task_no: toTaskNo,
+        });
+        this.saveError = null;
+        await this.fetchDetail(slug);
+      } catch (e) {
+        this.saveError = e instanceof Error ? e.message : String(e);
+        throw e;
+      }
+    },
+
     _scheduleDebounced(
       key: string,
       payload: AdminPhasePatch | AdminTaskPatch,

@@ -25,6 +25,7 @@ import type {
   AdminPhaseEditOut,
   AdminPhasePatch,
   AdminTaskEditOut,
+  AdminTaskMoveRequest,
   AdminTaskPatch,
 } from '@/types/admin_curriculum';
 import type { AdminCohortLabels, AdminCohortSummary } from '@/types/admin_cohort';
@@ -385,6 +386,33 @@ export const api = {
     rawRequest<void>(
       `/api/admin/curriculum/${encodeURIComponent(slug)}/draft`,
       { method: 'POST' },
+    ),
+  adminAddCurriculumTask: (
+    slug: string,
+    phaseNo: number,
+  ): Promise<AdminTaskEditOut> =>
+    rawRequest<AdminTaskEditOut>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}/tasks`,
+      { method: 'POST' },
+    ),
+  adminDeleteCurriculumTask: (
+    slug: string,
+    phaseNo: number,
+    taskNo: number,
+  ): Promise<void> =>
+    rawRequest<void>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}/tasks/${taskNo}`,
+      { method: 'DELETE' },
+    ),
+  adminMoveCurriculumTask: (
+    slug: string,
+    phaseNo: number,
+    taskNo: number,
+    body: AdminTaskMoveRequest,
+  ): Promise<AdminPhaseEditOut> =>
+    rawRequest<AdminPhaseEditOut>(
+      `/api/admin/curriculum/${encodeURIComponent(slug)}/phases/${phaseNo}/tasks/${taskNo}/move`,
+      { method: 'POST', body: JSON.stringify(body) },
     ),
 
   adminCohortSummary: (

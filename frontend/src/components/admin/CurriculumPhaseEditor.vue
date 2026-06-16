@@ -47,12 +47,26 @@ const systemPromptValue = computed({
         <textarea v-model="systemPromptValue" rows="8" maxlength="8000" />
       </label>
 
+      <div class="task-toolbar">
+        <button
+          type="button"
+          class="add-task"
+          data-test="add-task-btn"
+          @click="store.addTask(courseSlug, phase.phase_no)"
+        >
+          + Task を追加
+        </button>
+      </div>
+
       <CurriculumTaskEditor
         v-for="t in phase.tasks"
         :key="t.task_no"
         :course-slug="courseSlug"
         :phase-no="phase.phase_no"
         :task="t"
+        :task-count="phase.tasks.length"
+        :can-move-up="t.task_no > 1"
+        :can-move-down="t.task_no < phase.tasks.length"
       />
     </div>
   </section>
@@ -78,4 +92,9 @@ input, textarea {
   padding: 0.4rem 0.6rem; font: inherit;
 }
 .body { display: flex; flex-direction: column; gap: 0.3rem; }
+.task-toolbar { display: flex; justify-content: flex-end; margin: 0.4rem 0; }
+.add-task {
+  border: 1px dashed #9ca3af; border-radius: 8px;
+  background: #fff; padding: 0.35rem 0.75rem; cursor: pointer; font: inherit;
+}
 </style>

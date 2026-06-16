@@ -8,6 +8,9 @@ const props = defineProps<{
   courseSlug: string;
   phaseNo: number;
   task: AdminTaskEditOut;
+  taskCount: number;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }>();
 
 const store = useAdminCurriculumStore();
@@ -35,12 +38,67 @@ const displayedTags = computed(() => t.value.draft_skill_tags ?? t.value.skill_t
 function onTagsChange(tags: string[]) {
   store.putTask(props.courseSlug, props.phaseNo, t.value.task_no, { skill_tags: tags });
 }
+
+async function onDelete() {
+  if (!window.confirm(`Task ${t.value.task_no} を削除しますか？`)) return;
+  await store.deleteTask(props.courseSlug, props.phaseNo, t.value.task_no);
+}
+
+function onMoveUp() {
+  void store.moveTask(
+    props.courseSlug,
+    props.phaseNo,
+    t.value.task_no,
+    t.value.task_no - 1,
+  );
+}
+
+function onMoveDown() {
+  void store.moveTask(
+    props.courseSlug,
+    props.phaseNo,
+    t.value.task_no,
+    t.value.task_no + 1,
+  );
+}
 </script>
 
 <template>
   <article class="task-edit" :data-test="`task-edit-${t.task_no}`">
     <header>
       <span class="num">Task {{ t.task_no }}</span>
+      <div class="actions">
+        <button
+          type="button"
+          class="btn"
+          data-test="task-move-up"
+          :disabled="!canMoveUp"
+          title="上へ"
+          @click="onMoveUp"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-test="task-move-down"
+          :disabled="!canMoveDown"
+          title="下へ"
+          @click="onMoveDown"
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          class="btn danger"
+          data-test="task-delete"
+          :disabled="taskCount <= 1"
+          title="削除"
+          @click="onDelete"
+        >
+          削除
+        </button>
+      </div>
     </header>
 
     <label>
@@ -82,7 +140,14 @@ function onTagsChange(tags: string[]) {
   padding: 0.8rem 1rem; margin: 0.5rem 0;
   display: flex; flex-direction: column; gap: 0.6rem;
 }
-header { display: flex; gap: 0.5rem; align-items: baseline; }
+header { display: flex; gap: 0.5rem; align-items: baseline; justify-content: space-between; }
+.actions { display: flex; gap: 0.35rem; margin-left: auto; }
+.btn {
+  border: 1px solid #d1d5db; border-radius: 6px;
+  background: #fff; padding: 0.15rem 0.45rem; cursor: pointer; font: inherit;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.danger { color: #b91c1c; border-color: #fca5a5; }
 .num { font-weight: 700; color: #6b7280; }
 .lbl { display: block; font-size: 0.85rem; color: #374151; margin-bottom: 0.25rem; }
 .ind { color: #d97706; }

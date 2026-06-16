@@ -65,6 +65,6 @@ cd backend && uv run alembic upgrade head
 
 ## 次候補
 
-- Sprint 15: curriculum Phase/Task 追加・削除・並び替え（Sprint 9 out-of-scope）
+- ~~Sprint 15: curriculum Phase/Task 追加・削除・並び替え~~ → [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
 - ai-era-se コンテンツ拡充（Phase 2-4 はコード投入済み — 必要ならシラバス追記）
 - TLS / 外部 LB / マネージド DB への production-deploy 拡張

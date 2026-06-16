@@ -85,7 +85,7 @@ make test-e2e                  # Playwright（backend 起動後）
 - Sprint 9: `docs/superpowers/plans/2026-06-13-ai-tutor-curriculum-sprint-9.md`
 - Sprint 10: `docs/superpowers/plans/2026-06-14-ai-tutor-curriculum-sprint-10.md`
 - Sprint 11: `docs/superpowers/plans/2026-06-11-ai-tutor-curriculum-sprint-11.md`
-- 引き継ぎ（最新）: [`HANDOVER_2026-06-14_local-dev-ready.md`](HANDOVER_2026-06-14_local-dev-ready.md)
+- 引き継ぎ（最新）: [`HANDOVER_2026-06-11_sprint15_done.md`](HANDOVER_2026-06-11_sprint15_done.md)
 
 ## 実装進捗
 
@@ -161,6 +161,7 @@ uv run python -m scripts.promote_admin instructor@example.com
 ### カリキュラム編集（Sprint 9〜）
 
 - admin GUI: `/admin/curriculum` → コース選択 → title / description / skill_tags / deliverable / system_prompt を編集
+- **Sprint 15**: Phase 内 Task の追加・削除・並び替え（即 published 反映 + cache reload）
 - 編集は debounce 500ms で `draft_*` 列に保存（公開には影響しない）
 - 「公開」ボタンで draft を published 列に COPY し、in-process cache を再ロード
 - 「ドラフト破棄」で未公開の編集を全て NULL に戻す

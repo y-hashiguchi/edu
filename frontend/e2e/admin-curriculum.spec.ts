@@ -47,4 +47,46 @@ test.describe('admin curriculum editing', () => {
 
     await expect(page.getByRole('heading', { name: '編集後タイトル' })).toBeVisible();
   });
+
+  test('admin adds task visible to learner then deletes it', async ({
+    page,
+  }) => {
+    const adminEmail = `admin-${Date.now()}@example.com`;
+    const learnerEmail = `learner-${Date.now()}@example.com`;
+
+    await registerLearner(page, adminEmail, 'Admin');
+    promoteAdminViaScript(adminEmail);
+    await login(page, adminEmail);
+
+    await page.goto('/admin/curriculum');
+    await page.getByRole('link', { name: /AI駆動型開発 補足/ }).click();
+    await page.waitForURL(/\/admin\/curriculum\/ai-driven-dev/);
+
+    const phase1 = page.locator('[data-test="phase-edit-1"]');
+    await expect(phase1.locator('[data-test^="task-edit-"]')).toHaveCount(3);
+    await phase1.locator('[data-test="add-task-btn"]').click();
+    await expect(phase1.locator('[data-test="task-edit-4"]')).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByRole('button', { name: 'ログアウト' }).click();
+    await registerLearner(page, learnerEmail, 'Learner');
+    await login(page, learnerEmail);
+    await page.goto(`/courses/${E2E_COURSE}/phases/1`);
+    await expect(page.locator('[data-test="task-card-4"]')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await logout(page);
+    await login(page, adminEmail);
+    await page.goto('/admin/curriculum/ai-driven-dev');
+    page.once('dialog', (dialog) => dialog.accept());
+    await page
+      .locator('[data-test="task-edit-4"]')
+      .locator('[data-test="task-delete"]')
+      .click();
+    await expect(
+      page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
+    ).toHaveCount(3, { timeout: 10_000 });
+  });
 });

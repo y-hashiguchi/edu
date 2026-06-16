@@ -23,13 +23,20 @@ from app.schemas.admin_curriculum import (
     AdminPhaseEditOut,
     AdminPhaseUpdateRequest,
     AdminTaskEditOut,
+    AdminTaskMoveRequest,
     AdminTaskUpdateRequest,
 )
 from app.services.curriculum_edit import (
+    CannotDeleteLastTaskError,
+    InvalidTaskMoveError,
     PhaseNotFoundError,
+    TaskHasSubmissionsError,
     TaskNotFoundError,
+    add_task,
     count_pending_drafts,
+    delete_task,
     discard_drafts,
+    move_task,
     publish_course,
     put_phase_draft,
     put_task_draft,
@@ -76,6 +83,14 @@ def _phase_to_dto(
         tasks=[_task_to_dto(t) for t in sorted(tasks, key=lambda r: r.task_no)],
         updated_at=p.updated_at,
     )
+
+
+async def _reload_course_cache(db: AsyncSession, course_slug: str) -> None:
+    """Structure change 後に runtime cache を更新する。"""
+    await runtime.reload_course(db, course_slug)
+    from app.services.curriculum_cache_pubsub import notify_cache_reload
+
+    await notify_cache_reload(course_slug)
 
 
 @router.get("/", response_model=AdminCurriculumCourseList)
@@ -215,6 +230,131 @@ async def put_task(
 
 
 @router.post(
+    "/{course_slug}/phases/{phase_no}/tasks",
+    response_model=AdminTaskEditOut,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def post_task(
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    phase_no: int = Path(ge=1),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminTaskEditOut:
+    try:
+        row = await add_task(db, course_slug=course_slug, phase_no=phase_no)
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    except PhaseNotFoundError:
+        raise HTTPException(status_code=404, detail="phase not found")
+    await db.commit()
+    await _reload_course_cache(db, course_slug)
+    await db.refresh(row)
+    logger.info(
+        "curriculum.add_task slug=%s phase=%d task_no=%d by=%s",
+        course_slug,
+        phase_no,
+        row.task_no,
+        _admin.email,
+    )
+    return _task_to_dto(row)
+
+
+@router.delete(
+    "/{course_slug}/phases/{phase_no}/tasks/{task_no}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def remove_task(
+    request: Request,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    phase_no: int = Path(ge=1),
+    task_no: int = Path(ge=1),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await delete_task(
+            db,
+            course_slug=course_slug,
+            phase_no=phase_no,
+            task_no=task_no,
+        )
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    except PhaseNotFoundError:
+        raise HTTPException(status_code=404, detail="phase not found")
+    except TaskNotFoundError:
+        raise HTTPException(status_code=404, detail="task not found")
+    except CannotDeleteLastTaskError:
+        raise HTTPException(
+            status_code=409, detail="cannot delete the last task in phase"
+        )
+    except TaskHasSubmissionsError:
+        raise HTTPException(
+            status_code=409, detail="task has submissions and cannot be deleted"
+        )
+    await db.commit()
+    await _reload_course_cache(db, course_slug)
+    logger.info(
+        "curriculum.delete_task slug=%s phase=%d task_no=%d by=%s",
+        course_slug,
+        phase_no,
+        task_no,
+        _admin.email,
+    )
+    return None
+
+
+@router.post(
+    "/{course_slug}/phases/{phase_no}/tasks/{task_no}/move",
+    response_model=AdminPhaseEditOut,
+)
+@limiter.limit(lambda: settings.admin_curriculum_write_rate_limit)
+async def reorder_task(
+    request: Request,
+    payload: AdminTaskMoveRequest,
+    course_slug: str = Path(..., pattern=_SLUG_PATTERN),
+    phase_no: int = Path(ge=1),
+    task_no: int = Path(ge=1),
+    _admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminPhaseEditOut:
+    try:
+        row = await move_task(
+            db,
+            course_slug=course_slug,
+            phase_no=phase_no,
+            task_no=task_no,
+            to_task_no=payload.to_task_no,
+        )
+    except CourseNotFoundError:
+        raise HTTPException(status_code=404, detail="course not found")
+    except PhaseNotFoundError:
+        raise HTTPException(status_code=404, detail="phase not found")
+    except TaskNotFoundError:
+        raise HTTPException(status_code=404, detail="task not found")
+    except InvalidTaskMoveError:
+        raise HTTPException(status_code=422, detail="invalid task move")
+    await db.commit()
+    await _reload_course_cache(db, course_slug)
+    await db.refresh(row)
+    tasks = (await db.execute(
+        select(CurriculumTask).where(CurriculumTask.phase_id == row.id)
+    )).scalars().all()
+    logger.info(
+        "curriculum.move_task slug=%s phase=%d task_no=%d to=%d by=%s",
+        course_slug,
+        phase_no,
+        task_no,
+        payload.to_task_no,
+        _admin.email,
+    )
+    return _phase_to_dto(row, list(tasks))
+
+
+@router.post(
     "/{course_slug}/publish",
     response_model=AdminCurriculumPublishOut,
 )
@@ -230,14 +370,7 @@ async def publish(
     except CourseNotFoundError:
         raise HTTPException(status_code=404, detail="course not found")
     await db.commit()
-    # Sprint 9 review HIGH (code-reviewer): only refresh the cache once the
-    # transaction is durably persisted. A reload before commit could leave
-    # the cache holding published values while the DB rolled back on a
-    # constraint or network failure during commit.
-    await runtime.reload_course(db, course_slug)
-    from app.services.curriculum_cache_pubsub import notify_cache_reload
-
-    await notify_cache_reload(course_slug)
+    await _reload_course_cache(db, course_slug)
     # Sprint 9 review HIGH (security-reviewer): publish is irreversible and
     # affects every learner in the course. Log who triggered it.
     logger.info(
