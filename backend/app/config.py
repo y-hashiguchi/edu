@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # in production.
     claude_stub_mode: bool = False
 
+    # Sprint 25 — deterministic embedding stub for CI / pytest.
+    # When true, `EmbeddingClient` skips fastembed / HuggingFace downloads.
+    # NEVER enable in production.
+    embedding_stub_mode: bool = False
+
     @model_validator(mode="after")
     def require_anthropic_key_unless_stub(self) -> "Settings":
         if not self.claude_stub_mode and not self.anthropic_api_key:

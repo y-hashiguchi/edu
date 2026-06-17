@@ -30,6 +30,7 @@
 - **Sprint 22**: ai-era-se 全シラバス catalog 説明同期 → [`HANDOVER_2026-06-11_sprint22_done.md`](HANDOVER_2026-06-11_sprint22_done.md)
 - **Sprint 23**: add_task / move_task 後 embeddings 整合 → [`HANDOVER_2026-06-11_sprint23_done.md`](HANDOVER_2026-06-11_sprint23_done.md)
 - **Sprint 24**: delete_task / delete_phase 後 embeddings 整理 → [`HANDOVER_2026-06-11_sprint24_done.md`](HANDOVER_2026-06-11_sprint24_done.md)
+- **Sprint 25**: CI embedding stub（HF 429 回避） → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 
@@ -81,4 +82,5 @@ cd backend && uv run alembic upgrade head
 - ~~ai-era-se コンテンツ拡充~~ → [`HANDOVER_2026-06-11_sprint22_done.md`](HANDOVER_2026-06-11_sprint22_done.md)
 - ~~add_task / move_task embeddings 整合~~ → [`HANDOVER_2026-06-11_sprint23_done.md`](HANDOVER_2026-06-11_sprint23_done.md)
 - ~~delete_task / delete_phase embeddings 整理~~ → [`HANDOVER_2026-06-11_sprint24_done.md`](HANDOVER_2026-06-11_sprint24_done.md)
+- ~~CI HuggingFace 429 対策~~ → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
 - TLS / 外部 LB / マネージド DB への production-deploy 拡張

@@ -22,6 +22,8 @@ os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault("GRADING_ASYNC_ENABLED", "false")
 # Sprint 9 LOW-2: disable cross-worker pub/sub in tests (no Redis listener).
 os.environ.setdefault("CURRICULUM_CACHE_PUBSUB_ENABLED", "false")
+# Sprint 25: avoid HuggingFace model downloads in pytest / CI.
+os.environ.setdefault("EMBEDDING_STUB_MODE", "true")
 
 
 @pytest.fixture

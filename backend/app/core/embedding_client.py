@@ -12,6 +12,9 @@ from threading import Lock
 
 from fastembed import TextEmbedding
 
+from app.config import settings
+from app.core.embedding_stub import stub_embed
+
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBEDDING_DIM = 384
 
@@ -34,6 +37,8 @@ class EmbeddingClient:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
+        if settings.embedding_stub_mode:
+            return stub_embed(texts)
 
         def _do() -> list[list[float]]:
             model = _get_model()
