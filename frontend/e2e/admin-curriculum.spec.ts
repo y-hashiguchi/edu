@@ -1,75 +1,32 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 import {
   E2E_COURSE,
+  deleteAiDrivenDevPhase1Task4,
+  deletePhase1Task4IfPresent,
+  deletePhase5IfPresent,
   login,
   logout,
+  openAiDrivenDevCurriculumEdit,
   promoteAdminViaScript,
   registerLearner,
+  resetAiDrivenDevCurriculumBaseline,
 } from './helpers';
 
-async function openCurriculumEdit(page: Page): Promise<void> {
-  await page.goto('/admin/curriculum/ai-driven-dev', {
-    waitUntil: 'domcontentloaded',
-  });
-  await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
-    timeout: 15_000,
-  });
-}
-
-/** Prior failed runs may leave Phase 1 task 4 behind; remove before asserting counts. */
-async function deletePhase1Task4IfPresent(page: Page): Promise<void> {
-  await openCurriculumEdit(page);
-  const task4 = page.locator('[data-test="task-edit-4"]');
-  if ((await task4.count()) === 0) return;
-  await deleteTask4(page);
-}
-
-async function deleteTask4(page: Page): Promise<void> {
-  const task4 = page.locator('[data-test="task-edit-4"]');
-  if ((await task4.count()) === 0) return;
-  await task4.scrollIntoViewIfNeeded();
-  const deleteBtn = task4.locator('[data-test="task-delete"]');
-  page.once('dialog', (dialog) => void dialog.accept());
-  const deleteDone = page.waitForResponse(
-    (resp) =>
-      resp.request().method() === 'DELETE'
-      && resp.url().includes('/phases/1/tasks/4')
-      && resp.status() === 204,
-    { timeout: 15_000 },
-  );
-  await deleteBtn.click();
-  await deleteDone;
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(
-    page.locator('[data-test="phase-edit-1"]').locator('[data-test^="task-edit-"]'),
-  ).toHaveCount(3, { timeout: 15_000 });
-}
-
-async function deletePhase5IfPresent(page: Page): Promise<void> {
-  await openCurriculumEdit(page);
-  const phase5 = page.locator('[data-test="phase-edit-5"]');
-  if ((await phase5.count()) === 0) return;
-  page.once('dialog', (dialog) => void dialog.accept());
-  const deleteDone = page.waitForResponse(
-    (resp) =>
-      resp.request().method() === 'DELETE'
-      && resp.url().includes('/phases/5')
-      && resp.status() === 204,
-    { timeout: 15_000 },
-  );
-  await page.locator('[data-test="phase-delete-5"]').click();
-  await deleteDone;
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
-    timeout: 15_000,
-  });
-}
-
 test.describe('admin curriculum editing', () => {
+  test.afterAll(async ({ browser }) => {
+    const page = await browser.newPage();
+    const adminEmail = `cleanup-${Date.now()}@example.com`;
+    try {
+      await registerLearner(page, adminEmail, 'Cleanup Admin');
+      promoteAdminViaScript(adminEmail);
+      await login(page, adminEmail);
+      await resetAiDrivenDevCurriculumBaseline(page);
+    } finally {
+      await page.close();
+    }
+  });
+
   test('admin edits title and publish reflects on learner view', async ({
     page,
   }) => {
@@ -80,7 +37,7 @@ test.describe('admin curriculum editing', () => {
     promoteAdminViaScript(adminEmail);
 
     await login(page, adminEmail);
-    await openCurriculumEdit(page);
+    await openAiDrivenDevCurriculumEdit(page);
 
     const phase1 = page.locator('[data-test="phase-edit-1"]');
     const titleInput = phase1.locator('input').first();
@@ -144,8 +101,8 @@ test.describe('admin curriculum editing', () => {
 
     await logout(page);
     await login(page, adminEmail);
-    await openCurriculumEdit(page);
-    await deleteTask4(page);
+    await openAiDrivenDevCurriculumEdit(page);
+    await deleteAiDrivenDevPhase1Task4(page);
   });
 
   test('admin creates and deletes a course from list', async ({ page }) => {
@@ -205,7 +162,7 @@ test.describe('admin curriculum editing', () => {
 
     await deletePhase5IfPresent(page);
 
-    await openCurriculumEdit(page);
+    await openAiDrivenDevCurriculumEdit(page);
     await expect(page.locator('[data-test^="phase-edit-"]')).toHaveCount(4);
 
     const addDone = page.waitForResponse(

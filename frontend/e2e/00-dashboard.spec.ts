@@ -68,6 +68,7 @@ test('dashboard reflects three graded submissions', async ({ page }) => {
   await page.goto(`/courses/${COURSE}`);
 
   // Progress summary: 3 / 12 tasks (ai-driven-dev = 4 phases × 3 tasks).
+  // Run before admin-curriculum E2E (00- prefix) so shared DB is not mutated first.
   const progress = page.locator('section.progress-summary');
   await expect(progress).toBeVisible();
   await expect(progress.locator('.num')).toContainText('3 / 12');

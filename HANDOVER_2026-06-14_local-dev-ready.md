@@ -90,4 +90,5 @@ cd backend && uv run alembic upgrade head
 - ~~CI HuggingFace 429 対策~~ → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
 - ~~TLS / 外部 LB / マネージド DB への production-deploy 拡張~~ → [`HANDOVER_2026-06-17_sprint26_done.md`](HANDOVER_2026-06-17_sprint26_done.md)
 - ~~upload のオブジェクトストレージ化~~ → [`HANDOVER_2026-06-17_sprint27_done.md`](HANDOVER_2026-06-17_sprint27_done.md)
-- 外部 LB（ALB）向け Terraform / runbook
+- ~~外部 LB（ALB）向け Terraform / runbook~~ → [`HANDOVER_2026-06-17_sprint28_done.md`](HANDOVER_2026-06-17_sprint28_done.md)
+- 既存 local ファイルの S3 移行スクリプト

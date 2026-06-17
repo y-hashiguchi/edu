@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # Sprint 7 follow-up — deterministic Claude SDK stub for E2E.
     # When true, `get_claude_client()` / `get_nudge_claude_client()` return
     # a client backed by an in-process stub instead of the real Anthropic
-    # SDK. Used by `frontend/e2e/dashboard.spec.ts` so the golden-path
+    # SDK. Used by `frontend/e2e/00-dashboard.spec.ts` so the golden-path
     # journey is reproducible without spending API tokens. NEVER enable
     # in production.
     claude_stub_mode: bool = False
