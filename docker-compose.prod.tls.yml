@@ -1,0 +1,37 @@
+# TLS overlay — Caddy terminates HTTPS and proxies to frontend + backend.
+#
+#   cp .env.example .env
+#   # set APP_DOMAIN, API_DOMAIN, ACME_EMAIL, VITE_API_BASE_URL=https://api.example.com
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml \
+#     --profile bundled-db up -d --build
+#
+# Ports 80/443 are on caddy; backend/frontend are internal only.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    ports: []
+
+  backend:
+    ports: []
+
+volumes:
+  caddy_data:
+  caddy_config:

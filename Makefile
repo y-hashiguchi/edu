@@ -1,7 +1,20 @@
-.PHONY: dev prod test test-backend test-frontend test-e2e verify lint clean migrate revision db-shell seed-embeddings worker
+.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint clean migrate revision db-shell seed-embeddings worker
+
+COMPOSE_PROD = docker compose -f docker-compose.prod.yml
+COMPOSE_PROD_BUNDLED = $(COMPOSE_PROD) --profile bundled-db
+COMPOSE_PROD_TLS = $(COMPOSE_PROD) -f docker-compose.prod.tls.yml --profile bundled-db
 
 prod:
-	docker compose -f docker-compose.prod.yml up -d --build
+	$(COMPOSE_PROD_BUNDLED) up -d --build
+
+prod-tls:
+	$(COMPOSE_PROD_TLS) up -d --build
+
+prod-managed:
+	$(COMPOSE_PROD) up -d --build
+
+prod-tls-managed:
+	$(COMPOSE_PROD) -f docker-compose.prod.tls.yml up -d --build
 
 worker:
 	docker compose up -d redis postgres

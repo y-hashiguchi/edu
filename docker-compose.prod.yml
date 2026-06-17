@@ -1,12 +1,14 @@
 # Production stack (standalone — does not merge docker-compose.yml dev bind mounts).
 #
 #   cp .env.example .env   # set production secrets first
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml --profile bundled-db up -d --build
 #
-# See docs/infra/production-deploy.md
+# Managed Postgres/Redis: omit --profile bundled-db and point DATABASE_URL /
+# REDIS_URL at external hosts (see docs/infra/production-deploy.md).
 
 services:
   postgres:
+    profiles: ["bundled-db"]
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -22,6 +24,7 @@ services:
       retries: 10
 
   redis:
+    profiles: ["bundled-db"]
     image: redis:7-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -35,8 +38,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
+        required: false
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -54,8 +59,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
+        required: false
     volumes:
       - submission_uploads:/app/uploads
     command: ["sh", "-c", "uv run arq app.worker.settings.WorkerSettings"]

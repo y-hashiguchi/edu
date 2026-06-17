@@ -5,14 +5,14 @@
 | 項目 | 値 |
 |------|-----|
 | branch | `main`（`origin/main` と同期済み） |
-| 最新 HEAD | `e11235a` |
-| GitHub Actions | **success**（backend / frontend / e2e） — [#27629342997](https://github.com/y-hashiguchi/edu/actions/runs/27629342997) |
+| 最新 HEAD | `6462984` |
+| GitHub Actions | **success** — [#27670174399](https://github.com/y-hashiguchi/edu/actions/runs/27670174399) |
 
 ## テストベースライン
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | 497 passed |
+| backend pytest | 498 passed, 1 skipped |
 | frontend vitest | 107 passed |
 | Playwright E2E | 11 passed |
 
@@ -31,6 +31,7 @@
 - **Sprint 23**: add_task / move_task 後 embeddings 整合 → [`HANDOVER_2026-06-11_sprint23_done.md`](HANDOVER_2026-06-11_sprint23_done.md)
 - **Sprint 24**: delete_task / delete_phase 後 embeddings 整理 → [`HANDOVER_2026-06-11_sprint24_done.md`](HANDOVER_2026-06-11_sprint24_done.md)
 - **Sprint 25**: CI embedding stub（HF 429 回避） → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
+- **Sprint 26**: production-deploy 拡張（TLS / マネージド DB / スケール） → [`HANDOVER_2026-06-17_sprint26_done.md`](HANDOVER_2026-06-17_sprint26_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 
@@ -52,11 +53,13 @@ cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 \
 
 ## 本番デプロイ
 
-[`docs/infra/production-deploy.md`](docs/infra/production-deploy.md) を参照。
+[`docs/infra/production-deploy.md`](docs/infra/production-deploy.md) を参照（Sprint 26: TLS / マネージド DB / スケール）。
 
 ```bash
 cp .env.example .env   # 本番シークレットを設定
-make prod              # docker compose prod overlay
+make prod              # bundled Postgres/Redis
+make prod-tls          # + Caddy HTTPS（APP_DOMAIN / API_DOMAIN / ACME_EMAIL）
+make prod-managed      # 外部 DATABASE_URL / REDIS_URL
 docker compose exec backend uv run python scripts/seed_embeddings.py  # 初回のみ（新規 course は API 作成時に自動 seed）
 ```
 
@@ -83,4 +86,5 @@ cd backend && uv run alembic upgrade head
 - ~~add_task / move_task embeddings 整合~~ → [`HANDOVER_2026-06-11_sprint23_done.md`](HANDOVER_2026-06-11_sprint23_done.md)
 - ~~delete_task / delete_phase embeddings 整理~~ → [`HANDOVER_2026-06-11_sprint24_done.md`](HANDOVER_2026-06-11_sprint24_done.md)
 - ~~CI HuggingFace 429 対策~~ → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
-- TLS / 外部 LB / マネージド DB への production-deploy 拡張
+- ~~TLS / 外部 LB / マネージド DB への production-deploy 拡張~~ → [`HANDOVER_2026-06-17_sprint26_done.md`](HANDOVER_2026-06-17_sprint26_done.md)
+- upload のオブジェクトストレージ化（multi-host スケール時）

@@ -1,0 +1,16 @@
+# TLS termination for production (Sprint 26).
+#
+# Requires APP_DOMAIN, API_DOMAIN, ACME_EMAIL in .env.
+# APP_DOMAIN serves the SPA (frontend). API_DOMAIN proxies to FastAPI.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	reverse_proxy frontend:80
+}
+
+{$API_DOMAIN} {
+	reverse_proxy backend:8000
+}

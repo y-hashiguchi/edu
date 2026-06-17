@@ -17,7 +17,9 @@ cp .env.example .env
 
 ```bash
 make dev                # postgres + backend + frontend を起動 (alembic upgrade head を自動実行)
-make prod               # 本番 Compose overlay（nginx 静的 frontend、--reload なし）
+make prod               # 本番 Compose（bundled Postgres/Redis）
+make prod-tls           # 本番 + Caddy TLS（APP_DOMAIN / API_DOMAIN / ACME_EMAIL 要）
+make prod-managed       # マネージド DB/Redis（外部 DATABASE_URL / REDIS_URL）
 make seed-embeddings    # Sprint 2 用 — カリキュラム埋め込みを 1 回だけ DB に投入 (28 行)
 ```
 
