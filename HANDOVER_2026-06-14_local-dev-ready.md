@@ -33,6 +33,7 @@
 - **Sprint 25**: CI embedding stub（HF 429 回避） → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
 - **Sprint 26**: production-deploy 拡張（TLS / マネージド DB / スケール） → [`HANDOVER_2026-06-17_sprint26_done.md`](HANDOVER_2026-06-17_sprint26_done.md)
 - **Sprint 27**: S3 upload storage → [`HANDOVER_2026-06-17_sprint27_done.md`](HANDOVER_2026-06-17_sprint27_done.md)
+- **Sprint 28**: ALB runbook + Terraform → [`HANDOVER_2026-06-17_sprint28_done.md`](HANDOVER_2026-06-17_sprint28_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 

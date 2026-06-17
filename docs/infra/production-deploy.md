@@ -152,7 +152,7 @@ docker compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml \
 
 - `CURRICULUM_CACHE_PUBSUB_ENABLED=true`
 - 共有: Postgres, Redis、アップロード（S3 または `submission_uploads` volume）
-- 外部 LB（ALB 等）を使う場合は TLS overlay の代わりに LB で終端し、ターゲットグループに `:8000` を登録
+- 外部 LB（ALB 等）を使う場合は TLS overlay の代わりに LB で終端し、ターゲットグループに `:8000` / `:80` を登録 → [alb-deploy.md](./alb-deploy.md)
 
 ---
 
@@ -224,6 +224,7 @@ TLS 利用時は `-f docker-compose.prod.tls.yml` も付与。schema 変更は b
 
 ## 8. 関連
 
+- ALB + マネージド AWS: [alb-deploy.md](./alb-deploy.md)
 - Compose 定義: [`docker-compose.prod.yml`](../../docker-compose.prod.yml), [`docker-compose.prod.tls.yml`](../../docker-compose.prod.tls.yml)
 - Caddy 設定: [`infra/caddy/Caddyfile`](../../infra/caddy/Caddyfile)
 - ローカル開発: [README.md](../../README.md)
