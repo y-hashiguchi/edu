@@ -21,9 +21,7 @@ from app.models.user import User
 
 
 async def count_users(db: AsyncSession) -> int:
-    return (
-        await db.execute(select(func.count()).select_from(User))
-    ).scalar_one()
+    return (await db.execute(select(func.count()).select_from(User))).scalar_one()
 
 
 async def resolve_primary_courses(
@@ -44,15 +42,17 @@ async def resolve_primary_courses(
     """
     if not user_ids:
         return {}
-    rows = (await db.execute(
-        select(Enrollment.user_id, Enrollment.course_id, Course.sort_order)
-        .join(Course, Enrollment.course_id == Course.id)
-        .where(
-            Enrollment.user_id.in_(user_ids),
-            Enrollment.status == "active",
+    rows = (
+        await db.execute(
+            select(Enrollment.user_id, Enrollment.course_id, Course.sort_order)
+            .join(Course, Enrollment.course_id == Course.id)
+            .where(
+                Enrollment.user_id.in_(user_ids),
+                Enrollment.status == "active",
+            )
+            .order_by(Enrollment.user_id, Course.sort_order, Course.id)
         )
-        .order_by(Enrollment.user_id, Course.sort_order, Course.id)
-    )).all()
+    ).all()
     primary: dict[uuid.UUID, uuid.UUID] = {}
     for uid, cid, _so in rows:
         primary.setdefault(uid, cid)
@@ -79,13 +79,14 @@ async def list_users_with_progress(
     the weakness bulk query).
     """
     users = (
-        await db.execute(
-            select(User)
-            .order_by(User.created_at.desc())
-            .limit(limit)
-            .offset(offset)
+        (
+            await db.execute(
+                select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not users:
         return []
 
@@ -96,13 +97,17 @@ async def list_users_with_progress(
     course_ids = list({cid for cid in primary.values()})
     if primary and course_ids:
         progress_rows = (
-            await db.execute(
-                select(Progress).where(
-                    Progress.user_id.in_(list(primary.keys())),
-                    Progress.course_id.in_(course_ids),
+            (
+                await db.execute(
+                    select(Progress).where(
+                        Progress.user_id.in_(list(primary.keys())),
+                        Progress.course_id.in_(course_ids),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         # Keep only rows that match each user's own primary course —
         # without this filter a user with primary=A would also collect
         # another user's primary=B progress.
@@ -115,9 +120,7 @@ async def list_users_with_progress(
 
 async def get_user_detail(
     db: AsyncSession, user_id: uuid.UUID
-) -> tuple[
-    User, list[Progress], dict[int, int | None], list[tuple[Enrollment, Course]]
-] | None:
+) -> tuple[User, list[Progress], dict[int, int | None], list[tuple[Enrollment, Course]]] | None:
     """Drill-down for one learner. Returns None if the user doesn't
     exist (caller maps to 404). `latest_scores` is keyed by phase number
     and represents the cached `submissions.score` — i.e. the latest
@@ -129,25 +132,23 @@ async def get_user_detail(
     without a second round-trip. Ordered by `Course.sort_order` so the
     admin UI's course selector is stable."""
 
-    user = (
-        await db.execute(select(User).where(User.id == user_id))
-    ).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None:
         return None
 
     progress = (
-        await db.execute(
-            select(Progress)
-            .where(Progress.user_id == user_id)
-            .order_by(Progress.phase)
+        (
+            await db.execute(
+                select(Progress).where(Progress.user_id == user_id).order_by(Progress.phase)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     submissions = (
-        await db.execute(
-            select(Submission).where(Submission.user_id == user_id)
-        )
-    ).scalars().all()
+        (await db.execute(select(Submission).where(Submission.user_id == user_id))).scalars().all()
+    )
 
     latest_scores: dict[int, int | None] = {phase: None for phase in range(1, 5)}
     for s in submissions:
@@ -165,9 +166,7 @@ async def get_user_detail(
             .order_by(Course.sort_order, Course.id)
         )
     ).all()
-    enrollments: list[tuple[Enrollment, Course]] = [
-        (e, c) for e, c in enrollment_rows
-    ]
+    enrollments: list[tuple[Enrollment, Course]] = [(e, c) for e, c in enrollment_rows]
 
     return user, list(progress), latest_scores, enrollments
 
@@ -199,10 +198,7 @@ async def list_submissions(
     Returns paired ORM instances rather than a custom shape so the
     router can format the response with whatever DTO it likes without
     re-querying the user."""
-    stmt = (
-        select(Submission, User)
-        .join(User, Submission.user_id == User.id)
-    )
+    stmt = select(Submission, User).join(User, Submission.user_id == User.id)
     if user_id is not None:
         stmt = stmt.where(Submission.user_id == user_id)
     if phase is not None:
@@ -214,14 +210,17 @@ async def list_submissions(
 
 async def get_submission_detail(
     db: AsyncSession, submission_id: uuid.UUID
-) -> tuple[
-    Submission,
-    User,
-    "Course",
-    list[SubmissionFile],
-    list[GradingAttempt],
-    list[tuple[InstructorComment, User]],
-] | None:
+) -> (
+    tuple[
+        Submission,
+        User,
+        "Course",
+        list[SubmissionFile],
+        list[GradingAttempt],
+        list[tuple[InstructorComment, User]],
+    ]
+    | None
+):
     """Pull every piece the admin detail view needs in five queries.
 
     Returns None when the submission row doesn't exist (router maps to
@@ -246,20 +245,28 @@ async def get_submission_detail(
     submission, learner, course = pair
 
     files = (
-        await db.execute(
-            select(SubmissionFile)
-            .where(SubmissionFile.submission_id == submission_id)
-            .order_by(SubmissionFile.created_at)
+        (
+            await db.execute(
+                select(SubmissionFile)
+                .where(SubmissionFile.submission_id == submission_id)
+                .order_by(SubmissionFile.created_at)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     history = (
-        await db.execute(
-            select(GradingAttempt)
-            .where(GradingAttempt.submission_id == submission_id)
-            .order_by(GradingAttempt.created_at.desc())
+        (
+            await db.execute(
+                select(GradingAttempt)
+                .where(GradingAttempt.submission_id == submission_id)
+                .order_by(GradingAttempt.created_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     comment_rows = (
         await db.execute(

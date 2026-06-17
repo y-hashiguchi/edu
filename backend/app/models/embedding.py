@@ -18,7 +18,9 @@ class Embedding(Base):
     __table_args__ = (
         Index(
             "ix_embeddings_course_user_phase",
-            "course_id", "user_id", "phase",
+            "course_id",
+            "user_id",
+            "phase",
         ),
         Index(
             "ix_embeddings_vector_hnsw",

@@ -25,9 +25,7 @@ from app.models.user import User
 
 async def promote(email: str) -> int:
     async with SessionLocal() as session:
-        user = (
-            await session.execute(select(User).where(User.email == email))
-        ).scalar_one_or_none()
+        user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
         masked = mask_email(email)
         if user is None:
             print(f"user not found: {masked}", file=sys.stderr)
@@ -44,9 +42,7 @@ async def promote(email: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     if len(args) != 1:
-        print(
-            "usage: python -m scripts.promote_admin <email>", file=sys.stderr
-        )
+        print("usage: python -m scripts.promote_admin <email>", file=sys.stderr)
         return 2
     return asyncio.run(promote(args[0]))
 

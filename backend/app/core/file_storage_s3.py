@@ -10,10 +10,10 @@ from app.config import settings
 from app.core._file_storage_errors import FileStorageError, FileTooLargeError, MimeMismatchError
 from app.core.file_storage import (
     StoredFile,
+    _mime_matches_extension,
     detect_mime_type,
     sanitize_filename,
     validate_extension,
-    _mime_matches_extension,
 )
 
 
@@ -100,16 +100,12 @@ async def save_upload_s3(
     content: bytes,
 ) -> StoredFile:
     if len(content) > settings.max_file_size_bytes:
-        raise FileTooLargeError(
-            f"file exceeds {settings.max_file_size_bytes} bytes"
-        )
+        raise FileTooLargeError(f"file exceeds {settings.max_file_size_bytes} bytes")
     safe_name = sanitize_filename(filename)
     ext = validate_extension(safe_name)
     mime = detect_mime_type(content)
     if not _mime_matches_extension(mime, ext):
-        raise MimeMismatchError(
-            f"content type '{mime}' does not match extension '.{ext}'"
-        )
+        raise MimeMismatchError(f"content type '{mime}' does not match extension '.{ext}'")
 
     bucket = _require_bucket()
     prefix = object_prefix(user_id, submission_id) + "/"
@@ -139,9 +135,7 @@ def read_file_bytes_s3(file_path: str) -> bytes:
     return resp["Body"].read()
 
 
-def delete_submission_files_s3(
-    user_id: uuid.UUID | str, submission_id: uuid.UUID | str
-) -> None:
+def delete_submission_files_s3(user_id: uuid.UUID | str, submission_id: uuid.UUID | str) -> None:
     bucket = _require_bucket()
     prefix = object_prefix(user_id, submission_id) + "/"
     client = _s3_client()

@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 # detail. Surface a generic message to the client and keep the full trace
 # in server logs only.
 _USER_FACING_SDK_ERROR = (
-    "採点サービスでエラーが発生しました。"
-    "しばらく時間をおいて再試行してください。"
+    "採点サービスでエラーが発生しました。しばらく時間をおいて再試行してください。"
 )
 
 

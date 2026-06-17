@@ -41,15 +41,11 @@ class ScheduledBroadcast(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     link: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    scheduled_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=ScheduledBroadcastStatus.pending
     )
-    sent_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     skipped_inbox_full: Mapped[int | None] = mapped_column(Integer, nullable=True)
     skipped_admin: Mapped[int | None] = mapped_column(Integer, nullable=True)

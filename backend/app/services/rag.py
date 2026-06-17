@@ -102,12 +102,7 @@ def parse_curriculum_task_coords(source_ref: str) -> tuple[int, int] | None:
     try:
         if len(parts) == 4 and parts[0] == "phase" and parts[2] == "task":
             return int(parts[1]), int(parts[3]) + 1
-        if (
-            len(parts) == 6
-            and parts[0] == "course"
-            and parts[2] == "phase"
-            and parts[4] == "task"
-        ):
+        if len(parts) == 6 and parts[0] == "course" and parts[2] == "phase" and parts[4] == "task":
             return int(parts[3]), int(parts[5]) + 1
     except ValueError:
         return None
@@ -185,7 +180,9 @@ async def search_curriculum_tasks(
         phase, task_no = coords
         out.append(
             CurriculumTaskHit(
-                phase=phase, task_no=task_no, score=1.0 - float(r.distance),
+                phase=phase,
+                task_no=task_no,
+                score=1.0 - float(r.distance),
             )
         )
     return out

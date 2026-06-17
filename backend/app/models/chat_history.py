@@ -14,7 +14,10 @@ class ChatHistory(Base):
     __table_args__ = (
         Index(
             "ix_chat_history_user_course_phase_created",
-            "user_id", "course_id", "phase", "created_at",
+            "user_id",
+            "course_id",
+            "phase",
+            "created_at",
         ),
     )
 

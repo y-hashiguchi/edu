@@ -72,12 +72,8 @@ async def chat(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="upstream LLM error"
         ) from e
 
-    await store.append(
-        current_user.id, ctx.course.id, request.phase, "user", request.message
-    )
-    await store.append(
-        current_user.id, ctx.course.id, request.phase, "assistant", reply
-    )
+    await store.append(current_user.id, ctx.course.id, request.phase, "user", request.message)
+    await store.append(current_user.id, ctx.course.id, request.phase, "assistant", reply)
 
     # Embed this round of conversation for future RAG hits
     now_iso = datetime.now(UTC).isoformat()
@@ -107,12 +103,8 @@ async def chat(
 
     await store.db.commit()
 
-    full_history = await store.get_history(
-        current_user.id, ctx.course.id, request.phase
-    )
-    return ChatResponse(
-        reply=reply, history=[ChatMessage(**m) for m in full_history]
-    )
+    full_history = await store.get_history(current_user.id, ctx.course.id, request.phase)
+    return ChatResponse(reply=reply, history=[ChatMessage(**m) for m in full_history])
 
 
 @router.get("/chat/history/{phase}", response_model=list[ChatMessage])

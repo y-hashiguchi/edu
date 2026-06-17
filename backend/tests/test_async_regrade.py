@@ -14,15 +14,11 @@ from app.main import app
 
 def _fake_claude(reply: str = '{"score": 80, "feedback": "ok"}') -> ClaudeClient:
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply)])
-    )
+    sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply)]))
     return ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
 
-async def _create_graded_submission(
-    auth_client, auth_user, db_session
-) -> dict:
+async def _create_graded_submission(auth_client, auth_user, db_session) -> dict:
     app.dependency_overrides[get_claude_client] = lambda: _fake_claude(
         '{"score": 80, "feedback": "first"}'
     )
@@ -125,9 +121,7 @@ async def test_async_regrade_returns_pending_and_resets_graded_at(
 
 
 @pytest.mark.asyncio
-async def test_async_regrade_honours_cooldown(
-    auth_client, auth_user, db_session, monkeypatch
-):
+async def test_async_regrade_honours_cooldown(auth_client, auth_user, db_session, monkeypatch):
     """Cooldown applies in async mode just like sync mode — the
     pre-flight check runs in the route before enqueue."""
     from app.config import settings

@@ -59,7 +59,5 @@ async def complete(
         status=current.status,
         started_at=current.started_at,
         completed_at=current.completed_at,
-        next_unlocked=(
-            ProgressOut.model_validate(next_unlocked) if next_unlocked else None
-        ),
+        next_unlocked=(ProgressOut.model_validate(next_unlocked) if next_unlocked else None),
     )

@@ -10,12 +10,8 @@ from app.services.progress import initialize_progress_for_course
 
 
 async def _enroll_in_se(db_session, auth_user):
-    se = (await db_session.execute(
-        select(Course).where(Course.slug == "ai-era-se")
-    )).scalar_one()
-    db_session.add(
-        Enrollment(user_id=auth_user.id, course_id=se.id, status="active")
-    )
+    se = (await db_session.execute(select(Course).where(Course.slug == "ai-era-se"))).scalar_one()
+    db_session.add(Enrollment(user_id=auth_user.id, course_id=se.id, status="active"))
     course_data = get_course("ai-era-se")
     await initialize_progress_for_course(
         db_session,
@@ -28,9 +24,7 @@ async def _enroll_in_se(db_session, auth_user):
 
 
 @pytest.mark.asyncio
-async def test_ai_era_se_accepts_task_no_8(
-    client, auth_user, auth_token, db_session
-):
+async def test_ai_era_se_accepts_task_no_8(client, auth_user, auth_token, db_session):
     await _enroll_in_se(db_session, auth_user)
 
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
@@ -42,9 +36,7 @@ async def test_ai_era_se_accepts_task_no_8(
 
 
 @pytest.mark.asyncio
-async def test_ai_era_se_rejects_task_no_9(
-    client, auth_user, auth_token, db_session
-):
+async def test_ai_era_se_rejects_task_no_9(client, auth_user, auth_token, db_session):
     await _enroll_in_se(db_session, auth_user)
 
     client.headers.update({"Authorization": f"Bearer {auth_token}"})

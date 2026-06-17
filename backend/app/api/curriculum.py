@@ -60,9 +60,7 @@ async def list_phases(
     rows = await list_progress(db, current_user.id)
     # Filter progress to current course (service still returns all-course rows
     # for backward compat — narrow here):
-    status_by_phase = {
-        r.phase: r.status for r in rows if r.course_id == ctx.course.id
-    }
+    status_by_phase = {r.phase: r.status for r in rows if r.course_id == ctx.course.id}
 
     is_default_course = ctx.course.slug == DEFAULT_COURSE_SLUG
     duration_map = _LEGACY_DURATION if is_default_course else {}

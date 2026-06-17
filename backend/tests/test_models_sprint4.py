@@ -47,11 +47,14 @@ async def test_user_is_admin_can_be_true(db_session):
 
 async def _make_admin_and_learner(db_session) -> tuple[User, User]:
     admin = User(
-        email="instructor@example.com", name="講師",
-        password_hash=hash_password("p"), is_admin=True,
+        email="instructor@example.com",
+        name="講師",
+        password_hash=hash_password("p"),
+        is_admin=True,
     )
     learner = User(
-        email="learner@example.com", name="受講者",
+        email="learner@example.com",
+        name="受講者",
         password_hash=hash_password("p"),
     )
     db_session.add_all([admin, learner])
@@ -65,8 +68,12 @@ async def test_instructor_comment_round_trips(db_session, default_course_id):
 
     admin, learner = await _make_admin_and_learner(db_session)
     sub = Submission(
-        user_id=learner.id, course_id=default_course_id, phase=1, task_no=1,
-        content="x", submitted_at=datetime.now(UTC),
+        user_id=learner.id,
+        course_id=default_course_id,
+        phase=1,
+        task_no=1,
+        content="x",
+        submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
     await db_session.flush()
@@ -87,9 +94,7 @@ async def test_instructor_comment_round_trips(db_session, default_course_id):
 
 
 @pytest.mark.asyncio
-async def test_instructor_comment_cascades_on_submission_delete(
-    db_session, default_course_id
-):
+async def test_instructor_comment_cascades_on_submission_delete(db_session, default_course_id):
     """Deleting a submission must remove its comments (no orphans)."""
     from sqlalchemy import select
 
@@ -97,21 +102,21 @@ async def test_instructor_comment_cascades_on_submission_delete(
 
     admin, learner = await _make_admin_and_learner(db_session)
     sub = Submission(
-        user_id=learner.id, course_id=default_course_id, phase=1, task_no=1,
-        content="x", submitted_at=datetime.now(UTC),
+        user_id=learner.id,
+        course_id=default_course_id,
+        phase=1,
+        task_no=1,
+        content="x",
+        submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
     await db_session.flush()
-    db_session.add(
-        InstructorComment(submission_id=sub.id, author_user_id=admin.id, body="x")
-    )
+    db_session.add(InstructorComment(submission_id=sub.id, author_user_id=admin.id, body="x"))
     await db_session.commit()
 
     await db_session.delete(sub)
     await db_session.commit()
-    remaining = (
-        await db_session.execute(select(InstructorComment))
-    ).scalars().all()
+    remaining = (await db_session.execute(select(InstructorComment))).scalars().all()
     assert remaining == []
 
 

@@ -12,6 +12,7 @@ from app.config import settings
 from app.core.deps import get_current_admin
 from app.core.limiter import limiter
 from app.db.session import get_db
+from app.models.course import Course
 from app.models.user import User
 from app.schemas.notification import (
     BroadcastNotificationCreate,
@@ -25,7 +26,6 @@ from app.schemas.notification import (
 )
 from app.services import notification as notification_service
 from app.services import scheduled_broadcast as scheduled_broadcast_service
-from app.models.course import Course
 
 router = APIRouter(prefix="/api/admin/notifications", tags=["admin"])
 
@@ -171,9 +171,7 @@ async def schedule_broadcast(
             detail=e.detail,
         ) from e
 
-    course = (
-        await db.execute(select(Course).where(Course.id == row.course_id))
-    ).scalar_one()
+    course = (await db.execute(select(Course).where(Course.id == row.course_id))).scalar_one()
     return _scheduled_out(row, course)
 
 
@@ -194,9 +192,7 @@ async def list_scheduled(
         db=db,
         status=schedule_status,
     )
-    return ScheduledBroadcastListOut(
-        items=[_scheduled_out(row, course) for row, course in rows]
-    )
+    return ScheduledBroadcastListOut(items=[_scheduled_out(row, course) for row, course in rows])
 
 
 @router.delete(
@@ -238,16 +234,6 @@ async def list_sent(
     if not rows:
         return AdminNotificationListOut(items=[])
 
-    # Resolve recipient names for display in the outbox. The outbox is
-    # the admin's own list — typically O(10s) rows — so a single bulk
-    # lookup over distinct recipients is cheaper than a join per row.
-    recipient_ids = {r.recipient_user_id for r in rows}
-    recipients = {
-        u.id: u
-        for u in (
-            await db.execute(select(User).where(User.id.in_(recipient_ids)))
-        ).scalars().all()
-    }
     return AdminNotificationListOut(
         items=[
             NotificationOut(

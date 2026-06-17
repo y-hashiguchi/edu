@@ -59,13 +59,9 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def require_anthropic_key_unless_stub(self) -> "Settings":
         if not self.claude_stub_mode and not self.anthropic_api_key:
-            raise ValueError(
-                "anthropic_api_key is required when claude_stub_mode is false"
-            )
+            raise ValueError("anthropic_api_key is required when claude_stub_mode is false")
         if self.upload_storage_backend == "s3" and not self.s3_upload_bucket.strip():
-            raise ValueError(
-                "s3_upload_bucket is required when upload_storage_backend is s3"
-            )
+            raise ValueError("s3_upload_bucket is required when upload_storage_backend is s3")
         return self
 
     # Rate limiting (Sprint 3)
@@ -127,20 +123,13 @@ class Settings(BaseSettings):
     # Content Security Policy (Sprint 4)
     # API responses are not HTML, but CSP on the API origin is a cheap
     # second line of defense for any future inline rendering bug.
-    csp_policy: str = (
-        "default-src 'none'; "
-        "frame-ancestors 'none'; "
-        "base-uri 'none'"
-    )
+    csp_policy: str = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
 
     # Hard cap on multipart POST body size enforced at the ASGI layer.
     # Defaults to (max_files × max_file_size) + 64 KB headroom for form fields.
     @property
     def max_request_body_bytes(self) -> int:
-        return (
-            self.max_file_size_bytes * self.max_files_per_submission
-            + 64 * 1024
-        )
+        return self.max_file_size_bytes * self.max_files_per_submission + 64 * 1024
 
     @property
     def cors_origin_list(self) -> list[str]:

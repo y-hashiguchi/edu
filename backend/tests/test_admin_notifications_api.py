@@ -8,9 +8,7 @@ from app.core.security import create_access_token, hash_password
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 async def _make_learner(db_session, *, email="learner@e.com"):
@@ -28,7 +26,9 @@ async def _make_learner(db_session, *, email="learner@e.com"):
 
 @pytest.mark.asyncio
 async def test_admin_send_rejects_dangerous_link_scheme(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """HIGH-1: javascript:/data:/vbscript: schemes cannot reach the DB.
 
@@ -48,7 +48,9 @@ async def test_admin_send_rejects_dangerous_link_scheme(
             "/api/admin/notifications",
             json={
                 "recipient_user_id": str(learner.id),
-                "title": "t", "body": "b", "link": bad,
+                "title": "t",
+                "body": "b",
+                "link": bad,
             },
         )
         assert r.status_code == 422, (bad, r.text)
@@ -56,7 +58,9 @@ async def test_admin_send_rejects_dangerous_link_scheme(
 
 @pytest.mark.asyncio
 async def test_admin_send_accepts_safe_schemes(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """The allowlist must still permit the two real shapes: relative
     SPA paths starting with '/', and http(s) URLs."""
@@ -72,7 +76,9 @@ async def test_admin_send_accepts_safe_schemes(
             "/api/admin/notifications",
             json={
                 "recipient_user_id": str(learner.id),
-                "title": "t", "body": "b", "link": ok,
+                "title": "t",
+                "body": "b",
+                "link": ok,
             },
         )
         assert r.status_code == 201, (ok, r.text)
@@ -80,7 +86,10 @@ async def test_admin_send_accepts_safe_schemes(
 
 @pytest.mark.asyncio
 async def test_admin_send_returns_429_when_inbox_at_unread_cap(
-    client, db_session, admin_user, monkeypatch,
+    client,
+    db_session,
+    admin_user,
+    monkeypatch,
 ):
     """HIGH-2: per-recipient unread cap stops runaway inbox growth.
 
@@ -97,7 +106,9 @@ async def test_admin_send_returns_429_when_inbox_at_unread_cap(
             "/api/admin/notifications",
             json={
                 "recipient_user_id": str(learner.id),
-                "title": f"t{i}", "body": "b", "link": None,
+                "title": f"t{i}",
+                "body": "b",
+                "link": None,
             },
         )
         assert r.status_code == 201, r.text
@@ -107,7 +118,9 @@ async def test_admin_send_returns_429_when_inbox_at_unread_cap(
         "/api/admin/notifications",
         json={
             "recipient_user_id": str(learner.id),
-            "title": "overflow", "body": "b", "link": None,
+            "title": "overflow",
+            "body": "b",
+            "link": None,
         },
     )
     assert r.status_code == 429
@@ -117,14 +130,19 @@ async def test_admin_send_returns_429_when_inbox_at_unread_cap(
 
 @pytest.mark.asyncio
 async def test_unread_cap_resets_after_learner_reads(
-    client, db_session, admin_user, monkeypatch,
+    client,
+    db_session,
+    admin_user,
+    monkeypatch,
 ):
     """Once the learner marks an existing notification read, the admin
     can resume sending — the cap is on UNREAD, not lifetime rows."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select
+
     from app.config import settings
     from app.models.notification import Notification
-    from sqlalchemy import select
-    from datetime import UTC, datetime
 
     monkeypatch.setattr(settings, "notification_unread_cap", 2)
     learner = await _make_learner(db_session)
@@ -135,7 +153,9 @@ async def test_unread_cap_resets_after_learner_reads(
             "/api/admin/notifications",
             json={
                 "recipient_user_id": str(learner.id),
-                "title": f"t{i}", "body": "b", "link": None,
+                "title": f"t{i}",
+                "body": "b",
+                "link": None,
             },
         )
 
@@ -143,9 +163,7 @@ async def test_unread_cap_resets_after_learner_reads(
     # /api/me/* path in this admin-focused test.
     note = (
         await db_session.execute(
-            select(Notification).where(
-                Notification.recipient_user_id == learner.id
-            ).limit(1)
+            select(Notification).where(Notification.recipient_user_id == learner.id).limit(1)
         )
     ).scalar_one()
     note.read_at = datetime.now(UTC)
@@ -155,7 +173,9 @@ async def test_unread_cap_resets_after_learner_reads(
         "/api/admin/notifications",
         json={
             "recipient_user_id": str(learner.id),
-            "title": "after-read", "body": "b", "link": None,
+            "title": "after-read",
+            "body": "b",
+            "link": None,
         },
     )
     assert r.status_code == 201, r.text
@@ -198,7 +218,9 @@ async def test_admin_send_404_when_recipient_missing(client, admin_user):
         "/api/admin/notifications",
         json={
             "recipient_user_id": str(uuid_mod.uuid4()),
-            "title": "x", "body": "x", "link": None,
+            "title": "x",
+            "body": "x",
+            "link": None,
         },
     )
     assert r.status_code == 404
@@ -207,7 +229,9 @@ async def test_admin_send_404_when_recipient_missing(client, admin_user):
 
 @pytest.mark.asyncio
 async def test_admin_send_validates_title_and_body_length(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     learner = await _make_learner(db_session)
     _auth(client, admin_user.id)
@@ -217,7 +241,9 @@ async def test_admin_send_validates_title_and_body_length(
         "/api/admin/notifications",
         json={
             "recipient_user_id": str(learner.id),
-            "title": "", "body": "x", "link": None,
+            "title": "",
+            "body": "x",
+            "link": None,
         },
     )
     assert r.status_code == 422
@@ -227,7 +253,9 @@ async def test_admin_send_validates_title_and_body_length(
         "/api/admin/notifications",
         json={
             "recipient_user_id": str(learner.id),
-            "title": "x", "body": "y" * 2001, "link": None,
+            "title": "x",
+            "body": "y" * 2001,
+            "link": None,
         },
     )
     assert r.status_code == 422
@@ -243,7 +271,9 @@ async def test_admin_send_requires_admin(client, db_session):
         "/api/admin/notifications",
         json={
             "recipient_user_id": str(learner.id),
-            "title": "x", "body": "x", "link": None,
+            "title": "x",
+            "body": "x",
+            "link": None,
         },
     )
     assert r.status_code == 403
@@ -251,7 +281,10 @@ async def test_admin_send_requires_admin(client, db_session):
 
 @pytest.mark.asyncio
 async def test_admin_send_rate_limited_at_high_rate(
-    client, db_session, admin_user, monkeypatch,
+    client,
+    db_session,
+    admin_user,
+    monkeypatch,
 ):
     """Send burst past admin_write_rate_limit returns 429.
 
@@ -277,7 +310,9 @@ async def test_admin_send_rate_limited_at_high_rate(
             "/api/admin/notifications",
             json={
                 "recipient_user_id": str(learner.id),
-                "title": f"t{i}", "body": "x", "link": None,
+                "title": f"t{i}",
+                "body": "x",
+                "link": None,
             },
         ).status_code
         for i in range(7)
@@ -287,7 +322,9 @@ async def test_admin_send_rate_limited_at_high_rate(
 
 @pytest.mark.asyncio
 async def test_admin_list_sent_returns_only_own_outbox(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """An admin's outbox is filtered to notifications they themselves
     sent — co-instructors get their own views."""
@@ -297,21 +334,29 @@ async def test_admin_list_sent_returns_only_own_outbox(
     learner = await _make_learner(db_session)
 
     other_admin = User(
-        email="other_inst@e.com", name="O",
-        password_hash=hash_password("p"), is_admin=True,
+        email="other_inst@e.com",
+        name="O",
+        password_hash=hash_password("p"),
+        is_admin=True,
     )
     db_session.add(other_admin)
     await db_session.flush()
-    db_session.add(Notification(
-        recipient_user_id=learner.id,
-        sender_user_id=other_admin.id,
-        title="x", body="x",
-    ))
-    db_session.add(Notification(
-        recipient_user_id=learner.id,
-        sender_user_id=admin_user.id,
-        title="mine", body="x",
-    ))
+    db_session.add(
+        Notification(
+            recipient_user_id=learner.id,
+            sender_user_id=other_admin.id,
+            title="x",
+            body="x",
+        )
+    )
+    db_session.add(
+        Notification(
+            recipient_user_id=learner.id,
+            sender_user_id=admin_user.id,
+            title="mine",
+            body="x",
+        )
+    )
     await db_session.commit()
 
     _auth(client, admin_user.id)
@@ -324,11 +369,15 @@ async def test_admin_list_sent_returns_only_own_outbox(
 
 @pytest.mark.asyncio
 async def test_admin_broadcast_sends_to_course_enrollees(
-    client, db_session, admin_user, auth_user,
+    client,
+    db_session,
+    admin_user,
+    auth_user,
 ):
     """LOW-4: course-scoped broadcast reaches active non-admin learners."""
-    from app.models.notification import Notification
     from sqlalchemy import func, select
+
+    from app.models.notification import Notification
 
     _auth(client, admin_user.id)
     r = client.post(
@@ -347,9 +396,7 @@ async def test_admin_broadcast_sends_to_course_enrollees(
 
     count = (
         await db_session.execute(
-            select(func.count())
-            .select_from(Notification)
-            .where(Notification.title == "全体連絡")
+            select(func.count()).select_from(Notification).where(Notification.title == "全体連絡")
         )
     ).scalar_one()
     assert count == data["sent_count"]
@@ -372,10 +419,14 @@ async def test_admin_broadcast_rejects_unknown_course(client, admin_user):
 
 @pytest.mark.asyncio
 async def test_admin_broadcast_skips_admins(
-    client, db_session, admin_user, auth_user,
+    client,
+    db_session,
+    admin_user,
+    auth_user,
 ):
-    from app.models.notification import Notification
     from sqlalchemy import select
+
+    from app.models.notification import Notification
 
     _auth(client, admin_user.id)
     r = client.post(
@@ -391,9 +442,13 @@ async def test_admin_broadcast_skips_admins(
     assert r.json()["skipped_admin"] >= 1
 
     rows = (
-        await db_session.execute(
-            select(Notification).where(Notification.title == "admins skipped")
+        (
+            await db_session.execute(
+                select(Notification).where(Notification.title == "admins skipped")
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     recipient_ids = {n.recipient_user_id for n in rows}
     assert admin_user.id not in recipient_ids

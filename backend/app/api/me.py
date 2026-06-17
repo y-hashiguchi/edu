@@ -64,24 +64,30 @@ async def get_my_submission(
         )
     ).scalar_one_or_none()
     if submission is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found")
 
     files = (
-        await db.execute(
-            select(SubmissionFile)
-            .where(SubmissionFile.submission_id == submission.id)
-            .order_by(SubmissionFile.created_at)
+        (
+            await db.execute(
+                select(SubmissionFile)
+                .where(SubmissionFile.submission_id == submission.id)
+                .order_by(SubmissionFile.created_at)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     attempts = (
-        await db.execute(
-            select(GradingAttempt)
-            .where(GradingAttempt.submission_id == submission.id)
-            .order_by(GradingAttempt.created_at.desc())
+        (
+            await db.execute(
+                select(GradingAttempt)
+                .where(GradingAttempt.submission_id == submission.id)
+                .order_by(GradingAttempt.created_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return SubmissionOut(
         id=submission.id,
@@ -236,9 +242,7 @@ async def mark_my_notification_read(
         ) from e
     # Round-trip the sender display name to keep the response shape
     # symmetric with the list endpoint.
-    sender = (
-        await db.execute(select(User).where(User.id == note.sender_user_id))
-    ).scalar_one()
+    sender = (await db.execute(select(User).where(User.id == note.sender_user_id))).scalar_one()
     return NotificationOut(
         id=note.id,
         recipient_user_id=note.recipient_user_id,

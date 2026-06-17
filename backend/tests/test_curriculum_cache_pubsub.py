@@ -59,21 +59,21 @@ async def test_notify_cache_reload_swallows_redis_errors(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_apply_invalidation_reloads_single_course(
-    db_session, seed_curriculum,
+    db_session,
+    seed_curriculum,
 ):
-    from app.data.courses import runtime
-    from app.models.curriculum_phase import CurriculumPhase
-    from app.models.course import Course
     from sqlalchemy import select, update
+
+    from app.data.courses import runtime
+    from app.models.course import Course
+    from app.models.curriculum_phase import CurriculumPhase
 
     runtime._CACHE.clear()
     await runtime.reload_from_db(db_session)
     before = runtime.get_cached_course("ai-driven-dev").phases[0].title
 
     dev_id = (
-        await db_session.execute(
-            select(Course.id).where(Course.slug == "ai-driven-dev")
-        )
+        await db_session.execute(select(Course.id).where(Course.slug == "ai-driven-dev"))
     ).scalar_one()
     await db_session.execute(
         update(CurriculumPhase)

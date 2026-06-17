@@ -1,8 +1,12 @@
-.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint clean migrate revision db-shell seed-embeddings worker
+.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint docker-build compose-config terraform-validate clean migrate revision db-shell seed-embeddings worker
 
 COMPOSE_PROD = docker compose -f docker-compose.prod.yml
 COMPOSE_PROD_BUNDLED = $(COMPOSE_PROD) --profile bundled-db
 COMPOSE_PROD_TLS = $(COMPOSE_PROD) -f docker-compose.prod.tls.yml --profile bundled-db
+E2E_DB ?= ai_tutor_e2e
+E2E_API_PORT ?= 8001
+E2E_DATABASE_URL = postgresql+asyncpg://postgres:postgres@localhost:5432/$(E2E_DB)
+E2E_BACKEND_ENV = DATABASE_URL=$(E2E_DATABASE_URL) JWT_SECRET_KEY=test-secret ANTHROPIC_API_KEY=test-key CLAUDE_STUB_MODE=true EMBEDDING_STUB_MODE=true GRADING_ASYNC_ENABLED=false CURRICULUM_CACHE_PUBSUB_ENABLED=false RATE_LIMIT_ENABLED=false
 
 prod:
 	$(COMPOSE_PROD_BUNDLED) up -d --build
@@ -56,16 +60,38 @@ test-frontend:
 	cd frontend && npm run test
 
 test-e2e:
-	docker compose up -d postgres backend
-	# Backend must run with CLAUDE_STUB_MODE=true so 00-dashboard.spec.ts
-	# gets deterministic grading scores; docker-compose.yml sets this
-	# for the backend service. For host-side backend, use:
-	#   CLAUDE_STUB_MODE=true uv run uvicorn app.main:app --port 8001
-	cd frontend && npm run test:e2e
+	docker compose up -d postgres
+	docker compose exec -T postgres dropdb -U postgres --if-exists $(E2E_DB)
+	docker compose exec -T postgres createdb -U postgres $(E2E_DB)
+	cd backend && $(E2E_BACKEND_ENV) uv run alembic upgrade head
+	@set -e; \
+	cd backend; \
+	$(E2E_BACKEND_ENV) uv run uvicorn app.main:app --host 127.0.0.1 --port $(E2E_API_PORT) > ../.e2e-backend.log 2>&1 & \
+	backend_pid=$$!; \
+	trap 'kill $$backend_pid 2>/dev/null || true; wait $$backend_pid 2>/dev/null || true; docker compose exec -T postgres dropdb -U postgres --if-exists $(E2E_DB) >/dev/null' EXIT INT TERM; \
+	for _ in $$(seq 1 60); do \
+		curl -sf http://127.0.0.1:$(E2E_API_PORT)/healthz >/dev/null && break; \
+		sleep 1; \
+	done; \
+	curl -sf http://127.0.0.1:$(E2E_API_PORT)/api/courses/catalog >/dev/null; \
+	cd ../frontend; \
+	DATABASE_URL=$(E2E_DATABASE_URL) VITE_API_BASE_URL=http://127.0.0.1:$(E2E_API_PORT) npm run test:e2e
 
 lint:
-	cd backend && uv run ruff check app tests
+	cd backend && uv run ruff check app scripts tests
 	cd frontend && npm run lint
+
+docker-build:
+	docker build -f backend/Dockerfile backend
+	docker build -f frontend/Dockerfile.prod --build-arg VITE_API_BASE_URL=http://localhost:8000 frontend
+
+compose-config:
+	docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet
+	APP_DOMAIN=learn.example.com API_DOMAIN=api.example.com ACME_EMAIL=ops@example.com docker compose --env-file .env.example -f docker-compose.prod.yml -f docker-compose.prod.tls.yml config --quiet
+
+terraform-validate:
+	docker run --rm -v $(CURDIR):/workspace:ro -w /workspace/infra/terraform/alb hashicorp/terraform:1.9.8 fmt -check
+	docker run --rm -v $(CURDIR):/workspace:ro --entrypoint sh hashicorp/terraform:1.9.8 -c 'cp -R /workspace/infra/terraform/alb /tmp/alb && cd /tmp/alb && terraform init -backend=false && terraform validate'
 
 clean:
 	docker compose down -v

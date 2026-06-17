@@ -14,9 +14,7 @@ from app.core.security import create_access_token, hash_password
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 async def _seed_learner_with_sub(db_session, course_id, *, email="learner@e.com"):
@@ -30,8 +28,12 @@ async def _seed_learner_with_sub(db_session, course_id, *, email="learner@e.com"
     await initialize_progress(db_session, learner.id)
 
     sub = Submission(
-        user_id=learner.id, course_id=course_id, phase=1, task_no=1,
-        content="essay", submitted_at=datetime.now(UTC),
+        user_id=learner.id,
+        course_id=course_id,
+        phase=1,
+        task_no=1,
+        content="essay",
+        submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
     await db_session.commit()
@@ -41,7 +43,10 @@ async def _seed_learner_with_sub(db_session, course_id, *, email="learner@e.com"
 
 @pytest.mark.asyncio
 async def test_admin_posts_comment_and_learner_reads(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     learner, sub = await _seed_learner_with_sub(db_session, default_course_id)
 
@@ -90,7 +95,9 @@ async def test_admin_comment_requires_admin(client, db_session, admin_user, defa
 
 @pytest.mark.asyncio
 async def test_admin_comment_404_for_unknown_submission(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     import uuid as uuid_mod
 
@@ -104,7 +111,9 @@ async def test_admin_comment_404_for_unknown_submission(
 
 @pytest.mark.asyncio
 async def test_admin_list_comments_404_for_unknown_submission(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """MED-3 (sprint-4 security follow-up): GET admin comments must
     return 404 for an unknown UUID — the same shape as the POST path
@@ -121,26 +130,38 @@ async def test_admin_list_comments_404_for_unknown_submission(
 
 @pytest.mark.asyncio
 async def test_admin_comment_rejects_empty_or_oversized_body(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     """Body must be 1..2000 chars: empty string is meaningless feedback,
     huge bodies are a UI/storage abuse path."""
     learner, sub = await _seed_learner_with_sub(db_session, default_course_id)
 
     _auth(client, admin_user.id)
-    assert client.post(
-        f"/api/admin/submissions/{sub.id}/comments",
-        json={"body": ""},
-    ).status_code == 422
-    assert client.post(
-        f"/api/admin/submissions/{sub.id}/comments",
-        json={"body": "x" * 2001},
-    ).status_code == 422
+    assert (
+        client.post(
+            f"/api/admin/submissions/{sub.id}/comments",
+            json={"body": ""},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            f"/api/admin/submissions/{sub.id}/comments",
+            json={"body": "x" * 2001},
+        ).status_code
+        == 422
+    )
 
 
 @pytest.mark.asyncio
 async def test_intruder_cannot_read_others_comments(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     """BOLA boundary: a different learner with a valid token cannot pull
     someone else's comment thread by guessing the submission UUID."""
@@ -170,7 +191,9 @@ async def test_intruder_cannot_read_others_comments(
 
 @pytest.mark.asyncio
 async def test_learner_read_returns_empty_when_no_comments(
-    client, db_session, default_course_id,
+    client,
+    db_session,
+    default_course_id,
 ):
     learner, sub = await _seed_learner_with_sub(db_session, default_course_id)
     _auth(client, learner.id)
@@ -181,7 +204,11 @@ async def test_learner_read_returns_empty_when_no_comments(
 
 @pytest.mark.asyncio
 async def test_admin_comment_rate_limited_at_high_rate(
-    client, db_session, admin_user, monkeypatch, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    monkeypatch,
+    default_course_id,
 ):
     """Burst posts past admin_write_rate_limit return 429.
 
@@ -224,7 +251,9 @@ async def test_unauthenticated_request_returns_401(client, db_session, default_c
 
 
 @pytest.mark.asyncio
-async def test_admin_can_post_reply_to_existing_trunk(client, db_session, admin_user, default_course_id):
+async def test_admin_can_post_reply_to_existing_trunk(
+    client, db_session, admin_user, default_course_id
+):
     """Admin が trunk または既存 reply に対して返信できる。parent_id を渡せる (Sprint 6)."""
     learner, sub = await _seed_learner_with_sub(db_session, default_course_id)
 
@@ -247,7 +276,10 @@ async def test_admin_can_post_reply_to_existing_trunk(client, db_session, admin_
 
 @pytest.mark.asyncio
 async def test_admin_comment_list_returns_parent_id_field(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     learner, sub = await _seed_learner_with_sub(db_session, default_course_id)
 

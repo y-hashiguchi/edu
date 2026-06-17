@@ -9,9 +9,7 @@ from app.core.claude_stub import StubAsyncAnthropic
 
 GRADING_SYSTEM = "あなたは AI 駆動型開発カリキュラムの教育評価者です。…"
 CHAT_SYSTEM = "あなたはAI駆動型開発を教える教育AIチューターです。"
-NUDGE_SYSTEM = (
-    "あなたは学習コーチです。短い1〜2文の次の一歩を返してください。"
-)
+NUDGE_SYSTEM = "あなたは学習コーチです。短い1〜2文の次の一歩を返してください。"
 
 
 def _client() -> ClaudeClient:

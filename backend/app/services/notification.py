@@ -1,12 +1,11 @@
 """Notification domain service (Sprint 4)."""
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from dataclasses import dataclass
 
 from app.config import settings
 from app.models.enrollment import Enrollment
@@ -14,6 +13,8 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.services.enrollment import (
     CourseNotFoundError as EnrollCourseNotFoundError,
+)
+from app.services.enrollment import (
     _get_course_by_slug,
 )
 
@@ -52,9 +53,7 @@ class RecipientInboxFullError(Exception):
     the right human action is "wait for the learner to read"."""
 
     def __init__(self, recipient_id: str, cap: int) -> None:
-        super().__init__(
-            f"recipient {recipient_id} inbox at unread cap ({cap})"
-        )
+        super().__init__(f"recipient {recipient_id} inbox at unread cap ({cap})")
         self.cap = cap
 
 
@@ -81,9 +80,7 @@ async def send(
     link: str | None,
     course_id: uuid.UUID | None = None,
 ) -> Notification:
-    recipient = (
-        await db.execute(select(User).where(User.id == recipient_id))
-    ).scalar_one_or_none()
+    recipient = (await db.execute(select(User).where(User.id == recipient_id))).scalar_one_or_none()
     if recipient is None:
         raise RecipientNotFoundError(str(recipient_id))
 
@@ -93,9 +90,7 @@ async def send(
     # IntegrityError.
     unread = await _unread_count(db, recipient_id)
     if unread >= settings.notification_unread_cap:
-        raise RecipientInboxFullError(
-            str(recipient_id), settings.notification_unread_cap
-        )
+        raise RecipientInboxFullError(str(recipient_id), settings.notification_unread_cap)
 
     note = Notification(
         recipient_user_id=recipient_id,
@@ -131,15 +126,19 @@ async def broadcast_to_course(
         raise CourseNotFoundForBroadcastError(course_slug) from e
 
     rows = (
-        await db.execute(
-            select(User)
-            .join(Enrollment, Enrollment.user_id == User.id)
-            .where(
-                Enrollment.course_id == course.id,
-                Enrollment.status == "active",
+        (
+            await db.execute(
+                select(User)
+                .join(Enrollment, Enrollment.user_id == User.id)
+                .where(
+                    Enrollment.course_id == course.id,
+                    Enrollment.status == "active",
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     sent = 0
     skipped_inbox = 0
@@ -207,9 +206,7 @@ async def list_for_recipient(
     return [(n, u) for n, u in rows], unread
 
 
-async def list_sent_by(
-    db: AsyncSession, sender_id: uuid.UUID
-) -> list[Notification]:
+async def list_sent_by(db: AsyncSession, sender_id: uuid.UUID) -> list[Notification]:
     """The 'outbox' view for an admin — only notifications they
     themselves sent. Co-instructors get their own outboxes; this is the
     structural guarantee that an admin cannot accidentally see another
@@ -221,7 +218,9 @@ async def list_sent_by(
                 .where(Notification.sender_user_id == sender_id)
                 .order_by(Notification.created_at.desc())
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
 
 

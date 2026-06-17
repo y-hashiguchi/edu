@@ -20,9 +20,7 @@ from app.db.base import Base
 
 class Enrollment(Base):
     __tablename__ = "enrollments"
-    __table_args__ = (
-        UniqueConstraint("user_id", "course_id", name="uq_enrollments_user_course"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_enrollments_user_course"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(

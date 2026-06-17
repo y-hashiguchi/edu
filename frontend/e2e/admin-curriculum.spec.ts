@@ -143,8 +143,16 @@ test.describe('admin curriculum editing', () => {
         && resp.status() === 204,
       { timeout: 15_000 },
     );
+    const refreshDone = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'GET'
+        && resp.url().includes('/api/admin/curriculum/')
+        && resp.status() === 200,
+      { timeout: 15_000 },
+    );
     await page.locator(`[data-test="delete-course-${slug}"]`).click();
     await deleteDone;
+    await refreshDone;
     await page.reload({ waitUntil: 'domcontentloaded' });
 
     await expect(page.locator(`[data-test="delete-course-${slug}"]`)).toHaveCount(0, {
@@ -188,8 +196,16 @@ test.describe('admin curriculum editing', () => {
         && resp.status() === 204,
       { timeout: 15_000 },
     );
+    const refreshDone = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'GET'
+        && resp.url().includes('/api/admin/curriculum/ai-driven-dev')
+        && resp.status() === 200,
+      { timeout: 15_000 },
+    );
     await page.locator('[data-test="phase-delete-5"]').click();
     await deleteDone;
+    await refreshDone;
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-test="phase-edit-5"]')).toHaveCount(0, {
       timeout: 15_000,

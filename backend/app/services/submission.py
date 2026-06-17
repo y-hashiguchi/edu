@@ -12,18 +12,9 @@ from app.core.claude_client import ClaudeClient
 from app.data.courses import get_course
 from app.models.grading_attempt import GradingAttempt, GradingStatus
 from app.models.submission import Submission
-from app.schemas.grading import GradingResult, GradingResultStatus
 from app.services import file_storage_service
 from app.services.grading import grade_submission
 from app.services.progress import maybe_mark_submitted
-from app.services.submission_grading import (
-    apply_grading_result,
-    grade_submission_by_id,
-    record_grading_attempt,
-)
-from app.worker.enqueue import enqueue_grading
-
-
 from app.services.submission_errors import (
     PhaseNotFoundError,
     RegradeCooldownError,
@@ -32,7 +23,29 @@ from app.services.submission_errors import (
     SubmissionTaskInvalidError,
     TaskNotFoundError,
 )
+from app.services.submission_grading import (
+    apply_grading_result,
+    grade_submission_by_id,
+    record_grading_attempt,
+)
 from app.services.submission_validate import validate_phase_and_task as _validate_phase_and_task
+from app.worker.enqueue import enqueue_grading
+
+__all__ = [
+    "PhaseNotFoundError",
+    "RegradeCooldownError",
+    "SubmissionNotFoundError",
+    "SubmissionPhaseInvalidError",
+    "SubmissionTaskInvalidError",
+    "TaskNotFoundError",
+    "list_grading_history",
+    "list_user_submissions",
+    "regrade_submission",
+    "regrade_submission_async",
+    "upsert_and_enqueue",
+    "upsert_and_grade",
+    "upsert_submission",
+]
 
 
 async def upsert_submission(
@@ -91,9 +104,7 @@ async def upsert_submission(
         uploads=uploads,
     )
 
-    phase_def = next(
-        p for p in get_course(course_slug).phases if p.phase == phase
-    )
+    phase_def = next(p for p in get_course(course_slug).phases if p.phase == phase)
     await maybe_mark_submitted(
         db, user_id, phase, required_task_count=len(phase_def.tasks), course_id=course_id
     )
@@ -183,9 +194,7 @@ async def _load_owned_submission(
     *,
     lock: bool = False,
 ) -> Submission:
-    stmt = select(Submission).where(
-        Submission.id == submission_id, Submission.user_id == user_id
-    )
+    stmt = select(Submission).where(Submission.id == submission_id, Submission.user_id == user_id)
     if lock:
         # SELECT ... FOR UPDATE serialises concurrent regrade requests on the
         # same submission. Without this, two parallel cooldown checks can both
@@ -198,9 +207,7 @@ async def _load_owned_submission(
     return row
 
 
-async def _check_regrade_cooldown(
-    db: AsyncSession, submission: Submission
-) -> None:
+async def _check_regrade_cooldown(db: AsyncSession, submission: Submission) -> None:
     """Raise RegradeCooldownError if the most recent graded attempt is
     inside the cooldown window. Shared by sync + async regrade paths."""
     cooldown = settings.regrade_cooldown_seconds
@@ -228,9 +235,7 @@ async def regrade_submission(
     await _check_regrade_cooldown(db, row)
 
     task_description = _validate_phase_and_task(course_slug, row.phase, row.task_no)
-    files = await file_storage_service.list_submission_files(
-        db=db, submission_id=row.id
-    )
+    files = await file_storage_service.list_submission_files(db=db, submission_id=row.id)
 
     result = await grade_submission(
         claude=claude,
@@ -280,23 +285,29 @@ async def list_user_submissions(
     db: AsyncSession, user_id: uuid.UUID, phase: int
 ) -> list[Submission]:
     rows = (
-        await db.execute(
-            select(Submission)
-            .where(Submission.user_id == user_id, Submission.phase == phase)
-            .order_by(Submission.task_no)
+        (
+            await db.execute(
+                select(Submission)
+                .where(Submission.user_id == user_id, Submission.phase == phase)
+                .order_by(Submission.task_no)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
-async def list_grading_history(
-    db: AsyncSession, submission_id: uuid.UUID
-) -> list[GradingAttempt]:
+async def list_grading_history(db: AsyncSession, submission_id: uuid.UUID) -> list[GradingAttempt]:
     rows = (
-        await db.execute(
-            select(GradingAttempt)
-            .where(GradingAttempt.submission_id == submission_id)
-            .order_by(GradingAttempt.created_at.desc())
+        (
+            await db.execute(
+                select(GradingAttempt)
+                .where(GradingAttempt.submission_id == submission_id)
+                .order_by(GradingAttempt.created_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)

@@ -5,7 +5,10 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_cohort_summary_requires_admin(
-    client, auth_user, auth_token, seed_curriculum,
+    client,
+    auth_user,
+    auth_token,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary")
@@ -14,7 +17,11 @@ async def test_cohort_summary_requires_admin(
 
 @pytest.mark.asyncio
 async def test_cohort_summary_returns_metrics(
-    client, admin_user, admin_token, auth_user, seed_curriculum,
+    client,
+    admin_user,
+    admin_token,
+    auth_user,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary")
@@ -29,7 +36,10 @@ async def test_cohort_summary_returns_metrics(
 
 @pytest.mark.asyncio
 async def test_cohort_summary_unknown_slug_404(
-    client, admin_user, admin_token, seed_curriculum,
+    client,
+    admin_user,
+    admin_token,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/no-such-course/cohort-summary")
@@ -38,7 +48,10 @@ async def test_cohort_summary_unknown_slug_404(
 
 @pytest.mark.asyncio
 async def test_cohort_summary_invalid_slug_pattern_422(
-    client, admin_user, admin_token, seed_curriculum,
+    client,
+    admin_user,
+    admin_token,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/BAD%20SLUG/cohort-summary")
@@ -47,7 +60,11 @@ async def test_cohort_summary_invalid_slug_pattern_422(
 
 @pytest.mark.asyncio
 async def test_cohort_summary_includes_enrolled_auth_user(
-    client, admin_user, admin_token, auth_user, seed_curriculum,
+    client,
+    admin_user,
+    admin_token,
+    auth_user,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary")
@@ -57,7 +74,10 @@ async def test_cohort_summary_includes_enrolled_auth_user(
 
 @pytest.mark.asyncio
 async def test_cohort_export_requires_admin(
-    client, auth_user, auth_token, seed_curriculum,
+    client,
+    auth_user,
+    auth_token,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary/export")
@@ -66,15 +86,17 @@ async def test_cohort_export_requires_admin(
 
 @pytest.mark.asyncio
 async def test_cohort_export_returns_csv(
-    client, admin_user, admin_token, auth_user, seed_curriculum,
+    client,
+    admin_user,
+    admin_token,
+    auth_user,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/ai-driven-dev/cohort-summary/export")
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/csv")
-    assert 'attachment; filename="cohort-ai-driven-dev.csv"' in res.headers[
-        "content-disposition"
-    ]
+    assert 'attachment; filename="cohort-ai-driven-dev.csv"' in res.headers["content-disposition"]
     body = res.text
     assert "course_slug,course_title,cohort_label,enrolled_count" in body
     assert "ai-driven-dev" in body
@@ -84,7 +106,10 @@ async def test_cohort_export_returns_csv(
 
 @pytest.mark.asyncio
 async def test_cohort_export_unknown_slug_404(
-    client, admin_user, admin_token, seed_curriculum,
+    client,
+    admin_user,
+    admin_token,
+    seed_curriculum,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/courses/no-such-course/cohort-summary/export")
@@ -93,7 +118,12 @@ async def test_cohort_export_unknown_slug_404(
 
 @pytest.mark.asyncio
 async def test_cohort_labels_lists_distinct_values(
-    client, admin_user, admin_token, auth_user, db_session, default_course_id,
+    client,
+    admin_user,
+    admin_token,
+    auth_user,
+    db_session,
+    default_course_id,
     seed_curriculum,
 ):
     from sqlalchemy import update
@@ -118,7 +148,12 @@ async def test_cohort_labels_lists_distinct_values(
 
 @pytest.mark.asyncio
 async def test_cohort_summary_filters_by_label(
-    client, admin_user, admin_token, auth_user, db_session, default_course_id,
+    client,
+    admin_user,
+    admin_token,
+    auth_user,
+    db_session,
+    default_course_id,
     seed_curriculum,
 ):
     from sqlalchemy import update

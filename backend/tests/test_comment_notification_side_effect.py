@@ -16,7 +16,9 @@ from app.services.comment import post_reply
 
 async def _make_user(db_session, email, is_admin=False):
     user = User(
-        email=email, name=email[:2], password_hash=hash_password("p"),
+        email=email,
+        name=email[:2],
+        password_hash=hash_password("p"),
         is_admin=is_admin,
     )
     db_session.add(user)
@@ -48,23 +50,31 @@ async def test_reply_creates_notification_for_single_admin(db_session, default_c
     learner = await _make_user(db_session, "l@e.com")
     sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.commit()
     await db_session.refresh(trunk)
 
     await post_reply(
-        db=db_session, submission_id=sub.id,
-        learner_user_id=learner.id, parent_id=trunk.id,
+        db=db_session,
+        submission_id=sub.id,
+        learner_user_id=learner.id,
+        parent_id=trunk.id,
         body="my reply body",
     )
 
     notes = (
-        await db_session.execute(
-            select(Notification).where(Notification.recipient_user_id == admin.id)
+        (
+            await db_session.execute(
+                select(Notification).where(Notification.recipient_user_id == admin.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(notes) == 1
     n = notes[0]
     assert n.sender_user_id == learner.id
@@ -74,7 +84,9 @@ async def test_reply_creates_notification_for_single_admin(db_session, default_c
 
 
 @pytest.mark.asyncio
-async def test_reply_creates_notifications_for_multiple_thread_admins(db_session, default_course_id):
+async def test_reply_creates_notifications_for_multiple_thread_admins(
+    db_session, default_course_id
+):
     """Two admins participated in the thread → both get notifications."""
     admin_a = await _make_user(db_session, "a@e.com", is_admin=True)
     admin_b = await _make_user(db_session, "b@e.com", is_admin=True)
@@ -82,31 +94,31 @@ async def test_reply_creates_notifications_for_multiple_thread_admins(db_session
     sub = await _make_submission(db_session, learner, default_course_id)
 
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin_a.id, body="A",
+        submission_id=sub.id,
+        author_user_id=admin_a.id,
+        body="A",
     )
     db_session.add(trunk)
     await db_session.flush()
     mid = InstructorComment(
-        submission_id=sub.id, author_user_id=admin_b.id,
-        body="B follows up", parent_id=trunk.id,
+        submission_id=sub.id,
+        author_user_id=admin_b.id,
+        body="B follows up",
+        parent_id=trunk.id,
     )
     db_session.add(mid)
     await db_session.commit()
     await db_session.refresh(mid)
 
     await post_reply(
-        db=db_session, submission_id=sub.id,
-        learner_user_id=learner.id, parent_id=mid.id,
+        db=db_session,
+        submission_id=sub.id,
+        learner_user_id=learner.id,
+        parent_id=mid.id,
         body="thanks both",
     )
 
-    rcpts = set(
-        (
-            await db_session.execute(
-                select(Notification.recipient_user_id)
-            )
-        ).scalars().all()
-    )
+    rcpts = set((await db_session.execute(select(Notification.recipient_user_id))).scalars().all())
     assert admin_a.id in rcpts and admin_b.id in rcpts
 
 
@@ -117,7 +129,9 @@ async def test_reply_notification_body_truncates_long_text(db_session, default_c
     learner = await _make_user(db_session, "l@e.com")
     sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.commit()
@@ -125,8 +139,10 @@ async def test_reply_notification_body_truncates_long_text(db_session, default_c
 
     long_body = "あ" * 500
     await post_reply(
-        db=db_session, submission_id=sub.id,
-        learner_user_id=learner.id, parent_id=trunk.id,
+        db=db_session,
+        submission_id=sub.id,
+        learner_user_id=learner.id,
+        parent_id=trunk.id,
         body=long_body,
     )
 
@@ -156,14 +172,18 @@ async def test_reply_notifies_sibling_branch_admin(db_session, default_course_id
 
     # admin A's trunk
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin_a.id, body="A trunk",
+        submission_id=sub.id,
+        author_user_id=admin_a.id,
+        body="A trunk",
     )
     db_session.add(trunk)
     await db_session.flush()
     # admin B replies directly to trunk (sibling to whatever learner posts)
     sibling = InstructorComment(
-        submission_id=sub.id, author_user_id=admin_b.id,
-        body="B sibling", parent_id=trunk.id,
+        submission_id=sub.id,
+        author_user_id=admin_b.id,
+        body="B sibling",
+        parent_id=trunk.id,
     )
     db_session.add(sibling)
     await db_session.commit()
@@ -171,17 +191,13 @@ async def test_reply_notifies_sibling_branch_admin(db_session, default_course_id
 
     # Learner replies to trunk (NOT to sibling). Old traversal would miss B.
     await post_reply(
-        db=db_session, submission_id=sub.id,
-        learner_user_id=learner.id, parent_id=trunk.id,
+        db=db_session,
+        submission_id=sub.id,
+        learner_user_id=learner.id,
+        parent_id=trunk.id,
         body="learner reply to trunk",
     )
 
-    rcpts = set(
-        (
-            await db_session.execute(
-                select(Notification.recipient_user_id)
-            )
-        ).scalars().all()
-    )
+    rcpts = set((await db_session.execute(select(Notification.recipient_user_id))).scalars().all())
     assert admin_a.id in rcpts, "admin A (trunk author) should be notified"
     assert admin_b.id in rcpts, "admin B (sibling branch) should also be notified"

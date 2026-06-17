@@ -22,13 +22,14 @@ class Submission(Base):
     # (ai-era-se has 8 tasks; per-course bounds enforced in service layer).
     __table_args__ = (
         UniqueConstraint(
-            "user_id", "course_id", "phase", "task_no",
+            "user_id",
+            "course_id",
+            "phase",
+            "task_no",
             name="uq_submissions_user_course_phase_task",
         ),
         CheckConstraint("phase >= 1", name="ck_submissions_phase"),
-        CheckConstraint(
-            "score IS NULL OR score BETWEEN 0 AND 100", name="ck_submissions_score"
-        ),
+        CheckConstraint("score IS NULL OR score BETWEEN 0 AND 100", name="ck_submissions_score"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -48,6 +49,4 @@ class Submission(Base):
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    graded_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

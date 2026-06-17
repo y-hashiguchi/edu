@@ -22,9 +22,7 @@ async def run_curriculum_embeddings_job(
     client = EmbeddingClient()
     async with SessionLocal() as db:
         await runtime.reload_course(db, course_slug)
-        count = await seed_course_embeddings_refs(
-            db, course_slug, source_refs, client=client
-        )
+        count = await seed_course_embeddings_refs(db, course_slug, source_refs, client=client)
         await db.commit()
     logger.info(
         "curriculum embeddings job slug=%s refs=%d embedded=%d",

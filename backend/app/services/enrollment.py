@@ -26,18 +26,14 @@ class CourseNotFoundError(Exception):
 
 class EnrollmentNotFoundError(Exception):
     def __init__(self, user_id: uuid.UUID, course_id: uuid.UUID) -> None:
-        super().__init__(
-            f"active enrollment for user={user_id} course={course_id} not found"
-        )
+        super().__init__(f"active enrollment for user={user_id} course={course_id} not found")
         self.user_id = user_id
         self.course_id = course_id
 
 
 class AlreadyEnrolledError(Exception):
     def __init__(self, user_id: uuid.UUID, course_slug: str) -> None:
-        super().__init__(
-            f"user={user_id} already enrolled in {course_slug!r}"
-        )
+        super().__init__(f"user={user_id} already enrolled in {course_slug!r}")
 
 
 @dataclass(frozen=True)
@@ -122,9 +118,7 @@ async def require_active_enrollment(
     return enr
 
 
-async def list_my_courses(
-    db: AsyncSession, *, user_id: uuid.UUID
-) -> list[MyCourseProjection]:
+async def list_my_courses(db: AsyncSession, *, user_id: uuid.UUID) -> list[MyCourseProjection]:
     result = await db.execute(
         select(Enrollment, Course)
         .join(Course, Enrollment.course_id == Course.id)
@@ -144,9 +138,7 @@ async def list_my_courses(
     return out
 
 
-async def list_cohort_labels(
-    db: AsyncSession, *, course_id: uuid.UUID
-) -> list[str]:
+async def list_cohort_labels(db: AsyncSession, *, course_id: uuid.UUID) -> list[str]:
     """Distinct non-null cohort labels for active enrollments in one course."""
     result = await db.execute(
         select(Enrollment.cohort_label)

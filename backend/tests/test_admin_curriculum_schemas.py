@@ -59,9 +59,7 @@ def test_skill_tag_exactly_50_chars_is_accepted():
 
 def test_normalized_skill_tags_dedup_and_strip():
     """normalized_skill_tags は dedup + strip のみ担当する。"""
-    req = AdminTaskUpdateRequest(
-        skill_tags=["  Git  ", "Git", "GitHub", ""]
-    )
+    req = AdminTaskUpdateRequest(skill_tags=["  Git  ", "Git", "GitHub", ""])
     assert req.normalized_skill_tags() == ["Git", "GitHub"]
 
 

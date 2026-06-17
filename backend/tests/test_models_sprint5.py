@@ -33,9 +33,7 @@ async def test_user_nudge_round_trip(db_session, default_course_id):
     db_session.add(nudge)
     await db_session.commit()
     row = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
+        await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))
     ).scalar_one()
     assert row.body.startswith("今日は")
 
@@ -44,18 +42,26 @@ async def test_user_nudge_round_trip(db_session, default_course_id):
 async def test_user_nudge_pk_is_user_id(db_session, default_course_id):
     """1 user = 1 row, so a second insert with the same user_id must fail."""
     user = await _make_user(db_session)
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="a",
-        generated_at=datetime.now(UTC),
-        input_signature="x" * 16,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="a",
+            generated_at=datetime.now(UTC),
+            input_signature="x" * 16,
+        )
+    )
     await db_session.commit()
 
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="b",
-        generated_at=datetime.now(UTC),
-        input_signature="y" * 16,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="b",
+            generated_at=datetime.now(UTC),
+            input_signature="y" * 16,
+        )
+    )
     with pytest.raises(IntegrityError):
         await db_session.commit()
 
@@ -63,18 +69,20 @@ async def test_user_nudge_pk_is_user_id(db_session, default_course_id):
 @pytest.mark.asyncio
 async def test_user_nudge_cascades_on_user_delete(db_session, default_course_id):
     user = await _make_user(db_session)
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="a",
-        generated_at=datetime.now(UTC),
-        input_signature="x" * 16,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="a",
+            generated_at=datetime.now(UTC),
+            input_signature="x" * 16,
+        )
+    )
     await db_session.commit()
 
     await db_session.delete(user)
     await db_session.commit()
     leftover = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
+        await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))
     ).first()
     assert leftover is None

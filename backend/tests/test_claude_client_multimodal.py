@@ -38,14 +38,10 @@ async def test_complete_multimodal_sends_text_and_image_blocks():
 @pytest.mark.asyncio
 async def test_complete_multimodal_without_attachments_falls_back_to_text():
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text="ok")])
-    )
+    sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text="ok")]))
     client = ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
-    reply = await client.complete_multimodal(
-        system_prompt="sys", text="only text", attachments=[]
-    )
+    reply = await client.complete_multimodal(system_prompt="sys", text="only text", attachments=[])
 
     assert reply == "ok"
     kwargs = sdk.messages.create.await_args.kwargs

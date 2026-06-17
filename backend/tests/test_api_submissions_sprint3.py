@@ -15,9 +15,7 @@ def _png_bytes() -> bytes:
 
 def _fake(reply: str) -> ClaudeClient:
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply)])
-    )
+    sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply)]))
     return ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
 
@@ -29,9 +27,7 @@ def test_create_submission_rejects_overlong_content(auth_client, tmp_path, monke
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -43,9 +39,7 @@ def test_create_submission_rejects_overlong_content(auth_client, tmp_path, monke
         app.dependency_overrides.clear()
 
 
-def test_rate_limit_blocks_burst_create_submission(
-    auth_client, tmp_path, monkeypatch
-):
+def test_rate_limit_blocks_burst_create_submission(auth_client, tmp_path, monkeypatch):
     """HIGH-5: more than `submission_rate_limit` POSTs in a short window 429."""
     from app.config import settings
     from app.core.limiter import limiter
@@ -62,9 +56,7 @@ def test_rate_limit_blocks_burst_create_submission(
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         statuses = []
         for i in range(11):
@@ -114,9 +106,7 @@ def test_files_dto_exposes_only_filename(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -140,9 +130,7 @@ def test_multipart_submission_with_file(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":91,"feedback":"good"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":91,"feedback":"good"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -163,9 +151,7 @@ def test_multipart_submission_with_file(auth_client, tmp_path, monkeypatch):
 def test_multipart_submission_without_files_still_works(auth_client):
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"ok"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"ok"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -186,9 +172,7 @@ def test_multipart_rejects_bad_extension(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"ok"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"ok"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -209,9 +193,7 @@ def test_multipart_rejects_too_many_files(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"ok"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"ok"}')
     try:
         files = [("files", (f"f{i}.png", _png_bytes(), "image/png")) for i in range(3)]
         response = auth_client.post(
@@ -233,9 +215,7 @@ def test_regrade_creates_new_attempt(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":70,"feedback":"first"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":70,"feedback":"first"}')
     try:
         first = auth_client.post(
             "/api/submissions",
@@ -270,9 +250,7 @@ def test_regrade_cooldown_returns_429(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":70,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":70,"feedback":"x"}')
     try:
         first = auth_client.post(
             "/api/submissions",
@@ -287,9 +265,7 @@ def test_regrade_cooldown_returns_429(auth_client, tmp_path, monkeypatch):
         app.dependency_overrides.clear()
 
 
-async def test_regrade_other_users_submission_returns_404(
-    client, db_session, monkeypatch
-):
+async def test_regrade_other_users_submission_returns_404(client, db_session, monkeypatch):
     """A user can't regrade someone else's submission."""
     from app.config import settings
     from app.core.security import create_access_token, hash_password
@@ -299,21 +275,15 @@ async def test_regrade_other_users_submission_returns_404(
 
     monkeypatch.setattr(settings, "regrade_cooldown_seconds", 0)
 
-    owner = User(
-        email="owner@example.com", name="o", password_hash=hash_password("p")
-    )
-    intruder = User(
-        email="intruder@example.com", name="i", password_hash=hash_password("p")
-    )
+    owner = User(email="owner@example.com", name="o", password_hash=hash_password("p"))
+    intruder = User(email="intruder@example.com", name="i", password_hash=hash_password("p"))
     db_session.add_all([owner, intruder])
     await db_session.flush()
     await initialize_progress(db_session, owner.id)
     await initialize_progress(db_session, intruder.id)
     await db_session.commit()
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         # Owner submits
         client.headers.update(
@@ -344,9 +314,7 @@ def test_download_file_returns_content(auth_client, tmp_path, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         first = auth_client.post(
             "/api/submissions",
@@ -365,9 +333,7 @@ def test_download_file_returns_content(auth_client, tmp_path, monkeypatch):
         app.dependency_overrides.clear()
 
 
-async def test_download_other_users_file_returns_404(
-    client, db_session, tmp_path, monkeypatch
-):
+async def test_download_other_users_file_returns_404(client, db_session, tmp_path, monkeypatch):
     from app.config import settings
     from app.core.security import create_access_token, hash_password
     from app.main import app
@@ -377,21 +343,15 @@ async def test_download_other_users_file_returns_404(
     monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
     monkeypatch.setattr(settings, "regrade_cooldown_seconds", 0)
 
-    owner = User(
-        email="own@example.com", name="o", password_hash=hash_password("p")
-    )
-    intruder = User(
-        email="int@example.com", name="i", password_hash=hash_password("p")
-    )
+    owner = User(email="own@example.com", name="o", password_hash=hash_password("p"))
+    intruder = User(email="int@example.com", name="i", password_hash=hash_password("p"))
     db_session.add_all([owner, intruder])
     await db_session.flush()
     await initialize_progress(db_session, owner.id)
     await initialize_progress(db_session, intruder.id)
     await db_session.commit()
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         client.headers.update(
             {"Authorization": f"Bearer {create_access_token(subject=str(owner.id))}"}

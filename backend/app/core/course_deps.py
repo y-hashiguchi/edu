@@ -19,7 +19,11 @@ from app.core.deps import get_current_user
 from app.data.courses import (
     DEFAULT_COURSE_SLUG,
     CourseData,
+)
+from app.data.courses import (
     CourseNotFoundError as RegistryCourseNotFoundError,
+)
+from app.data.courses import (
     get_course as get_course_from_registry,
 )
 from app.db.session import get_db
@@ -58,9 +62,7 @@ async def get_course_context(
         return CourseContext(course=course_data, enrollment=None)
 
     try:
-        enr = await require_active_enrollment(
-            db, user_id=user.id, course_id=db_course.id
-        )
+        enr = await require_active_enrollment(db, user_id=user.id, course_id=db_course.id)
     except EnrollmentNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

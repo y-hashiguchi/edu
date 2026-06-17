@@ -3,7 +3,6 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password
 from app.models.instructor_comment import InstructorComment
@@ -12,14 +11,14 @@ from app.models.user import User
 
 
 def _auth(client, user_id):
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 async def _make_user(db_session, email, is_admin=False):
     user = User(
-        email=email, name=email[:2], password_hash=hash_password("p"),
+        email=email,
+        name=email[:2],
+        password_hash=hash_password("p"),
         is_admin=is_admin,
     )
     db_session.add(user)
@@ -31,8 +30,12 @@ async def _make_user(db_session, email, is_admin=False):
 
 async def _make_submission(db_session, owner, course_id):
     sub = Submission(
-        user_id=owner.id, course_id=course_id, phase=1, task_no=1,
-        content="x", submitted_at=datetime.now(UTC),
+        user_id=owner.id,
+        course_id=course_id,
+        phase=1,
+        task_no=1,
+        content="x",
+        submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
     await db_session.flush()
@@ -47,7 +50,9 @@ async def test_post_reply_happy_path(client, db_session, default_course_id):
     learner = await _make_user(db_session, "l@e.com")
     sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.commit()
@@ -80,20 +85,28 @@ async def test_post_reply_requires_parent_id_field(client, db_session, default_c
 
 @pytest.mark.asyncio
 async def test_post_reply_returns_400_for_parent_in_different_submission(
-    client, db_session, default_course_id,
+    client,
+    db_session,
+    default_course_id,
 ):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     learner = await _make_user(db_session, "l@e.com")
     sub_a = await _make_submission(db_session, learner, default_course_id)
     sub_b = Submission(
-        user_id=learner.id, course_id=default_course_id, phase=1, task_no=2,
-        content="x", submitted_at=datetime.now(UTC),
+        user_id=learner.id,
+        course_id=default_course_id,
+        phase=1,
+        task_no=2,
+        content="x",
+        submitted_at=datetime.now(UTC),
     )
     db_session.add(sub_b)
     await db_session.commit()
     await db_session.refresh(sub_b)
     trunk_b = InstructorComment(
-        submission_id=sub_b.id, author_user_id=admin.id, body="trunk in B",
+        submission_id=sub_b.id,
+        author_user_id=admin.id,
+        body="trunk in B",
     )
     db_session.add(trunk_b)
     await db_session.commit()
@@ -109,14 +122,18 @@ async def test_post_reply_returns_400_for_parent_in_different_submission(
 
 @pytest.mark.asyncio
 async def test_post_reply_returns_404_for_other_users_submission(
-    client, db_session, default_course_id,
+    client,
+    db_session,
+    default_course_id,
 ):
     admin = await _make_user(db_session, "a@e.com", is_admin=True)
     owner = await _make_user(db_session, "o@e.com")
     intruder = await _make_user(db_session, "i@e.com")
     sub = await _make_submission(db_session, owner, default_course_id)
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.commit()
@@ -140,7 +157,9 @@ async def test_post_reply_rate_limited(client, db_session, monkeypatch, default_
     learner = await _make_user(db_session, "l@e.com")
     sub = await _make_submission(db_session, learner, default_course_id)
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.commit()

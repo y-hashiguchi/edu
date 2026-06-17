@@ -19,10 +19,8 @@ returned so the integration still surfaces something to the user.
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from typing import Any
-
 
 _GRADING_PROMPT_MARKER = "教育評価者"
 _GRADING_SCORE_CASES: tuple[tuple[str, int, str], ...] = (
@@ -33,13 +31,8 @@ _GRADING_SCORE_CASES: tuple[tuple[str, int, str], ...] = (
 _DEFAULT_STUB_SCORE = 80
 _DEFAULT_STUB_FEEDBACK = "標準的な内容です。"
 
-_NUDGE_REPLY = (
-    "Phase 1 を着実に進めましょう。次のタスクで AI レビューに挑戦してみてください。"
-)
-_CHAT_REPLY = (
-    "良い質問ですね。まずは公式ドキュメントを確認し、小さな例で動かして"
-    "みましょう。"
-)
+_NUDGE_REPLY = "Phase 1 を着実に進めましょう。次のタスクで AI レビューに挑戦してみてください。"
+_CHAT_REPLY = "良い質問ですね。まずは公式ドキュメントを確認し、小さな例で動かしてみましょう。"
 
 
 @dataclass(frozen=True)
@@ -81,9 +74,7 @@ def _extract_user_text(messages: list[dict[str, Any]]) -> str:
 def _build_reply(*, system: str, messages: list[dict[str, Any]]) -> str:
     user_text = _extract_user_text(messages)
     if _GRADING_PROMPT_MARKER in (system or ""):
-        return json.dumps(
-            _pick_grading_payload(user_text), ensure_ascii=False
-        )
+        return json.dumps(_pick_grading_payload(user_text), ensure_ascii=False)
     # Heuristic: nudge prompts are short and reference Phase / 弱点; treat
     # the chat default as covering everything else (chat, nudge fallback).
     if "弱点" in user_text or "次の一歩" in (system or "") or "短い" in (system or ""):

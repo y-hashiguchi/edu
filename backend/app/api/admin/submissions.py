@@ -33,9 +33,7 @@ async def list_submissions(
     rows = await admin_query.list_submissions(
         db, user_id=user_id, phase=phase, limit=limit, offset=offset
     )
-    total = await admin_query.count_submissions(
-        db, user_id=user_id, phase=phase
-    )
+    total = await admin_query.count_submissions(db, user_id=user_id, phase=phase)
     items = [
         AdminSubmissionSummary(
             id=sub.id,
@@ -50,9 +48,7 @@ async def list_submissions(
         )
         for sub, user in rows
     ]
-    return AdminSubmissionListOut(
-        items=items, total=total, limit=limit, offset=offset
-    )
+    return AdminSubmissionListOut(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/{submission_id}", response_model=AdminSubmissionDetail)
@@ -63,9 +59,7 @@ async def get_submission(
 ) -> AdminSubmissionDetail:
     found = await admin_query.get_submission_detail(db, submission_id)
     if found is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="submission not found")
     submission, learner, course, files, history, comments = found
     return AdminSubmissionDetail(
         id=submission.id,

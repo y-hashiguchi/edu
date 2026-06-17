@@ -13,7 +13,9 @@ from app.models.user import User
 
 async def _make_user(db_session, email="u@e.com", is_admin=False):
     user = User(
-        email=email, name="U", password_hash=hash_password("p"),
+        email=email,
+        name="U",
+        password_hash=hash_password("p"),
         is_admin=is_admin,
     )
     db_session.add(user)
@@ -25,8 +27,12 @@ async def _make_user(db_session, email="u@e.com", is_admin=False):
 
 async def _make_submission(db_session, owner, course_id):
     sub = Submission(
-        user_id=owner.id, course_id=course_id, phase=1, task_no=1,
-        content="essay", submitted_at=datetime.now(UTC),
+        user_id=owner.id,
+        course_id=course_id,
+        phase=1,
+        task_no=1,
+        content="essay",
+        submitted_at=datetime.now(UTC),
     )
     db_session.add(sub)
     await db_session.flush()
@@ -60,14 +66,18 @@ async def test_instructor_comment_reply_links_to_parent(db_session, default_cour
     sub = await _make_submission(db_session, owner, default_course_id)
 
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.flush()
 
     reply = InstructorComment(
-        submission_id=sub.id, author_user_id=owner.id,
-        body="thank you", parent_id=trunk.id,
+        submission_id=sub.id,
+        author_user_id=owner.id,
+        body="thank you",
+        parent_id=trunk.id,
     )
     db_session.add(reply)
     await db_session.commit()
@@ -85,13 +95,17 @@ async def test_instructor_comment_self_fk_cascades_on_parent_delete(db_session, 
     sub = await _make_submission(db_session, owner, default_course_id)
 
     trunk = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="trunk",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="trunk",
     )
     db_session.add(trunk)
     await db_session.flush()
     reply = InstructorComment(
-        submission_id=sub.id, author_user_id=owner.id,
-        body="reply", parent_id=trunk.id,
+        submission_id=sub.id,
+        author_user_id=owner.id,
+        body="reply",
+        parent_id=trunk.id,
     )
     db_session.add(reply)
     await db_session.commit()
@@ -99,9 +113,7 @@ async def test_instructor_comment_self_fk_cascades_on_parent_delete(db_session, 
     await db_session.delete(trunk)
     await db_session.commit()
     leftover = (
-        await db_session.execute(
-            select(InstructorComment).where(InstructorComment.id == reply.id)
-        )
+        await db_session.execute(select(InstructorComment).where(InstructorComment.id == reply.id))
     ).first()
     assert leftover is None
 
@@ -120,7 +132,9 @@ async def test_instructor_comment_self_loop_rejected(db_session, default_course_
     sub = await _make_submission(db_session, owner, default_course_id)
 
     c = InstructorComment(
-        submission_id=sub.id, author_user_id=admin.id, body="self-loop",
+        submission_id=sub.id,
+        author_user_id=admin.id,
+        body="self-loop",
     )
     db_session.add(c)
     await db_session.flush()

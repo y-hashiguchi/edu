@@ -39,9 +39,7 @@ def test_default_course_total_tasks_is_12():
 
 
 @pytest.mark.asyncio
-async def test_empty_user_returns_zeros_and_null_average(
-    db_session, default_course_id
-):
+async def test_empty_user_returns_zeros_and_null_average(db_session, default_course_id):
     user = await _make_user(db_session)
     out = await compute_progress_summary(
         db_session, user.id, default_course_id, DEFAULT_COURSE_SLUG
@@ -55,7 +53,9 @@ async def test_empty_user_returns_zeros_and_null_average(
 
 @pytest.mark.asyncio
 async def test_below_threshold_returns_null_average(
-    db_session, default_course_id, seed_graded_submission,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
 ):
     user = await _make_user(db_session)
     await seed_graded_submission(user, 1, 1, 80)
@@ -71,7 +71,9 @@ async def test_below_threshold_returns_null_average(
 
 @pytest.mark.asyncio
 async def test_above_threshold_returns_average_rounded(
-    db_session, default_course_id, seed_graded_submission,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
 ):
     user = await _make_user(db_session)
     await seed_graded_submission(user, 1, 1, 80)

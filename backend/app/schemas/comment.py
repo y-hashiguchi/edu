@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field
 
 class CommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=2000)
-    parent_id: uuid.UUID | None = None  # Sprint 6: optional for admin trunk, required for learner reply
+    parent_id: uuid.UUID | None = (
+        None  # Sprint 6: optional for admin trunk, required for learner reply
+    )
 
 
 class LearnerCommentOut(BaseModel):

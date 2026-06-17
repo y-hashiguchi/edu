@@ -115,7 +115,7 @@ async def stop_listener() -> None:
         _stop_event.set()
     try:
         await asyncio.wait_for(_listener_task, timeout=5.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         _listener_task.cancel()
         with asyncio.suppress(asyncio.CancelledError):
             await _listener_task

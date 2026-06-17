@@ -52,9 +52,7 @@ def render_cohort_csv(summary: CohortSummary) -> str:
                 str(learner.user_id),
                 learner.display_name,
                 learner.email_masked,
-                learner.last_activity_at.isoformat()
-                if learner.last_activity_at
-                else "",
+                learner.last_activity_at.isoformat() if learner.last_activity_at else "",
                 learner.current_phase,
                 learner.submission_count,
                 learner.reason,

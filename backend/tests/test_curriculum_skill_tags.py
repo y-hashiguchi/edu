@@ -12,10 +12,20 @@ from app.data.curriculum import (
     iter_all_phase_task_pairs,
 )
 
-EXPECTED_VOCAB: frozenset[str] = frozenset({
-    "Git/GitHub", "開発環境", "API基礎", "AI協調", "テスト",
-    "コードレビュー", "設計", "RAG/ベクトル検索", "LLM活用", "業務応用",
-})
+EXPECTED_VOCAB: frozenset[str] = frozenset(
+    {
+        "Git/GitHub",
+        "開発環境",
+        "API基礎",
+        "AI協調",
+        "テスト",
+        "コードレビュー",
+        "設計",
+        "RAG/ベクトル検索",
+        "LLM活用",
+        "業務応用",
+    }
+)
 
 
 def test_every_task_is_task_item_with_title_and_skill_tags():
@@ -24,18 +34,14 @@ def test_every_task_is_task_item_with_title_and_skill_tags():
             assert isinstance(task, dict), f"phase {phase_no} task {i} not dict"
             assert "title" in task and isinstance(task["title"], str)
             assert "skill_tags" in task and isinstance(task["skill_tags"], list)
-            assert len(task["skill_tags"]) >= 1, (
-                f"phase {phase_no} task {i+1} has no skill_tags"
-            )
+            assert len(task["skill_tags"]) >= 1, f"phase {phase_no} task {i + 1} has no skill_tags"
 
 
 def test_skill_tags_use_curated_vocab():
     for phase_no, phase in CURRICULUM.items():
         for i, task in enumerate(phase["tasks"]):
             for tag in task["skill_tags"]:
-                assert tag in EXPECTED_VOCAB, (
-                    f"phase {phase_no} task {i+1}: unknown tag {tag!r}"
-                )
+                assert tag in EXPECTED_VOCAB, f"phase {phase_no} task {i + 1}: unknown tag {tag!r}"
 
 
 def test_get_task_skill_tags_returns_tags_for_valid_coordinates():

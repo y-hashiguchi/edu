@@ -9,14 +9,10 @@ from app.core.security import create_access_token, hash_password
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
-async def _seed_learner_with_submissions(
-    db_session, course_id, *, email="learner@e.com"
-):
+async def _seed_learner_with_submissions(db_session, course_id, *, email="learner@e.com"):
     from app.models.submission import Submission
     from app.models.user import User
     from app.services.progress import initialize_progress
@@ -27,14 +23,22 @@ async def _seed_learner_with_submissions(
     await initialize_progress(db_session, learner.id)
 
     s1 = Submission(
-        user_id=learner.id, course_id=course_id, phase=1, task_no=1,
+        user_id=learner.id,
+        course_id=course_id,
+        phase=1,
+        task_no=1,
         content="phase 1 essay",
-        score=72, submitted_at=datetime.now(UTC),
+        score=72,
+        submitted_at=datetime.now(UTC),
     )
     s2 = Submission(
-        user_id=learner.id, course_id=course_id, phase=2, task_no=1,
+        user_id=learner.id,
+        course_id=course_id,
+        phase=2,
+        task_no=1,
         content="phase 2 essay",
-        score=88, submitted_at=datetime.now(UTC),
+        score=88,
+        submitted_at=datetime.now(UTC),
     )
     db_session.add_all([s1, s2])
     await db_session.commit()
@@ -68,7 +72,10 @@ async def test_list_submissions_unauthenticated_returns_401(client):
 
 @pytest.mark.asyncio
 async def test_list_submissions_filters_by_user_and_phase(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     learner, _s1, _s2 = await _seed_learner_with_submissions(db_session, default_course_id)
     _auth(client, admin_user.id)
@@ -94,7 +101,10 @@ async def test_list_submissions_filters_by_user_and_phase(
 
 @pytest.mark.asyncio
 async def test_list_submissions_carries_user_columns(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     """Each summary row must let the dashboard show 'who' without an
     extra round-trip per user (one of the dashboard's hot paths)."""
@@ -120,10 +130,16 @@ async def test_list_submissions_pagination(client, db_session, admin_user, defau
     await db_session.flush()
     await initialize_progress(db_session, learner.id)
     for task in range(1, 5):
-        db_session.add(Submission(
-            user_id=learner.id, course_id=default_course_id, phase=1, task_no=task,
-            content=f"t{task}", submitted_at=datetime.now(UTC),
-        ))
+        db_session.add(
+            Submission(
+                user_id=learner.id,
+                course_id=default_course_id,
+                phase=1,
+                task_no=task,
+                content=f"t{task}",
+                submitted_at=datetime.now(UTC),
+            )
+        )
     await db_session.commit()
 
     _auth(client, admin_user.id)
@@ -143,7 +159,10 @@ async def test_list_submissions_caps_limit(client, admin_user):
 
 @pytest.mark.asyncio
 async def test_submission_detail_includes_files_history_and_comments(
-    client, db_session, admin_user, default_course_id,
+    client,
+    db_session,
+    admin_user,
+    default_course_id,
 ):
     """Detail view bundles everything the dashboard needs in one
     response — admin should never have to make a second call to

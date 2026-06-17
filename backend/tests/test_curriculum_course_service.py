@@ -6,7 +6,6 @@ from sqlalchemy import select
 from app.data.courses import get_course, runtime
 from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
-from app.models.enrollment import Enrollment
 from app.services.curriculum_course import (
     CourseHasEnrollmentsError,
     ProtectedCourseError,
@@ -31,13 +30,17 @@ async def test_add_course_scaffolds_phases(db_session):
     assert result.phase_count == 4
 
     phases = (
-        await db_session.execute(
-            select(CurriculumPhase)
-            .join(Course)
-            .where(Course.slug == "test-course")
-            .order_by(CurriculumPhase.phase_no)
+        (
+            await db_session.execute(
+                select(CurriculumPhase)
+                .join(Course)
+                .where(Course.slug == "test-course")
+                .order_by(CurriculumPhase.phase_no)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(phases) == 4
     assert phases[0].phase_no == 1
 

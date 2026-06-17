@@ -19,14 +19,14 @@ async def _seed_user_and_course(db, *, is_admin=False, enrolled=True):
     from sqlalchemy import select
 
     user = User(
-        email="u@e.com", name="U", password_hash=hash_password("p"),
+        email="u@e.com",
+        name="U",
+        password_hash=hash_password("p"),
         is_admin=is_admin,
     )
     db.add(user)
     await db.flush()
-    course = (
-        await db.execute(select(Course).where(Course.slug == "ai-driven-dev"))
-    ).scalar_one()
+    course = (await db.execute(select(Course).where(Course.slug == "ai-driven-dev"))).scalar_one()
     if enrolled:
         db.add(Enrollment(user_id=user.id, course_id=course.id))
     await db.commit()

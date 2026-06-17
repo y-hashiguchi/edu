@@ -1,7 +1,5 @@
 """Sprint 9 — process-local curriculum cache tests."""
 
-import uuid
-
 import pytest
 
 from app.data.courses import runtime
@@ -28,9 +26,7 @@ async def test_reload_from_db_populates_cache(db_session, seed_curriculum):
 
 
 @pytest.mark.asyncio
-async def test_get_cached_course_raises_on_unknown_slug(
-    db_session, seed_curriculum
-):
+async def test_get_cached_course_raises_on_unknown_slug(db_session, seed_curriculum):
     from app.data.courses import CourseNotFoundError
 
     runtime._CACHE.clear()
@@ -40,24 +36,25 @@ async def test_get_cached_course_raises_on_unknown_slug(
 
 
 @pytest.mark.asyncio
-async def test_reload_course_updates_single_course_only(
-    db_session, seed_curriculum
-):
+async def test_reload_course_updates_single_course_only(db_session, seed_curriculum):
     """publish 後の差し替え: 1 course だけ rebuild、他は不変。"""
-    from app.models.curriculum_phase import CurriculumPhase
     from sqlalchemy import select, update
+
     from app.models.course import Course
+    from app.models.curriculum_phase import CurriculumPhase
 
     runtime._CACHE.clear()
     await runtime.reload_from_db(db_session)
     before_se = runtime.get_cached_course("ai-era-se")
 
-    dev_id = (await db_session.execute(
-        select(Course.id).where(Course.slug == "ai-driven-dev")
-    )).scalar_one()
-    stmt = update(CurriculumPhase).where(
-        CurriculumPhase.course_id == dev_id, CurriculumPhase.phase_no == 1
-    ).values(title="X 更新後")
+    dev_id = (
+        await db_session.execute(select(Course.id).where(Course.slug == "ai-driven-dev"))
+    ).scalar_one()
+    stmt = (
+        update(CurriculumPhase)
+        .where(CurriculumPhase.course_id == dev_id, CurriculumPhase.phase_no == 1)
+        .values(title="X 更新後")
+    )
     await db_session.execute(stmt)
     await db_session.commit()
 
@@ -71,18 +68,21 @@ async def test_reload_course_updates_single_course_only(
 @pytest.mark.asyncio
 async def test_cache_returns_published_not_draft(db_session, seed_curriculum):
     """draft_title が入っていても、cache (= runtime) は published 値を返す。"""
-    from app.models.curriculum_phase import CurriculumPhase
     from sqlalchemy import select, update
-    from app.models.course import Course
 
-    dev_id = (await db_session.execute(
-        select(Course.id).where(Course.slug == "ai-driven-dev")
-    )).scalar_one()
+    from app.models.course import Course
+    from app.models.curriculum_phase import CurriculumPhase
+
+    dev_id = (
+        await db_session.execute(select(Course.id).where(Course.slug == "ai-driven-dev"))
+    ).scalar_one()
     await db_session.execute(
-        update(CurriculumPhase).where(
+        update(CurriculumPhase)
+        .where(
             CurriculumPhase.course_id == dev_id,
             CurriculumPhase.phase_no == 1,
-        ).values(draft_title="DRAFT ONLY")
+        )
+        .values(draft_title="DRAFT ONLY")
     )
     await db_session.commit()
 
@@ -96,6 +96,7 @@ async def test_cache_returns_published_not_draft(db_session, seed_curriculum):
 async def test_reload_from_db_on_empty_table_raises(db_session):
     """0 行検出時はエラー (silent fallback ではなく、明示的に起動失敗)。"""
     from sqlalchemy import delete
+
     from app.models.curriculum_phase import CurriculumPhase
     from app.models.curriculum_task import CurriculumTask
 

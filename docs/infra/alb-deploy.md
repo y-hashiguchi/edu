@@ -149,5 +149,6 @@ ALB ターゲットが `healthy` であること（AWS コンソール → Targe
 ## 7. 関連
 
 - Compose 本番: [production-deploy.md](./production-deploy.md)
+- ECS/Fargate 移行: [ecs-fargate.md](./ecs-fargate.md)
 - Caddy（ALB なし単一ホスト）: [`../../infra/caddy/Caddyfile`](../../infra/caddy/Caddyfile)
 - CI: [github-ci-setup.md](./github-ci-setup.md)

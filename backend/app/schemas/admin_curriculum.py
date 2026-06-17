@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ---------------------------------------------------------------------------
 # Output DTOs
 # ---------------------------------------------------------------------------
@@ -119,9 +118,7 @@ class AdminTaskUpdateRequest(BaseModel):
 
     @field_validator("skill_tags")
     @classmethod
-    def _validate_skill_tag_lengths(
-        cls, v: list[str] | None
-    ) -> list[str] | None:
+    def _validate_skill_tag_lengths(cls, v: list[str] | None) -> list[str] | None:
         """Sprint 9 follow-up MED-2: 50 字超のタグは silent drop ではなく
         422 で reject する。UI が「入力したのに消えた」状態を作らない。
         """
@@ -129,9 +126,7 @@ class AdminTaskUpdateRequest(BaseModel):
             return v
         for raw in v:
             if len(raw.strip()) > 50:
-                raise ValueError(
-                    f"skill_tag exceeds 50 chars: {raw[:20]!r}..."
-                )
+                raise ValueError(f"skill_tag exceeds 50 chars: {raw[:20]!r}...")
         return v
 
     def normalized_skill_tags(self) -> list[str] | None:

@@ -23,8 +23,7 @@ DEFAULT_PHASE_COUNT = 4
 _DEFAULT_PHASE_TITLE = "新しい Phase"
 _DEFAULT_PHASE_GOAL = "目標を入力してください。"
 _DEFAULT_SYSTEM_PROMPT = (
-    "あなたは教育AIチューターです。\n"
-    "研修生の質問に3〜5文程度の日本語で答えてください。"
+    "あなたは教育AIチューターです。\n研修生の質問に3〜5文程度の日本語で答えてください。"
 )
 _DEFAULT_TASK_TITLE = "新しい Task"
 _DEFAULT_TASK_DESCRIPTION = "説明を入力してください。"
@@ -82,9 +81,7 @@ def _validate_slug(slug: str) -> None:
 
 
 async def _get_course_or_raise(db: AsyncSession, slug: str) -> Course:
-    row = (
-        await db.execute(select(Course).where(Course.slug == slug))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(Course).where(Course.slug == slug))).scalar_one_or_none()
     if row is None:
         raise CourseNotFoundError(slug)
     return row
@@ -99,9 +96,7 @@ async def add_course(
 ) -> CourseCreateResult:
     """新規 course + 4 phase × 1 task の最小 scaffold を作成する。"""
     _validate_slug(slug)
-    existing = (
-        await db.execute(select(Course.id).where(Course.slug == slug))
-    ).scalar_one_or_none()
+    existing = (await db.execute(select(Course.id).where(Course.slug == slug))).scalar_one_or_none()
     if existing is not None:
         raise CourseSlugExistsError(slug)
 
@@ -163,9 +158,7 @@ async def delete_course(db: AsyncSession, *, slug: str) -> None:
 
     enroll_count = (
         await db.execute(
-            select(func.count())
-            .select_from(Enrollment)
-            .where(Enrollment.course_id == course.id)
+            select(func.count()).select_from(Enrollment).where(Enrollment.course_id == course.id)
         )
     ).scalar_one()
     if enroll_count > 0:
@@ -173,27 +166,21 @@ async def delete_course(db: AsyncSession, *, slug: str) -> None:
 
     sub_count = (
         await db.execute(
-            select(func.count())
-            .select_from(Submission)
-            .where(Submission.course_id == course.id)
+            select(func.count()).select_from(Submission).where(Submission.course_id == course.id)
         )
     ).scalar_one()
     if sub_count > 0:
         raise CourseHasSubmissionsError(slug)
 
     phase_ids = (
-        await db.execute(
-            select(CurriculumPhase.id).where(CurriculumPhase.course_id == course.id)
-        )
-    ).scalars().all()
+        (await db.execute(select(CurriculumPhase.id).where(CurriculumPhase.course_id == course.id)))
+        .scalars()
+        .all()
+    )
 
     if phase_ids:
-        await db.execute(
-            delete(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))
-        )
-        await db.execute(
-            delete(CurriculumPhase).where(CurriculumPhase.id.in_(phase_ids))
-        )
+        await db.execute(delete(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids)))
+        await db.execute(delete(CurriculumPhase).where(CurriculumPhase.id.in_(phase_ids)))
 
     await db.execute(delete(Embedding).where(Embedding.course_id == course.id))
     await db.execute(delete(Course).where(Course.id == course.id))

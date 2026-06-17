@@ -25,9 +25,7 @@ async def _make_learners(db, n: int):
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 @pytest.mark.asyncio
@@ -48,9 +46,7 @@ async def test_list_users_unauthenticated_returns_401(client):
 
 
 @pytest.mark.asyncio
-async def test_list_users_returns_admin_plus_learners(
-    client, db_session, admin_user
-):
+async def test_list_users_returns_admin_plus_learners(client, db_session, admin_user):
     await _make_learners(db_session, 3)
     _auth(client, admin_user.id)
 
@@ -75,9 +71,7 @@ async def test_list_users_returns_admin_plus_learners(
 
 
 @pytest.mark.asyncio
-async def test_list_users_aggregate_counts_match_phase_states(
-    client, db_session, admin_user
-):
+async def test_list_users_aggregate_counts_match_phase_states(client, db_session, admin_user):
     """Progress counts: a learner with 1 phase completed and 1 in
     progress should report exactly those numbers — not the raw row count
     of their progress rows (4 phases x 1 row each = 4)."""
@@ -88,11 +82,14 @@ async def test_list_users_aggregate_counts_match_phase_states(
     learner = (await _make_learners(db_session, 1))[0]
 
     rows = (
-        await db_session.execute(
-            select(Progress).where(Progress.user_id == learner.id)
-            .order_by(Progress.phase)
+        (
+            await db_session.execute(
+                select(Progress).where(Progress.user_id == learner.id).order_by(Progress.phase)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     rows[0].status = ProgressStatus.COMPLETED.value
     rows[1].status = ProgressStatus.IN_PROGRESS.value
     await db_session.commit()
@@ -143,14 +140,24 @@ async def test_user_detail_returns_four_phase_progress_and_latest_scores(
     # (which is the cached value on the submission row).
     db_session.add(
         Submission(
-            user_id=learner.id, course_id=default_course_id, phase=1, task_no=1, content="v",
-            score=72, submitted_at=datetime.now(UTC),
+            user_id=learner.id,
+            course_id=default_course_id,
+            phase=1,
+            task_no=1,
+            content="v",
+            score=72,
+            submitted_at=datetime.now(UTC),
         )
     )
     db_session.add(
         Submission(
-            user_id=learner.id, course_id=default_course_id, phase=2, task_no=1, content="v",
-            score=88, submitted_at=datetime.now(UTC),
+            user_id=learner.id,
+            course_id=default_course_id,
+            phase=2,
+            task_no=1,
+            content="v",
+            score=88,
+            submitted_at=datetime.now(UTC),
         )
     )
     await db_session.commit()

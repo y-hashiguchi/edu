@@ -31,45 +31,66 @@ async def _make_user(db_session):
 
 @pytest.mark.asyncio
 async def test_happy_path_aggregates_four_sections(
-    db_session, monkeypatch, default_course_id,
+    db_session,
+    monkeypatch,
+    default_course_id,
 ):
     user = await _make_user(db_session)
 
     monkeypatch.setattr(
         "app.services.dashboard.compute_weakness",
-        AsyncMock(return_value=WeaknessResult(
-            has_enough_data=True,
-            top_weaknesses=[
-                TagAverage(tag="AI協調", average_score=60.0, submission_count=3),
-            ],
-        )),
+        AsyncMock(
+            return_value=WeaknessResult(
+                has_enough_data=True,
+                top_weaknesses=[
+                    TagAverage(tag="AI協調", average_score=60.0, submission_count=3),
+                ],
+            )
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.compute_progress_summary",
-        AsyncMock(return_value=ProgressSummary(
-            completed_tasks=5, total_tasks=12,
-            submission_count=5, average_score=70.0,
-        )),
+        AsyncMock(
+            return_value=ProgressSummary(
+                completed_tasks=5,
+                total_tasks=12,
+                submission_count=5,
+                average_score=70.0,
+            )
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.compute_recommendations",
-        AsyncMock(return_value=[
-            Recommendation(
-                phase=2, task_no=1, title="t",
-                skill_tags=["AI協調"], match_tag="AI協調", rag_score=0.8,
-            ),
-        ]),
+        AsyncMock(
+            return_value=[
+                Recommendation(
+                    phase=2,
+                    task_no=1,
+                    title="t",
+                    skill_tags=["AI協調"],
+                    match_tag="AI協調",
+                    rag_score=0.8,
+                ),
+            ]
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.get_or_generate",
-        AsyncMock(return_value=NudgeResult(
-            body="次は Phase 2 task 1。", generated_at=datetime.now(UTC), is_fresh=True,
-        )),
+        AsyncMock(
+            return_value=NudgeResult(
+                body="次は Phase 2 task 1。",
+                generated_at=datetime.now(UTC),
+                is_fresh=True,
+            )
+        ),
     )
 
     out = await compose_dashboard(
-        db_session, claude=object(), embedding_client=object(),
-        user_id=user.id, course_id=default_course_id,
+        db_session,
+        claude=object(),
+        embedding_client=object(),
+        user_id=user.id,
+        course_id=default_course_id,
         course_slug=DEFAULT_COURSE_SLUG,
     )
     assert out.progress_summary.completed_tasks == 5
@@ -80,21 +101,30 @@ async def test_happy_path_aggregates_four_sections(
 
 @pytest.mark.asyncio
 async def test_recommendation_failure_returns_empty_section_not_500(
-    db_session, monkeypatch, default_course_id,
+    db_session,
+    monkeypatch,
+    default_course_id,
 ):
     user = await _make_user(db_session)
     monkeypatch.setattr(
         "app.services.dashboard.compute_weakness",
-        AsyncMock(return_value=WeaknessResult(
-            has_enough_data=True,
-            top_weaknesses=[TagAverage(tag="AI協調", average_score=60.0, submission_count=3)],
-        )),
+        AsyncMock(
+            return_value=WeaknessResult(
+                has_enough_data=True,
+                top_weaknesses=[TagAverage(tag="AI協調", average_score=60.0, submission_count=3)],
+            )
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.compute_progress_summary",
-        AsyncMock(return_value=ProgressSummary(
-            completed_tasks=5, total_tasks=12, submission_count=5, average_score=70.0,
-        )),
+        AsyncMock(
+            return_value=ProgressSummary(
+                completed_tasks=5,
+                total_tasks=12,
+                submission_count=5,
+                average_score=70.0,
+            )
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.compute_recommendations",
@@ -102,14 +132,21 @@ async def test_recommendation_failure_returns_empty_section_not_500(
     )
     monkeypatch.setattr(
         "app.services.dashboard.get_or_generate",
-        AsyncMock(return_value=NudgeResult(
-            body="x", generated_at=datetime.now(UTC), is_fresh=True,
-        )),
+        AsyncMock(
+            return_value=NudgeResult(
+                body="x",
+                generated_at=datetime.now(UTC),
+                is_fresh=True,
+            )
+        ),
     )
 
     out = await compose_dashboard(
-        db_session, claude=object(), embedding_client=object(),
-        user_id=user.id, course_id=default_course_id,
+        db_session,
+        claude=object(),
+        embedding_client=object(),
+        user_id=user.id,
+        course_id=default_course_id,
         course_slug=DEFAULT_COURSE_SLUG,
     )
     assert out.recommendations == []
@@ -121,15 +158,23 @@ async def test_nudge_failure_returns_fallback_not_500(db_session, monkeypatch, d
     user = await _make_user(db_session)
     monkeypatch.setattr(
         "app.services.dashboard.compute_weakness",
-        AsyncMock(return_value=WeaknessResult(
-            has_enough_data=False, top_weaknesses=[],
-        )),
+        AsyncMock(
+            return_value=WeaknessResult(
+                has_enough_data=False,
+                top_weaknesses=[],
+            )
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.compute_progress_summary",
-        AsyncMock(return_value=ProgressSummary(
-            completed_tasks=1, total_tasks=12, submission_count=1, average_score=None,
-        )),
+        AsyncMock(
+            return_value=ProgressSummary(
+                completed_tasks=1,
+                total_tasks=12,
+                submission_count=1,
+                average_score=None,
+            )
+        ),
     )
     monkeypatch.setattr(
         "app.services.dashboard.compute_recommendations",
@@ -141,8 +186,11 @@ async def test_nudge_failure_returns_fallback_not_500(db_session, monkeypatch, d
     )
 
     out = await compose_dashboard(
-        db_session, claude=object(), embedding_client=object(),
-        user_id=user.id, course_id=default_course_id,
+        db_session,
+        claude=object(),
+        embedding_client=object(),
+        user_id=user.id,
+        course_id=default_course_id,
         course_slug=DEFAULT_COURSE_SLUG,
     )
     assert out.nudge.body

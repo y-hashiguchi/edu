@@ -34,9 +34,7 @@ async def create_comment(
     parent_id: uuid.UUID | None = None,
 ) -> InstructorComment:
     sub = (
-        await db.execute(
-            select(Submission).where(Submission.id == submission_id)
-        )
+        await db.execute(select(Submission).where(Submission.id == submission_id))
     ).scalar_one_or_none()
     if sub is None:
         raise SubmissionNotFoundError(str(submission_id))
@@ -44,9 +42,7 @@ async def create_comment(
     # Sprint 6: parent_id 指定時は同 submission に属するか検証
     if parent_id is not None:
         parent = (
-            await db.execute(
-                select(InstructorComment).where(InstructorComment.id == parent_id)
-            )
+            await db.execute(select(InstructorComment).where(InstructorComment.id == parent_id))
         ).scalar_one_or_none()
         if parent is None or parent.submission_id != submission_id:
             raise InvalidParentError(str(parent_id))
@@ -80,9 +76,7 @@ async def list_for_admin(
     detail endpoint — refactors and front-end error handling rely on
     that symmetry."""
     sub_id = (
-        await db.execute(
-            select(Submission.id).where(Submission.id == submission_id)
-        )
+        await db.execute(select(Submission.id).where(Submission.id == submission_id))
     ).scalar_one_or_none()
     if sub_id is None:
         raise SubmissionNotFoundError(str(submission_id))
@@ -150,7 +144,8 @@ async def _ancestor_has_admin(db: AsyncSession, comment_id: uuid.UUID) -> bool:
 
 
 async def _thread_admin_authors(
-    db: AsyncSession, parent_comment_id: uuid.UUID,
+    db: AsyncSession,
+    parent_comment_id: uuid.UUID,
 ) -> set[uuid.UUID]:
     """同じスレッド (root から全 descendants) に参加している admin author
     全員の id を返す。
@@ -210,18 +205,14 @@ async def post_reply(
     """
     # 1. 親 comment と submission 一致確認
     parent = (
-        await db.execute(
-            select(InstructorComment).where(InstructorComment.id == parent_id)
-        )
+        await db.execute(select(InstructorComment).where(InstructorComment.id == parent_id))
     ).scalar_one_or_none()
     if parent is None or parent.submission_id != submission_id:
         raise InvalidParentError(str(parent_id))
 
     # 2. submission 所有者確認 (BOLA fence)
     sub = (
-        await db.execute(
-            select(Submission).where(Submission.id == submission_id)
-        )
+        await db.execute(select(Submission).where(Submission.id == submission_id))
     ).scalar_one_or_none()
     if sub is None or sub.user_id != learner_user_id:
         raise SubmissionNotFoundError(str(submission_id))

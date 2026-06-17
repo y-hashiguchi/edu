@@ -1,7 +1,5 @@
 """Sprint 7 model tests — Course / Enrollment."""
 
-import uuid
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -78,8 +76,8 @@ async def test_user_delete_cascades_enrollment(db_session):
     await db_session.delete(user)
     await db_session.commit()
     remaining = (
-        await db_session.execute(
-            select(Enrollment).where(Enrollment.user_id == user.id)
-        )
-    ).scalars().all()
+        (await db_session.execute(select(Enrollment).where(Enrollment.user_id == user.id)))
+        .scalars()
+        .all()
+    )
     assert remaining == []

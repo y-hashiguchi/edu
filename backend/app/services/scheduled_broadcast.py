@@ -16,6 +16,8 @@ from app.models.scheduled_broadcast import (
 )
 from app.services.enrollment import (
     CourseNotFoundError as EnrollCourseNotFoundError,
+)
+from app.services.enrollment import (
     _get_course_by_slug,
 )
 from app.services.notification import (
@@ -52,8 +54,7 @@ def _validate_scheduled_at(scheduled_at: datetime) -> None:
         )
     if scheduled_utc > max_at:
         raise InvalidScheduleTimeError(
-            f"scheduled_at must be within "
-            f"{settings.scheduled_broadcast_max_horizon_days} days"
+            f"scheduled_at must be within {settings.scheduled_broadcast_max_horizon_days} days"
         )
 
 
@@ -93,9 +94,7 @@ async def cancel_scheduled_broadcast(
     broadcast_id: uuid.UUID,
 ) -> ScheduledBroadcast:
     row = (
-        await db.execute(
-            select(ScheduledBroadcast).where(ScheduledBroadcast.id == broadcast_id)
-        )
+        await db.execute(select(ScheduledBroadcast).where(ScheduledBroadcast.id == broadcast_id))
     ).scalar_one_or_none()
     if row is None:
         raise ScheduledBroadcastNotFoundError(str(broadcast_id))
@@ -142,16 +141,16 @@ async def process_due_scheduled_broadcasts(db: AsyncSession) -> int:
                 .order_by(ScheduledBroadcast.scheduled_at)
                 .limit(settings.scheduled_broadcast_batch_size)
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
 
     processed = 0
     for row in due_rows:
         if row.status != ScheduledBroadcastStatus.pending:
             continue
-        course = (
-            await db.execute(select(Course).where(Course.id == row.course_id))
-        ).scalar_one()
+        course = (await db.execute(select(Course).where(Course.id == row.course_id))).scalar_one()
         try:
             result = await broadcast_to_course(
                 db=db,

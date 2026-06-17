@@ -24,7 +24,5 @@ class UserNudge(Base):
         ForeignKey("courses.id", ondelete="RESTRICT"), primary_key=True
     )
     body: Mapped[str] = mapped_column(String(500), nullable=False)
-    generated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     input_signature: Mapped[str] = mapped_column(String(16), nullable=False)

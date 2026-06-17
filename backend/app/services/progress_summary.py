@@ -33,11 +33,15 @@ async def compute_progress_summary(
     count = len(rows)
     if count < MIN_SUBMISSION_THRESHOLD:
         return ProgressSummary(
-            completed_tasks=count, total_tasks=total_tasks,
-            submission_count=count, average_score=None,
+            completed_tasks=count,
+            total_tasks=total_tasks,
+            submission_count=count,
+            average_score=None,
         )
     avg = round(mean(float(r[1]) for r in rows), 2)
     return ProgressSummary(
-        completed_tasks=count, total_tasks=total_tasks,
-        submission_count=count, average_score=avg,
+        completed_tasks=count,
+        total_tasks=total_tasks,
+        submission_count=count,
+        average_score=avg,
     )

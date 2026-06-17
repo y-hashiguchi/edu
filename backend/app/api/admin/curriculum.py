@@ -1,5 +1,7 @@
 """Sprint 9 — admin curriculum editing API (`/api/admin/curriculum/...`)."""
 
+# ruff: noqa: B904
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
@@ -29,20 +31,17 @@ from app.schemas.admin_curriculum import (
     AdminTaskMoveRequest,
     AdminTaskUpdateRequest,
 )
-from app.services.curriculum_embeddings import task_embedding_source_ref
-from app.worker.enqueue import (
-    enqueue_curriculum_embeddings,
-    enqueue_curriculum_embeddings_full,
-)
 from app.services.curriculum_course import (
     CourseHasEnrollmentsError,
     CourseHasSubmissionsError,
-    CourseNotFoundError as AdminCourseNotFoundError,
     CourseSlugExistsError,
     CourseSlugInvalidError,
     ProtectedCourseError,
     add_course,
     delete_course,
+)
+from app.services.curriculum_course import (
+    CourseNotFoundError as AdminCourseNotFoundError,
 )
 from app.services.curriculum_edit import (
     CannotDeleteLastPhaseError,
@@ -64,6 +63,11 @@ from app.services.curriculum_edit import (
     publish_course,
     put_phase_draft,
     put_task_draft,
+)
+from app.services.curriculum_embeddings import task_embedding_source_ref
+from app.worker.enqueue import (
+    enqueue_curriculum_embeddings,
+    enqueue_curriculum_embeddings_full,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,9 +97,7 @@ def _task_to_dto(t: CurriculumTask) -> AdminTaskEditOut:
     )
 
 
-def _phase_to_dto(
-    p: CurriculumPhase, tasks: list[CurriculumTask]
-) -> AdminPhaseEditOut:
+def _phase_to_dto(p: CurriculumPhase, tasks: list[CurriculumTask]) -> AdminPhaseEditOut:
     return AdminPhaseEditOut(
         phase_no=p.phase_no,
         title=p.title,
@@ -132,16 +134,12 @@ async def list_courses(
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AdminCurriculumCourseList:
-    rows = (
-        await db.execute(select(Course).order_by(Course.sort_order))
-    ).scalars().all()
+    rows = (await db.execute(select(Course).order_by(Course.sort_order))).scalars().all()
     items: list[AdminCurriculumCourseSummary] = []
     for c in rows:
         n = await count_pending_drafts(db, course_slug=c.slug)
         items.append(
-            AdminCurriculumCourseSummary(
-                slug=c.slug, title=c.title, pending_draft_count=n
-            )
+            AdminCurriculumCourseSummary(slug=c.slug, title=c.title, pending_draft_count=n)
         )
     return AdminCurriculumCourseList(items=items)
 
@@ -208,13 +206,9 @@ async def remove_course(
     except ProtectedCourseError:
         raise HTTPException(status_code=409, detail="protected course cannot be deleted")
     except CourseHasEnrollmentsError:
-        raise HTTPException(
-            status_code=409, detail="course has enrollments and cannot be deleted"
-        )
+        raise HTTPException(status_code=409, detail="course has enrollments and cannot be deleted")
     except CourseHasSubmissionsError:
-        raise HTTPException(
-            status_code=409, detail="course has submissions and cannot be deleted"
-        )
+        raise HTTPException(status_code=409, detail="course has submissions and cannot be deleted")
     await db.commit()
     await _evict_course_cache(course_slug)
     logger.info(
@@ -239,15 +233,25 @@ async def get_detail(
     if course is None:
         raise HTTPException(status_code=404, detail="course not found")
 
-    phases = (await db.execute(
-        select(CurriculumPhase)
-        .where(CurriculumPhase.course_id == course.id)
-        .order_by(CurriculumPhase.phase_no)
-    )).scalars().all()
+    phases = (
+        (
+            await db.execute(
+                select(CurriculumPhase)
+                .where(CurriculumPhase.course_id == course.id)
+                .order_by(CurriculumPhase.phase_no)
+            )
+        )
+        .scalars()
+        .all()
+    )
     phase_ids = [p.id for p in phases]
-    tasks = (await db.execute(
-        select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))
-    )).scalars().all() if phase_ids else []
+    tasks = (
+        (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))))
+        .scalars()
+        .all()
+        if phase_ids
+        else []
+    )
     by_phase: dict = {pid: [] for pid in phase_ids}
     for t in tasks:
         by_phase[t.phase_id].append(t)
@@ -298,9 +302,11 @@ async def put_phase(
     await db.commit()
     await db.refresh(row)
 
-    tasks = (await db.execute(
-        select(CurriculumTask).where(CurriculumTask.phase_id == row.id)
-    )).scalars().all()
+    tasks = (
+        (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id == row.id)))
+        .scalars()
+        .all()
+    )
     return _phase_to_dto(row, list(tasks))
 
 
@@ -363,9 +369,11 @@ async def post_phase(
     await seed_course_embeddings(db, course_slug)
     await db.commit()
     await db.refresh(row)
-    tasks = (await db.execute(
-        select(CurriculumTask).where(CurriculumTask.phase_id == row.id)
-    )).scalars().all()
+    tasks = (
+        (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id == row.id)))
+        .scalars()
+        .all()
+    )
     logger.info(
         "curriculum.add_phase slug=%s phase_no=%d by=%s",
         course_slug,
@@ -394,13 +402,9 @@ async def remove_phase(
     except PhaseNotFoundError:
         raise HTTPException(status_code=404, detail="phase not found")
     except CannotDeleteLastPhaseError:
-        raise HTTPException(
-            status_code=409, detail="cannot delete the last phase in course"
-        )
+        raise HTTPException(status_code=409, detail="cannot delete the last phase in course")
     except PhaseHasSubmissionsError:
-        raise HTTPException(
-            status_code=409, detail="phase has submissions and cannot be deleted"
-        )
+        raise HTTPException(status_code=409, detail="phase has submissions and cannot be deleted")
     await db.commit()
     await _reload_course_cache(db, course_slug)
     await enqueue_curriculum_embeddings_full(course_slug)
@@ -476,13 +480,9 @@ async def remove_task(
     except TaskNotFoundError:
         raise HTTPException(status_code=404, detail="task not found")
     except CannotDeleteLastTaskError:
-        raise HTTPException(
-            status_code=409, detail="cannot delete the last task in phase"
-        )
+        raise HTTPException(status_code=409, detail="cannot delete the last task in phase")
     except TaskHasSubmissionsError:
-        raise HTTPException(
-            status_code=409, detail="task has submissions and cannot be deleted"
-        )
+        raise HTTPException(status_code=409, detail="task has submissions and cannot be deleted")
     await db.commit()
     await _reload_course_cache(db, course_slug)
     await enqueue_curriculum_embeddings_full(course_slug)
@@ -529,9 +529,11 @@ async def reorder_task(
     await db.commit()
     await _reload_course_cache(db, course_slug)
     await db.refresh(row)
-    tasks = (await db.execute(
-        select(CurriculumTask).where(CurriculumTask.phase_id == row.id)
-    )).scalars().all()
+    tasks = (
+        (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id == row.id)))
+        .scalars()
+        .all()
+    )
     await enqueue_curriculum_embeddings_full(course_slug)
     logger.info(
         "curriculum.move_task slug=%s phase=%d task_no=%d to=%d by=%s",
@@ -598,9 +600,7 @@ async def publish(
         raise HTTPException(status_code=404, detail="course not found")
     await db.commit()
     await _reload_course_cache(db, course_slug)
-    await enqueue_curriculum_embeddings(
-        course_slug, list(result.embedding_source_refs)
-    )
+    await enqueue_curriculum_embeddings(course_slug, list(result.embedding_source_refs))
     # Sprint 9 review HIGH (security-reviewer): publish is irreversible and
     # affects every learner in the course. Log who triggered it.
     logger.info(

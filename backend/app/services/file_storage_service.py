@@ -23,8 +23,7 @@ async def persist_uploads(
 ) -> list[SubmissionFile]:
     if len(uploads) > settings.max_files_per_submission:
         raise TooManyFilesError(
-            f"{len(uploads)} files exceeds limit "
-            f"{settings.max_files_per_submission}"
+            f"{len(uploads)} files exceeds limit {settings.max_files_per_submission}"
         )
 
     saved: list[SubmissionFile] = []
@@ -58,9 +57,7 @@ async def clear_existing_files(
     user_id: uuid.UUID,
     submission_id: uuid.UUID,
 ) -> None:
-    await db.execute(
-        delete(SubmissionFile).where(SubmissionFile.submission_id == submission_id)
-    )
+    await db.execute(delete(SubmissionFile).where(SubmissionFile.submission_id == submission_id))
     file_storage.delete_submission_files(user_id, submission_id)
 
 
@@ -68,10 +65,14 @@ async def list_submission_files(
     *, db: AsyncSession, submission_id: uuid.UUID
 ) -> list[SubmissionFile]:
     rows = (
-        await db.execute(
-            select(SubmissionFile)
-            .where(SubmissionFile.submission_id == submission_id)
-            .order_by(SubmissionFile.created_at)
+        (
+            await db.execute(
+                select(SubmissionFile)
+                .where(SubmissionFile.submission_id == submission_id)
+                .order_by(SubmissionFile.created_at)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)

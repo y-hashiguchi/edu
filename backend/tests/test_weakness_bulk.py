@@ -33,12 +33,16 @@ async def test_user_with_no_submissions_returns_none(db_session, default_course_
 
 @pytest.mark.asyncio
 async def test_returns_lowest_average_tag_per_user(
-    db_session, seed_multiple_learners_with_submissions, default_course_id,
+    db_session,
+    seed_multiple_learners_with_submissions,
+    default_course_id,
 ):
-    users = await seed_multiple_learners_with_submissions([
-        ("a@e.com", [(2, 1, 30), (2, 2, 40), (2, 3, 50)]),
-        ("b@e.com", [(1, 1, 90), (2, 1, 30), (2, 2, 40)]),
-    ])
+    users = await seed_multiple_learners_with_submissions(
+        [
+            ("a@e.com", [(2, 1, 30), (2, 2, 40), (2, 3, 50)]),
+            ("b@e.com", [(1, 1, 90), (2, 1, 30), (2, 2, 40)]),
+        ]
+    )
     pairs = [(u.id, default_course_id) for u, _ in users]
     out = await compute_top_weakness_tags_bulk(db_session, pairs)
     assert out[users[0][0].id] == "AI協調"
@@ -47,12 +51,16 @@ async def test_returns_lowest_average_tag_per_user(
 
 @pytest.mark.asyncio
 async def test_tie_breaker_by_tag_name_alphabetical(
-    db_session, seed_multiple_learners_with_submissions, default_course_id,
+    db_session,
+    seed_multiple_learners_with_submissions,
+    default_course_id,
 ):
     """同平均の eligible タグが複数あるとき、タグ名の辞書順で選ぶ。"""
-    users = await seed_multiple_learners_with_submissions([
-        ("c@e.com", [(2, 3, 50), (3, 1, 50)]),
-    ])
+    users = await seed_multiple_learners_with_submissions(
+        [
+            ("c@e.com", [(2, 3, 50), (3, 1, 50)]),
+        ]
+    )
     uid = users[0][0].id
     out = await compute_top_weakness_tags_bulk(db_session, [(uid, default_course_id)])
     assert out[uid] == "AI協調"
@@ -60,12 +68,16 @@ async def test_tie_breaker_by_tag_name_alphabetical(
 
 @pytest.mark.asyncio
 async def test_bulk_returns_none_when_tags_below_min_submissions(
-    db_session, seed_multiple_learners_with_submissions, default_course_id,
+    db_session,
+    seed_multiple_learners_with_submissions,
+    default_course_id,
 ):
     """Sprint 6 MED-2: 1 件タグのみのとき bulk も None（fallback なし）。"""
-    users = await seed_multiple_learners_with_submissions([
-        ("solo@e.com", [(1, 1, 40)]),
-    ])
+    users = await seed_multiple_learners_with_submissions(
+        [
+            ("solo@e.com", [(1, 1, 40)]),
+        ]
+    )
     uid = users[0][0].id
     out = await compute_top_weakness_tags_bulk(db_session, [(uid, default_course_id)])
     assert out[uid] is None

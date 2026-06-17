@@ -14,7 +14,10 @@ from app.worker.scheduled_broadcast_job import run_scheduled_broadcast_cron
 
 @pytest.mark.asyncio
 async def test_cron_processes_due_row(
-    db_session, admin_user, auth_user, monkeypatch,
+    db_session,
+    admin_user,
+    auth_user,
+    monkeypatch,
 ):
     monkeypatch.setattr(
         "app.worker.scheduled_broadcast_job.settings.scheduled_broadcast_cron_enabled",

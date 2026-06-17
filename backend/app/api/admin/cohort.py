@@ -47,12 +47,8 @@ def _summary_out(summary) -> AdminCohortSummaryOut:
         enrolled_count=summary.enrolled_count,
         average_score=summary.average_score,
         completion_rate=summary.completion_rate,
-        stuck_learners=[
-            StuckLearnerOut.model_validate(s) for s in summary.stuck_learners
-        ],
-        tag_heatmap=[
-            TagHeatmapEntryOut.model_validate(t) for t in summary.tag_heatmap
-        ],
+        stuck_learners=[StuckLearnerOut.model_validate(s) for s in summary.stuck_learners],
+        tag_heatmap=[TagHeatmapEntryOut.model_validate(t) for t in summary.tag_heatmap],
         cohort_label=summary.cohort_label,
     )
 

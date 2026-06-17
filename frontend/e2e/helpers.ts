@@ -98,8 +98,16 @@ export async function deleteAiDrivenDevPhase1Task4(page: Page): Promise<void> {
       && resp.status() === 204,
     { timeout: 15_000 },
   );
+  const refreshDone = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'GET'
+      && resp.url().includes('/api/admin/curriculum/ai-driven-dev')
+      && resp.status() === 200,
+    { timeout: 15_000 },
+  );
   await deleteBtn.click();
   await deleteDone;
+  await refreshDone;
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
     timeout: 15_000,
@@ -122,8 +130,16 @@ export async function deletePhase5IfPresent(page: Page): Promise<void> {
       && resp.status() === 204,
     { timeout: 15_000 },
   );
+  const refreshDone = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'GET'
+      && resp.url().includes('/api/admin/curriculum/ai-driven-dev')
+      && resp.status() === 200,
+    { timeout: 15_000 },
+  );
   await page.locator('[data-test="phase-delete-5"]').click();
   await deleteDone;
+  await refreshDone;
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('[data-test="admin-curriculum-edit-view"]')).toBeVisible({
     timeout: 15_000,

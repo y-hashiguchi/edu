@@ -14,9 +14,7 @@ from app.services.weakness import TagAverage, WeaknessResult
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 async def _make_user(db_session, email="x@e.com"):
@@ -39,24 +37,39 @@ def _stub_compose(monkeypatch, *, has_data=True):
 
     fake = DashboardData(
         progress_summary=ProgressSummary(
-            completed_tasks=5, total_tasks=12,
-            submission_count=5, average_score=72.0,
+            completed_tasks=5,
+            total_tasks=12,
+            submission_count=5,
+            average_score=72.0,
         ),
         weakness=WeaknessResult(
             has_enough_data=has_data,
-            top_weaknesses=([
-                TagAverage(tag="AI協調", average_score=60.0, submission_count=3),
-            ] if has_data else []),
-        ),
-        recommendations=([
-            Recommendation(
-                phase=2, task_no=1, title="t",
-                skill_tags=["AI協調"], match_tag="AI協調", rag_score=0.8,
+            top_weaknesses=(
+                [
+                    TagAverage(tag="AI協調", average_score=60.0, submission_count=3),
+                ]
+                if has_data
+                else []
             ),
-        ] if has_data else []),
+        ),
+        recommendations=(
+            [
+                Recommendation(
+                    phase=2,
+                    task_no=1,
+                    title="t",
+                    skill_tags=["AI協調"],
+                    match_tag="AI協調",
+                    rag_score=0.8,
+                ),
+            ]
+            if has_data
+            else []
+        ),
         nudge=NudgeResult(
             body="次は Phase 2 task 1 をやろう。",
-            generated_at=datetime.now(UTC), is_fresh=True,
+            generated_at=datetime.now(UTC),
+            is_fresh=True,
         ),
     )
     monkeypatch.setattr(
@@ -79,9 +92,7 @@ async def test_returns_full_response_shape(client, db_session, monkeypatch):
     r = client.get("/api/me/dashboard")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert set(body.keys()) == {
-        "progress_summary", "weakness", "recommendations", "nudge"
-    }
+    assert set(body.keys()) == {"progress_summary", "weakness", "recommendations", "nudge"}
     assert body["progress_summary"]["total_tasks"] == 12
     assert body["weakness"]["has_enough_data"] is True
     assert body["recommendations"]["items"][0]["match_tag"] == "AI協調"
@@ -117,7 +128,9 @@ async def test_user_a_cannot_see_user_b_dashboard(client, db_session, monkeypatc
 
 @pytest.mark.asyncio
 async def test_dashboard_rate_limited_at_high_rate(
-    client, db_session, monkeypatch,
+    client,
+    db_session,
+    monkeypatch,
 ):
     """HIGH-1 (sprint-5 review): a stolen token must not be able to
     loop the dashboard endpoint to drive LLM costs. Per-IP rate limit
@@ -136,7 +149,5 @@ async def test_dashboard_rate_limited_at_high_rate(
         pass
 
     _auth(client, user.id)
-    statuses = [
-        client.get("/api/me/dashboard").status_code for _ in range(7)
-    ]
+    statuses = [client.get("/api/me/dashboard").status_code for _ in range(7)]
     assert 429 in statuses, statuses

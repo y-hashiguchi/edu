@@ -24,7 +24,6 @@ from app.models.course import Course
 from app.models.curriculum_phase import CurriculumPhase
 from app.models.curriculum_task import CurriculumTask
 
-
 # process-local cache. Cleared by tests via `_CACHE.clear()`.
 _CACHE: dict[str, CourseData] = {}
 
@@ -40,13 +39,8 @@ def _build_task(row: CurriculumTask) -> TaskItem:
     )
 
 
-def _build_phase(
-    phase_row: CurriculumPhase, task_rows: list[CurriculumTask]
-) -> PhaseData:
-    tasks = tuple(
-        _build_task(t)
-        for t in sorted(task_rows, key=lambda r: r.task_no)
-    )
+def _build_phase(phase_row: CurriculumPhase, task_rows: list[CurriculumTask]) -> PhaseData:
+    tasks = tuple(_build_task(t) for t in sorted(task_rows, key=lambda r: r.task_no))
     return PhaseData(
         phase=phase_row.phase_no,
         title=phase_row.title,
@@ -60,10 +54,7 @@ def _build_course(
     course: Course,
     pairs: list[tuple[CurriculumPhase, list[CurriculumTask]]],
 ) -> CourseData:
-    phases = tuple(
-        _build_phase(p, t)
-        for p, t in sorted(pairs, key=lambda x: x[0].phase_no)
-    )
+    phases = tuple(_build_phase(p, t) for p, t in sorted(pairs, key=lambda x: x[0].phase_no))
     return CourseData(
         id=course.id,
         slug=course.slug,
@@ -78,15 +69,19 @@ async def _load_course_phases(
     db: AsyncSession, course_id: uuid.UUID
 ) -> list[tuple[CurriculumPhase, list[CurriculumTask]]]:
     """Return (phase, tasks) pairs for one course."""
-    phases = list((await db.execute(
-        select(CurriculumPhase).where(CurriculumPhase.course_id == course_id)
-    )).scalars().all())
+    phases = list(
+        (await db.execute(select(CurriculumPhase).where(CurriculumPhase.course_id == course_id)))
+        .scalars()
+        .all()
+    )
     if not phases:
         return []
     phase_ids = [p.id for p in phases]
-    tasks = list((await db.execute(
-        select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))
-    )).scalars().all())
+    tasks = list(
+        (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))))
+        .scalars()
+        .all()
+    )
     by_phase: dict[uuid.UUID, list[CurriculumTask]] = {pid: [] for pid in phase_ids}
     for t in tasks:
         by_phase[t.phase_id].append(t)
@@ -101,8 +96,7 @@ async def reload_from_db(db: AsyncSession) -> None:
     courses = list((await db.execute(select(Course))).scalars().all())
     if not courses:
         raise RuntimeError(
-            "curriculum cache: courses table is empty — "
-            "alembic upgrade head が未実行の可能性"
+            "curriculum cache: courses table is empty — alembic upgrade head が未実行の可能性"
         )
 
     new_cache: dict[str, CourseData] = {}
@@ -121,11 +115,10 @@ async def reload_from_db(db: AsyncSession) -> None:
 
 async def reload_course(db: AsyncSession, slug: str) -> None:
     """1 course だけを再構築して cache を差し替える (publish 後に呼ぶ)。"""
-    course = (
-        await db.execute(select(Course).where(Course.slug == slug))
-    ).scalar_one_or_none()
+    course = (await db.execute(select(Course).where(Course.slug == slug))).scalar_one_or_none()
     if course is None:
         from app.data.courses import CourseNotFoundError
+
         raise CourseNotFoundError(slug)
     pairs = await _load_course_phases(db, course.id)
     _CACHE[slug] = _build_course(course, pairs)

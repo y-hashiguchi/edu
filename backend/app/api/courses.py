@@ -22,9 +22,7 @@ router = APIRouter(prefix="/api/courses", tags=["courses"])
 @router.get("/catalog", response_model=CourseCatalogOut)
 async def get_catalog(db: AsyncSession = Depends(get_db)) -> CourseCatalogOut:
     """Public list of available courses (used by the registration form)."""
-    result = await db.execute(
-        select(Course).order_by(Course.sort_order, Course.title)
-    )
+    result = await db.execute(select(Course).order_by(Course.sort_order, Course.title))
     items = [
         CourseCatalogItem(
             slug=c.slug,
@@ -47,8 +45,10 @@ async def get_my_courses(
     return MyCoursesOut(
         items=[
             MyCourseItem(
-                slug=it.slug, title=it.title,
-                description=it.description, status=it.status,
+                slug=it.slug,
+                title=it.title,
+                description=it.description,
+                status=it.status,
             )
             for it in items
         ]

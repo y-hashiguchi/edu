@@ -1,7 +1,5 @@
 """file_storage core module tests."""
 
-import io
-import os
 import uuid
 from pathlib import Path
 
@@ -14,15 +12,12 @@ from app.core.file_storage import (
     MimeMismatchError,
     PathTraversalError,
     detect_mime_type,
-    save_upload,
     sanitize_filename,
-    storage_root,
-    submission_dir,
     validate_extension,
 )
 
-
 # ----------- helpers -----------
+
 
 def _png_bytes() -> bytes:
     # 1x1 transparent PNG
@@ -39,6 +34,7 @@ def _pdf_bytes() -> bytes:
 
 # ----------- sanitize_filename -----------
 
+
 def test_sanitize_filename_removes_path_separators():
     assert sanitize_filename("../../etc/passwd") == "passwd"
 
@@ -54,6 +50,7 @@ def test_sanitize_filename_rejects_empty(tmp_path):
 
 # ----------- validate_extension -----------
 
+
 def test_validate_extension_accepts_whitelisted():
     validate_extension("solution.py")
 
@@ -68,6 +65,7 @@ def test_validate_extension_case_insensitive():
 
 
 # ----------- submission_dir + path traversal -----------
+
 
 def test_submission_dir_resolves_under_root(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
@@ -103,6 +101,7 @@ def test_path_traversal_via_user_id_rejected(tmp_path, monkeypatch):
 
 # ----------- detect_mime_type -----------
 
+
 def test_detect_mime_type_png():
     assert detect_mime_type(_png_bytes()).startswith("image/png")
 
@@ -112,6 +111,7 @@ def test_detect_mime_type_pdf():
 
 
 # ----------- save_upload -----------
+
 
 @pytest.mark.asyncio
 async def test_save_upload_writes_file_and_returns_metadata(tmp_path, monkeypatch):
@@ -137,7 +137,6 @@ async def test_save_upload_writes_file_and_returns_metadata(tmp_path, monkeypatc
 
     assert meta.size_bytes == len(data)
     assert meta.mime_type.startswith("image/png")
-    full_path = tmp_path / meta.file_path.removeprefix(f"{tmp_path}/")
     # file_path is stored relative-to-cwd; check the file actually exists.
     assert Path(meta.file_path).exists()
 
@@ -202,12 +201,16 @@ async def test_save_upload_suffixes_collisions(tmp_path, monkeypatch):
     user_id = uuid.uuid4()
     sub_id = uuid.uuid4()
     a = await fs_mod.save_upload(
-        user_id=user_id, submission_id=sub_id,
-        filename="img.png", content=_png_bytes(),
+        user_id=user_id,
+        submission_id=sub_id,
+        filename="img.png",
+        content=_png_bytes(),
     )
     b = await fs_mod.save_upload(
-        user_id=user_id, submission_id=sub_id,
-        filename="img.png", content=_png_bytes(),
+        user_id=user_id,
+        submission_id=sub_id,
+        filename="img.png",
+        content=_png_bytes(),
     )
     assert a.file_path != b.file_path
     assert Path(a.file_path).exists()
@@ -236,12 +239,16 @@ async def test_save_upload_suffix_handles_extensionless_name(tmp_path, monkeypat
     user_id = uuid.uuid4()
     sub_id = uuid.uuid4()
     a = await fs_mod.save_upload(
-        user_id=user_id, submission_id=sub_id,
-        filename="notes.txt", content=b"hello world",
+        user_id=user_id,
+        submission_id=sub_id,
+        filename="notes.txt",
+        content=b"hello world",
     )
     b = await fs_mod.save_upload(
-        user_id=user_id, submission_id=sub_id,
-        filename="notes.txt", content=b"different content",
+        user_id=user_id,
+        submission_id=sub_id,
+        filename="notes.txt",
+        content=b"different content",
     )
     assert Path(b.file_path).name == "notes_1.txt"
     assert Path(a.file_path).read_bytes() == b"hello world"

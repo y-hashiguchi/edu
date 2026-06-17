@@ -40,9 +40,7 @@ async def get_admin_user_dashboard(
     db: AsyncSession = Depends(get_db),
     embedding_client=Depends(get_embedding_client),
 ) -> AdminDashboardResponse:
-    target = (
-        await db.execute(select(User).where(User.id == user_id))
-    ).scalar_one_or_none()
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if target is None or target.is_admin:
         # Sprint 6 MED-6: admin-on-admin dashboard は threat model 外。
         # 存在有無を漏らさないよう learner と同じ 404 に統一。
@@ -62,15 +60,9 @@ async def get_admin_user_dashboard(
         progress_summary=ProgressSummaryOut.model_validate(data.progress_summary),
         weakness=WeaknessOut(
             has_enough_data=data.weakness.has_enough_data,
-            top_weaknesses=[
-                TagAverageOut.model_validate(w)
-                for w in data.weakness.top_weaknesses
-            ],
+            top_weaknesses=[TagAverageOut.model_validate(w) for w in data.weakness.top_weaknesses],
         ),
         recommendations=RecommendationsBlock(
-            items=[
-                RecommendationOut.model_validate(r)
-                for r in data.recommendations
-            ],
+            items=[RecommendationOut.model_validate(r) for r in data.recommendations],
         ),
     )

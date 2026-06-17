@@ -19,9 +19,7 @@ class CurriculumPhase(Base):
 
     __tablename__ = "curriculum_phases"
     __table_args__ = (
-        UniqueConstraint(
-            "course_id", "phase_no", name="uq_curriculum_phases_course_phase_no"
-        ),
+        UniqueConstraint("course_id", "phase_no", name="uq_curriculum_phases_course_phase_no"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

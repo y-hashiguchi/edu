@@ -8,7 +8,10 @@ from app.services.submission import upsert_and_enqueue
 
 @pytest.mark.asyncio
 async def test_upsert_and_enqueue_leaves_submission_ungraded_until_job_runs(
-    db_session, auth_user, default_course_id, monkeypatch,
+    db_session,
+    auth_user,
+    default_course_id,
+    monkeypatch,
 ):
     """When async is on, upsert returns before Claude runs."""
     graded_ids: list[str] = []
@@ -40,7 +43,10 @@ async def test_upsert_and_enqueue_leaves_submission_ungraded_until_job_runs(
 
 @pytest.mark.asyncio
 async def test_inline_enqueue_grades_when_async_disabled(
-    db_session, auth_user, default_course_id, monkeypatch,
+    db_session,
+    auth_user,
+    default_course_id,
+    monkeypatch,
 ):
     """GRADING_ASYNC_ENABLED=false runs grading inline (test default)."""
     from unittest.mock import MagicMock

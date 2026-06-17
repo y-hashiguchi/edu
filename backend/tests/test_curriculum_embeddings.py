@@ -1,7 +1,8 @@
 """Sprint 18 — curriculum embedding seed tests."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from sqlalchemy import select
 
 from app.data.courses import runtime
@@ -22,18 +23,14 @@ def test_build_embedding_items_includes_tasks(seed_curriculum):
 
 
 @pytest.mark.asyncio
-async def test_seed_course_embeddings_refs_filters_items(
-    db_session, seed_curriculum
-):
+async def test_seed_course_embeddings_refs_filters_items(db_session, seed_curriculum):
     await runtime.reload_from_db(db_session)
     refs = ["course:ai-driven-dev:phase:1:task:0"]
     with patch(
         "app.services.curriculum_embeddings.upsert_embeddings",
         new_callable=AsyncMock,
     ) as mock_upsert:
-        count = await seed_course_embeddings_refs(
-            db_session, "ai-driven-dev", refs
-        )
+        count = await seed_course_embeddings_refs(db_session, "ai-driven-dev", refs)
     assert count == 1
     items = mock_upsert.await_args.kwargs["items"]
     assert len(items) == 1
@@ -53,9 +50,7 @@ async def test_seed_course_embeddings_calls_upsert(db_session, seed_curriculum):
 
 
 @pytest.mark.asyncio
-async def test_prune_orphan_course_embeddings(
-    db_session, seed_curriculum, default_course_id
-):
+async def test_prune_orphan_course_embeddings(db_session, seed_curriculum, default_course_id):
     await runtime.reload_from_db(db_session)
     valid_ref = "course:ai-driven-dev:phase:1:task:0"
     orphan_ref = "course:ai-driven-dev:phase:1:task:99"
@@ -78,11 +73,15 @@ async def test_prune_orphan_course_embeddings(
     assert pruned == 1
 
     refs = (
-        await db_session.execute(
-            select(Embedding.source_ref).where(
-                Embedding.course_id == default_course_id,
-                Embedding.source_type == "curriculum_task",
+        (
+            await db_session.execute(
+                select(Embedding.source_ref).where(
+                    Embedding.course_id == default_course_id,
+                    Embedding.source_type == "curriculum_task",
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert refs == [valid_ref]

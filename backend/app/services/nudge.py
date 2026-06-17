@@ -22,7 +22,6 @@ from app.config import settings
 from app.models.user_nudge import UserNudge
 from app.services.weakness import MIN_SUBMISSION_THRESHOLD
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -42,10 +41,7 @@ weakness も recommendations も空の transitional state で出す固定文。
 LLM を呼ぶとコンテキスト不足で curriculum-irrelevant な内容を
 ハルシネートするため (ローカル検証で実害確認)、ここで短絡する。"""
 
-LLM_FAILURE_FALLBACK = (
-    "今日も学習を続けましょう。"
-    "提出を 1 件積むごとに、次の一歩が見えてきます。"
-)
+LLM_FAILURE_FALLBACK = "今日も学習を続けましょう。提出を 1 件積むごとに、次の一歩が見えてきます。"
 """LLM が落ちていて、過去の nudge も存在しないときの最終フォールバック。"""
 
 
@@ -103,13 +99,10 @@ def _build_prompt(
         "励ましの言葉は不要。具体的なタスク名や数値を含めてください。"
     )
     weakness_block = (
-        "\n".join(f"{i+1}. {t}" for i, t in enumerate(weakness_tags[:3]))
+        "\n".join(f"{i + 1}. {t}" for i, t in enumerate(weakness_tags[:3]))
         or "（まだ十分なデータがありません）"
     )
-    rec_block = (
-        "\n".join(f"- {title}" for title in recommendation_titles[:3])
-        or "- （該当なし）"
-    )
+    rec_block = "\n".join(f"- {title}" for title in recommendation_titles[:3]) or "- （該当なし）"
     user = (
         f"<progress>{progress_text}</progress>\n"
         f"<weakness>\n{weakness_block}\n</weakness>\n"
@@ -133,7 +126,9 @@ async def get_or_generate(
     # Cold start: skip LLM entirely.
     if submission_count < MIN_SUBMISSION_THRESHOLD:
         return NudgeResult(
-            body=COLD_START_BODY, generated_at=datetime.now(UTC), is_fresh=True,
+            body=COLD_START_BODY,
+            generated_at=datetime.now(UTC),
+            is_fresh=True,
         )
 
     # MED-2 (sprint-5 follow-up): transitional state past cold-start but
@@ -150,7 +145,10 @@ async def get_or_generate(
         )
 
     signature = _build_signature(
-        course_id, weakness_tags, top_recommendation_key, submission_count,
+        course_id,
+        weakness_tags,
+        top_recommendation_key,
+        submission_count,
     )
 
     # HIGH-2 (sprint-5 security review): skip_locked=True turns a
@@ -177,12 +175,16 @@ async def get_or_generate(
         and existing.input_signature == signature
     ):
         return NudgeResult(
-            body=existing.body, generated_at=existing.generated_at, is_fresh=True,
+            body=existing.body,
+            generated_at=existing.generated_at,
+            is_fresh=True,
         )
 
     # Cache miss / stale / signature changed → regenerate.
     system_prompt, user_message = _build_prompt(
-        weakness_tags, recommendation_titles or [], progress_text,
+        weakness_tags,
+        recommendation_titles or [],
+        progress_text,
     )
     try:
         reply = await claude.complete(
@@ -195,11 +197,13 @@ async def get_or_generate(
         logger.exception("Nudge LLM call failed; degrading gracefully")
         if existing is not None:
             return NudgeResult(
-                body=existing.body, generated_at=existing.generated_at,
+                body=existing.body,
+                generated_at=existing.generated_at,
                 is_fresh=False,
             )
         return NudgeResult(
-            body=LLM_FAILURE_FALLBACK, generated_at=datetime.now(UTC),
+            body=LLM_FAILURE_FALLBACK,
+            generated_at=datetime.now(UTC),
             is_fresh=False,
         )
 
@@ -207,17 +211,22 @@ async def get_or_generate(
     if not body:
         if existing is not None:
             return NudgeResult(
-                body=existing.body, generated_at=existing.generated_at,
+                body=existing.body,
+                generated_at=existing.generated_at,
                 is_fresh=False,
             )
         return NudgeResult(
-            body=LLM_FAILURE_FALLBACK, generated_at=datetime.now(UTC),
+            body=LLM_FAILURE_FALLBACK,
+            generated_at=datetime.now(UTC),
             is_fresh=False,
         )
 
     now = datetime.now(UTC)
     stmt = pg_insert(UserNudge.__table__).values(
-        user_id=user_id, course_id=course_id, body=body, generated_at=now,
+        user_id=user_id,
+        course_id=course_id,
+        body=body,
+        generated_at=now,
         input_signature=signature,
     )
     stmt = stmt.on_conflict_do_update(

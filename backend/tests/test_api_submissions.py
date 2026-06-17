@@ -5,9 +5,7 @@ from app.core.claude_client import ClaudeClient, get_claude_client
 
 def _fake(reply: str) -> ClaudeClient:
     fake_sdk = MagicMock()
-    fake_sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply)])
-    )
+    fake_sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply)]))
     return ClaudeClient(sdk=fake_sdk, model="claude-sonnet-4-5")
 
 
@@ -22,9 +20,7 @@ def test_submit_requires_auth(client, db_session):
 def test_submit_creates_and_returns_grade(auth_client):
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":88,"feedback":"good"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":88,"feedback":"good"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -45,9 +41,7 @@ def test_submit_creates_and_returns_grade(auth_client):
 def test_submit_locked_phase_returns_403(auth_client):
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -61,9 +55,7 @@ def test_submit_locked_phase_returns_403(auth_client):
 def test_submit_invalid_task_returns_422(auth_client):
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         response = auth_client.post(
             "/api/submissions",
@@ -77,9 +69,7 @@ def test_submit_invalid_task_returns_422(auth_client):
 def test_list_returns_submissions(auth_client):
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         auth_client.post(
             "/api/submissions",
@@ -105,9 +95,7 @@ def test_list_requires_auth(client, db_session):
 def test_all_submissions_promote_progress_to_submitted(auth_client):
     from app.main import app
 
-    app.dependency_overrides[get_claude_client] = lambda: _fake(
-        '{"score":80,"feedback":"x"}'
-    )
+    app.dependency_overrides[get_claude_client] = lambda: _fake('{"score":80,"feedback":"x"}')
     try:
         for tno in (1, 2, 3):
             auth_client.post(

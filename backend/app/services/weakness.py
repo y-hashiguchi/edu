@@ -157,9 +157,7 @@ async def compute_top_weakness_tags_bulk(
         )
         .join(GradingAttempt, GradingAttempt.submission_id == Submission.id)
         .where(
-            tuple_(Submission.user_id, Submission.course_id).in_(
-                user_course_pairs
-            ),
+            tuple_(Submission.user_id, Submission.course_id).in_(user_course_pairs),
             GradingAttempt.status == "graded",
         )
         .order_by(
@@ -171,9 +169,7 @@ async def compute_top_weakness_tags_bulk(
     )
     rows = (await db.execute(stmt)).all()
 
-    by_user: dict[uuid.UUID, dict[str, list[float]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    by_user: dict[uuid.UUID, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for user_id, _sub_id, score, phase, task_no in rows:
         try:
             tags = get_task_skill_tags(phase, task_no)
@@ -188,10 +184,7 @@ async def compute_top_weakness_tags_bulk(
         if not tag_scores:
             out[uid] = None
             continue
-        eligible = {
-            t: s for t, s in tag_scores.items()
-            if len(s) >= BULK_MIN_TAG_SUBMISSIONS
-        }
+        eligible = {t: s for t, s in tag_scores.items() if len(s) >= BULK_MIN_TAG_SUBMISSIONS}
         if not eligible:
             out[uid] = None
             continue

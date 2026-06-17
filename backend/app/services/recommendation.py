@@ -42,9 +42,7 @@ async def compute_recommendations(
     submitted = await _user_submitted_phase_task_pairs(db, user_id, course_id)
     course = get_course(course_slug)
     course_task_lookup: dict[tuple[int, int], tuple[str, list[str]]] = {
-        (p.phase, t.task_no): (t.title, list(t.skill_tags))
-        for p in course.phases
-        for t in p.tasks
+        (p.phase, t.task_no): (t.title, list(t.skill_tags)) for p in course.phases for t in p.tasks
     }
     unsubmitted_keys: set[tuple[int, int]] = {
         key for key in course_task_lookup if key not in submitted
@@ -58,7 +56,11 @@ async def compute_recommendations(
     # course_task_lookup gate below still defends against legacy
     # source_ref formats.
     hits: list[CurriculumTaskHit] = await search_curriculum_tasks(
-        db, client, query=f"{primary} を扱うタスク", limit=8, course_id=course_id,
+        db,
+        client,
+        query=f"{primary} を扱うタスク",
+        limit=8,
+        course_id=course_id,
     )
 
     seen: set[tuple[int, int]] = set()
@@ -72,12 +74,16 @@ async def compute_recommendations(
         if lookup is None:
             continue  # legacy embeddings beyond current course
         title, tags = lookup
-        out.append(Recommendation(
-            phase=hit.phase, task_no=hit.task_no, title=title,
-            skill_tags=tags,
-            match_tag=primary if primary in tags else None,
-            rag_score=hit.score,
-        ))
+        out.append(
+            Recommendation(
+                phase=hit.phase,
+                task_no=hit.task_no,
+                title=title,
+                skill_tags=tags,
+                match_tag=primary if primary in tags else None,
+                rag_score=hit.score,
+            )
+        )
         if len(out) == 3:
             break
     return out

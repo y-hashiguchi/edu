@@ -1,7 +1,8 @@
 """Sprint 9 — admin curriculum HTTP API tests."""
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 
 @pytest.mark.asyncio
@@ -25,9 +26,7 @@ async def test_list_returns_courses_with_zero_drafts(
 
 
 @pytest.mark.asyncio
-async def test_detail_returns_phases_and_tasks(
-    client, admin_user, admin_token, seed_curriculum
-):
+async def test_detail_returns_phases_and_tasks(client, admin_user, admin_token, seed_curriculum):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.get("/api/admin/curriculum/ai-driven-dev")
     assert res.status_code == 200
@@ -41,9 +40,7 @@ async def test_detail_returns_phases_and_tasks(
 
 
 @pytest.mark.asyncio
-async def test_put_phase_records_draft(
-    client, admin_user, admin_token, seed_curriculum
-):
+async def test_put_phase_records_draft(client, admin_user, admin_token, seed_curriculum):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.put(
         "/api/admin/curriculum/ai-driven-dev/phases/1",
@@ -56,9 +53,7 @@ async def test_put_phase_records_draft(
 
 
 @pytest.mark.asyncio
-async def test_put_task_records_draft_skill_tags(
-    client, admin_user, admin_token, seed_curriculum
-):
+async def test_put_task_records_draft_skill_tags(client, admin_user, admin_token, seed_curriculum):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.put(
         "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/1",
@@ -95,9 +90,7 @@ async def test_publish_promotes_drafts_idempotent(
 
 
 @pytest.mark.asyncio
-async def test_discard_drafts_returns_204(
-    client, admin_user, admin_token, seed_curriculum
-):
+async def test_discard_drafts_returns_204(client, admin_user, admin_token, seed_curriculum):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     client.put(
         "/api/admin/curriculum/ai-driven-dev/phases/1",
@@ -113,9 +106,7 @@ async def test_discard_drafts_returns_204(
 
 
 @pytest.mark.asyncio
-async def test_detail_rejects_invalid_slug_format(
-    client, admin_user, admin_token, seed_curriculum
-):
+async def test_detail_rejects_invalid_slug_format(client, admin_user, admin_token, seed_curriculum):
     """空白 / 大文字 / 過長スラッグは DB を叩く前に 422。"""
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     # uppercase
@@ -127,9 +118,7 @@ async def test_detail_rejects_invalid_slug_format(
 
 
 @pytest.mark.asyncio
-async def test_put_phase_rejects_invalid_slug(
-    client, admin_user, admin_token, seed_curriculum
-):
+async def test_put_phase_rejects_invalid_slug(client, admin_user, admin_token, seed_curriculum):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.put(
         "/api/admin/curriculum/INVALID%20SLUG/phases/1",
@@ -144,9 +133,7 @@ async def test_put_phase_rejects_invalid_slug(
 
 
 @pytest.mark.asyncio
-async def test_post_task_adds_at_end(
-    client, admin_user, admin_token, seed_curriculum, monkeypatch
-):
+async def test_post_task_adds_at_end(client, admin_user, admin_token, seed_curriculum, monkeypatch):
     enqueued: list[tuple[str, list[str]]] = []
 
     async def fake_enqueue(course_slug, source_refs):
@@ -186,9 +173,7 @@ async def test_delete_task_returns_204(
     )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     client.post("/api/admin/curriculum/ai-driven-dev/phases/1/tasks")
-    res = client.delete(
-        "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/4"
-    )
+    res = client.delete("/api/admin/curriculum/ai-driven-dev/phases/1/tasks/4")
     assert res.status_code == 204
     assert full_calls == ["ai-driven-dev"]
     detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
@@ -213,16 +198,12 @@ async def test_delete_task_with_submissions_returns_409(
     await db_session.commit()
 
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
-    res = client.delete(
-        "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/1"
-    )
+    res = client.delete("/api/admin/curriculum/ai-driven-dev/phases/1/tasks/1")
     assert res.status_code == 409
 
 
 @pytest.mark.asyncio
-async def test_move_task_reorders(
-    client, admin_user, admin_token, seed_curriculum, monkeypatch
-):
+async def test_move_task_reorders(client, admin_user, admin_token, seed_curriculum, monkeypatch):
     full_calls: list[str] = []
 
     async def _noop_full(slug: str) -> None:
@@ -244,9 +225,7 @@ async def test_move_task_reorders(
 
 
 @pytest.mark.asyncio
-async def test_move_phase_reorders(
-    client, admin_user, admin_token, seed_curriculum, monkeypatch
-):
+async def test_move_phase_reorders(client, admin_user, admin_token, seed_curriculum, monkeypatch):
     async def _noop_full(slug: str) -> None:
         return None
 
@@ -341,7 +320,6 @@ async def test_delete_phase_with_submissions_returns_409(
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.delete("/api/admin/curriculum/ai-driven-dev/phases/1")
     assert res.status_code == 409
-
 
 
 @pytest.mark.asyncio

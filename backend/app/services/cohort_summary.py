@@ -10,8 +10,8 @@ from statistics import mean
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.email_mask import mask_email
 from app.config import settings
+from app.core.email_mask import mask_email
 from app.data.courses import get_course
 from app.models.enrollment import Enrollment
 from app.models.grading_attempt import GradingAttempt
@@ -85,8 +85,7 @@ def _is_course_complete(
 ) -> bool:
     by_phase = {phase: status for phase, status in progress_rows}
     return all(
-        by_phase.get(phase, ProgressStatus.LOCKED.value)
-        == ProgressStatus.COMPLETED.value
+        by_phase.get(phase, ProgressStatus.LOCKED.value) == ProgressStatus.COMPLETED.value
         for phase in range(1, total_phases + 1)
     )
 
@@ -158,10 +157,7 @@ async def compute_cohort_summary(
         )
         .group_by(Submission.user_id)
     )
-    sub_stats = {
-        r[0]: (int(r[1]), r[2], r[3])
-        for r in (await db.execute(sub_stats_stmt)).all()
-    }
+    sub_stats = {r[0]: (int(r[1]), r[2], r[3]) for r in (await db.execute(sub_stats_stmt)).all()}
 
     latest_attempt_subq = (
         select(
@@ -192,12 +188,8 @@ async def compute_cohort_summary(
         )
         .distinct(latest_attempt_subq.c.user_id)
     )
-    latest_scores = [
-        float(r[1]) for r in (await db.execute(latest_score_stmt)).all()
-    ]
-    average_score = (
-        round(mean(latest_scores), 2) if latest_scores else None
-    )
+    latest_scores = [float(r[1]) for r in (await db.execute(latest_score_stmt)).all()]
+    average_score = round(mean(latest_scores), 2) if latest_scores else None
 
     progress_stmt = select(
         Progress.user_id,
@@ -207,26 +199,20 @@ async def compute_cohort_summary(
         Progress.course_id == course_id,
         Progress.user_id.in_(user_ids),
     )
-    progress_by_user: dict[uuid.UUID, list[tuple[int, str]]] = {
-        uid: [] for uid in user_ids
-    }
+    progress_by_user: dict[uuid.UUID, list[tuple[int, str]]] = {uid: [] for uid in user_ids}
     for uid, phase, status in (await db.execute(progress_stmt)).all():
         progress_by_user[uid].append((phase, status))
 
     completion_rates = []
     for uid in user_ids:
         rows = progress_by_user.get(uid, [])
-        completed = sum(
-            1 for _, st in rows if st == ProgressStatus.COMPLETED.value
-        )
+        completed = sum(1 for _, st in rows if st == ProgressStatus.COMPLETED.value)
         completion_rates.append(completed / total_phases)
     completion_rate = round(mean(completion_rates), 4)
 
     stuck_learners: list[StuckLearner] = []
     for user_id, enrolled_at, name, email in enroll_rows:
-        count, last_submitted, last_graded = sub_stats.get(
-            user_id, (0, None, None)
-        )
+        count, last_submitted, last_graded = sub_stats.get(user_id, (0, None, None))
         last_activity = last_graded or last_submitted or enrolled_at
         progress_rows = progress_by_user.get(user_id, [])
         current_phase = _current_phase(progress_rows, total_phases)
@@ -235,11 +221,7 @@ async def compute_cohort_summary(
         reason: str | None = None
         if count == 0 and enrolled_at < cutoff:
             reason = "no_submissions"
-        elif (
-            count > 0
-            and not course_complete
-            and last_activity < cutoff
-        ):
+        elif count > 0 and not course_complete and last_activity < cutoff:
             reason = "inactive_7d"
 
         if reason is not None:
@@ -255,9 +237,7 @@ async def compute_cohort_summary(
                 )
             )
 
-    stuck_learners.sort(
-        key=lambda s: (s.last_activity_at or datetime.min.replace(tzinfo=UTC))
-    )
+    stuck_learners.sort(key=lambda s: s.last_activity_at or datetime.min.replace(tzinfo=UTC))
 
     tag_stmt = (
         select(

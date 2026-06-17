@@ -54,7 +54,8 @@ async def _make_enrolled_learner(
 
 @pytest.mark.asyncio
 async def test_zero_enrollments_returns_empty_summary(
-    db_session, se_course_id,
+    db_session,
+    se_course_id,
 ):
     summary = await compute_cohort_summary(
         db_session,
@@ -71,13 +72,19 @@ async def test_zero_enrollments_returns_empty_summary(
 
 @pytest.mark.asyncio
 async def test_enrolled_count_includes_active_only(
-    db_session, default_course_id, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_curriculum,
 ):
     await _make_enrolled_learner(
-        db_session, default_course_id, email="a@e.com",
+        db_session,
+        default_course_id,
+        email="a@e.com",
     )
     await _make_enrolled_learner(
-        db_session, default_course_id, email="b@e.com",
+        db_session,
+        default_course_id,
+        email="b@e.com",
     )
     course = get_course(DEFAULT_COURSE_SLUG)
     summary = await compute_cohort_summary(
@@ -91,13 +98,20 @@ async def test_enrolled_count_includes_active_only(
 
 @pytest.mark.asyncio
 async def test_average_score_from_latest_graded_per_user(
-    db_session, default_course_id, seed_graded_submission, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
+    seed_curriculum,
 ):
     u1 = await _make_enrolled_learner(
-        db_session, default_course_id, email="s1@e.com",
+        db_session,
+        default_course_id,
+        email="s1@e.com",
     )
     u2 = await _make_enrolled_learner(
-        db_session, default_course_id, email="s2@e.com",
+        db_session,
+        default_course_id,
+        email="s2@e.com",
     )
     await seed_graded_submission(u1, 1, 1, 80)
     await seed_graded_submission(u2, 1, 1, 60)
@@ -113,10 +127,14 @@ async def test_average_score_from_latest_graded_per_user(
 
 @pytest.mark.asyncio
 async def test_average_score_none_without_graded(
-    db_session, default_course_id, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_curriculum,
 ):
     await _make_enrolled_learner(
-        db_session, default_course_id, email="nog@e.com",
+        db_session,
+        default_course_id,
+        email="nog@e.com",
     )
     course = get_course(DEFAULT_COURSE_SLUG)
     summary = await compute_cohort_summary(
@@ -130,10 +148,14 @@ async def test_average_score_none_without_graded(
 
 @pytest.mark.asyncio
 async def test_completion_rate_averages_per_user(
-    db_session, default_course_id, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_curriculum,
 ):
     user = await _make_enrolled_learner(
-        db_session, default_course_id, email="comp@e.com",
+        db_session,
+        default_course_id,
+        email="comp@e.com",
     )
     await db_session.execute(
         update(Progress)
@@ -159,7 +181,9 @@ async def test_completion_rate_averages_per_user(
 
 @pytest.mark.asyncio
 async def test_stuck_no_submissions_after_enroll_threshold(
-    db_session, default_course_id, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_curriculum,
 ):
     await _make_enrolled_learner(
         db_session,
@@ -184,10 +208,15 @@ async def test_stuck_no_submissions_after_enroll_threshold(
 
 @pytest.mark.asyncio
 async def test_stuck_inactive_when_last_submission_old(
-    db_session, default_course_id, seed_graded_submission, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
+    seed_curriculum,
 ):
     user = await _make_enrolled_learner(
-        db_session, default_course_id, email="stuck1@e.com",
+        db_session,
+        default_course_id,
+        email="stuck1@e.com",
     )
     sub, _att = await seed_graded_submission(user, 1, 1, 70)
     old = datetime.now(UTC) - timedelta(days=10)
@@ -208,10 +237,15 @@ async def test_stuck_inactive_when_last_submission_old(
 
 @pytest.mark.asyncio
 async def test_not_stuck_when_recently_active(
-    db_session, default_course_id, seed_graded_submission, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
+    seed_curriculum,
 ):
     user = await _make_enrolled_learner(
-        db_session, default_course_id, email="active@e.com",
+        db_session,
+        default_course_id,
+        email="active@e.com",
     )
     await seed_graded_submission(user, 1, 1, 90)
     course = get_course(DEFAULT_COURSE_SLUG)
@@ -228,13 +262,20 @@ async def test_not_stuck_when_recently_active(
 
 @pytest.mark.asyncio
 async def test_tag_heatmap_respects_min_submissions(
-    db_session, default_course_id, seed_graded_submission, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
+    seed_curriculum,
 ):
     u1 = await _make_enrolled_learner(
-        db_session, default_course_id, email="t1@e.com",
+        db_session,
+        default_course_id,
+        email="t1@e.com",
     )
     u2 = await _make_enrolled_learner(
-        db_session, default_course_id, email="t2@e.com",
+        db_session,
+        default_course_id,
+        email="t2@e.com",
     )
     await seed_graded_submission(u1, 1, 1, 50)
     await seed_graded_submission(u2, 1, 1, 70)
@@ -255,10 +296,15 @@ async def test_tag_heatmap_respects_min_submissions(
 
 @pytest.mark.asyncio
 async def test_tag_heatmap_excludes_single_submission_tags(
-    db_session, default_course_id, seed_graded_submission, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_graded_submission,
+    seed_curriculum,
 ):
     user = await _make_enrolled_learner(
-        db_session, default_course_id, email="solo@e.com",
+        db_session,
+        default_course_id,
+        email="solo@e.com",
     )
     await seed_graded_submission(user, 1, 1, 55)
     course = get_course(DEFAULT_COURSE_SLUG)
@@ -273,13 +319,19 @@ async def test_tag_heatmap_excludes_single_submission_tags(
 
 @pytest.mark.asyncio
 async def test_cohort_label_filters_enrollments(
-    db_session, default_course_id, seed_curriculum,
+    db_session,
+    default_course_id,
+    seed_curriculum,
 ):
     user_a = await _make_enrolled_learner(
-        db_session, default_course_id, email="spring@e.com",
+        db_session,
+        default_course_id,
+        email="spring@e.com",
     )
     user_b = await _make_enrolled_learner(
-        db_session, default_course_id, email="fall@e.com",
+        db_session,
+        default_course_id,
+        email="fall@e.com",
     )
     await db_session.execute(
         update(Enrollment)

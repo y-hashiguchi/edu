@@ -40,9 +40,7 @@ def record_grading_attempt(
     return attempt
 
 
-def apply_grading_result(
-    submission: Submission, result: GradingResult, *, now: datetime
-) -> None:
+def apply_grading_result(submission: Submission, result: GradingResult, *, now: datetime) -> None:
     if result.status == GradingResultStatus.GRADED:
         submission.score = result.score
         submission.ai_feedback = result.feedback
@@ -71,12 +69,8 @@ async def grade_submission_by_id(
         return None
     submission, course = row
 
-    task_description = validate_phase_and_task(
-        course.slug, submission.phase, submission.task_no
-    )
-    files = await file_storage_service.list_submission_files(
-        db=db, submission_id=submission.id
-    )
+    task_description = validate_phase_and_task(course.slug, submission.phase, submission.task_no)
+    files = await file_storage_service.list_submission_files(db=db, submission_id=submission.id)
     result = await grade_submission(
         claude=claude,
         task_description=task_description,
@@ -88,9 +82,7 @@ async def grade_submission_by_id(
     record_grading_attempt(db, submission.id, result)
     apply_grading_result(submission, result, now=now)
 
-    phase_def = next(
-        p for p in get_course(course.slug).phases if p.phase == submission.phase
-    )
+    phase_def = next(p for p in get_course(course.slug).phases if p.phase == submission.phase)
     await maybe_mark_submitted(
         db,
         submission.user_id,

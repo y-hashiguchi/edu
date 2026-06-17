@@ -39,14 +39,14 @@ async def test_submission_round_trip(db_session, default_course_id):
 @pytest.mark.asyncio
 async def test_submission_unique_per_user_phase_task(db_session, default_course_id):
     user = await _make_user(db_session)
-    db_session.add(Submission(
-        user_id=user.id, course_id=default_course_id, phase=1, task_no=1, content="A"
-    ))
+    db_session.add(
+        Submission(user_id=user.id, course_id=default_course_id, phase=1, task_no=1, content="A")
+    )
     await db_session.commit()
 
-    db_session.add(Submission(
-        user_id=user.id, course_id=default_course_id, phase=1, task_no=1, content="B"
-    ))
+    db_session.add(
+        Submission(user_id=user.id, course_id=default_course_id, phase=1, task_no=1, content="B")
+    )
     with pytest.raises(IntegrityError):
         await db_session.commit()
     await db_session.rollback()
@@ -57,8 +57,12 @@ async def test_submission_score_range_constraint(db_session, default_course_id):
     user = await _make_user(db_session)
     db_session.add(
         Submission(
-            user_id=user.id, course_id=default_course_id,
-            phase=1, task_no=1, content="C", score=150,
+            user_id=user.id,
+            course_id=default_course_id,
+            phase=1,
+            task_no=1,
+            content="C",
+            score=150,
         )
     )
     with pytest.raises(IntegrityError):

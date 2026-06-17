@@ -1,7 +1,6 @@
 """Sprint 20 — publish-time curriculum embedding refresh."""
 
 import pytest
-from unittest.mock import AsyncMock
 
 from app.config import settings
 from app.worker.enqueue import enqueue_curriculum_embeddings

@@ -21,7 +21,9 @@ class Progress(Base):
     __tablename__ = "progress"
     __table_args__ = (
         UniqueConstraint(
-            "user_id", "course_id", "phase",
+            "user_id",
+            "course_id",
+            "phase",
             name="uq_progress_user_course_phase",
         ),
     )

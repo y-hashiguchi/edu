@@ -19,7 +19,10 @@ from app.core.security import hash_password
 from app.models.user import User
 from app.models.user_nudge import UserNudge
 from app.services.nudge import (
-    _build_signature, get_or_generate, COLD_START_BODY, TRANSITIONAL_BODY,
+    COLD_START_BODY,
+    TRANSITIONAL_BODY,
+    _build_signature,
+    get_or_generate,
 )
 
 
@@ -44,18 +47,18 @@ async def test_cold_start_returns_static_without_calling_llm(db_session, default
     user = await _make_user(db_session)
     claude = _fake_claude("UNUSED")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=[], top_recommendation_key=None,
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=[],
+        top_recommendation_key=None,
         submission_count=0,
     )
     assert out.body == COLD_START_BODY
     assert out.is_fresh is True
     claude.complete.assert_not_called()
-    row = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
-    ).first()
+    row = (await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))).first()
     assert row is None
 
 
@@ -64,16 +67,18 @@ async def test_cache_miss_generates_and_persists(db_session, default_course_id):
     user = await _make_user(db_session)
     claude = _fake_claude("データ構造が伸びる Phase 2 タスク 1 をやろう。")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key="2:1",
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key="2:1",
         submission_count=5,
     )
     assert out.is_fresh is True
     assert "Phase 2" in out.body
     row = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
+        await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))
     ).scalar_one()
     assert row.body == out.body
     assert len(row.input_signature) == 16
@@ -83,16 +88,25 @@ async def test_cache_miss_generates_and_persists(db_session, default_course_id):
 async def test_cache_hit_within_ttl_does_not_call_llm(db_session, default_course_id):
     user = await _make_user(db_session)
     sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="cached body",
-        generated_at=datetime.now(UTC), input_signature=sig,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="cached body",
+            generated_at=datetime.now(UTC),
+            input_signature=sig,
+        )
+    )
     await db_session.commit()
 
     claude = _fake_claude("WOULD-BE-NEW")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key="2:1",
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key="2:1",
         submission_count=5,
     )
     assert out.body == "cached body"
@@ -103,17 +117,25 @@ async def test_cache_hit_within_ttl_does_not_call_llm(db_session, default_course
 async def test_signature_change_invalidates_cache_even_within_ttl(db_session, default_course_id):
     user = await _make_user(db_session)
     old_sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="stale",
-        generated_at=datetime.now(UTC),
-        input_signature=old_sig,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="stale",
+            generated_at=datetime.now(UTC),
+            input_signature=old_sig,
+        )
+    )
     await db_session.commit()
 
     claude = _fake_claude("regenerated body")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key="3:2",  # changed
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key="3:2",  # changed
         submission_count=5,
     )
     assert out.body == "regenerated body"
@@ -124,19 +146,25 @@ async def test_signature_change_invalidates_cache_even_within_ttl(db_session, de
 async def test_ttl_expired_triggers_regeneration(db_session, default_course_id):
     user = await _make_user(db_session)
     sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="day-old",
-        generated_at=datetime.now(UTC) - timedelta(
-            hours=settings.nudge_cache_ttl_hours + 1
-        ),
-        input_signature=sig,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="day-old",
+            generated_at=datetime.now(UTC) - timedelta(hours=settings.nudge_cache_ttl_hours + 1),
+            input_signature=sig,
+        )
+    )
     await db_session.commit()
 
     claude = _fake_claude("fresh")
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key="2:1",
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key="2:1",
         submission_count=5,
     )
     assert out.body == "fresh"
@@ -146,27 +174,33 @@ async def test_ttl_expired_triggers_regeneration(db_session, default_course_id):
 async def test_llm_failure_with_existing_row_returns_stale(db_session, default_course_id):
     user = await _make_user(db_session)
     old_sig = _build_signature(default_course_id, ["AI協調"], "2:1", 5)
-    db_session.add(UserNudge(
-        user_id=user.id, course_id=default_course_id, body="stale body",
-        generated_at=datetime.now(UTC) - timedelta(hours=48),
-        input_signature=old_sig,
-    ))
+    db_session.add(
+        UserNudge(
+            user_id=user.id,
+            course_id=default_course_id,
+            body="stale body",
+            generated_at=datetime.now(UTC) - timedelta(hours=48),
+            input_signature=old_sig,
+        )
+    )
     await db_session.commit()
 
     claude = MagicMock()
     claude.complete = AsyncMock(side_effect=RuntimeError("api down"))
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key="2:1",
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key="2:1",
         submission_count=5,
     )
     assert out.body == "stale body"
     assert out.is_fresh is False
     row = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
+        await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))
     ).scalar_one()
     assert row.body == "stale body"
 
@@ -178,17 +212,17 @@ async def test_llm_failure_with_no_row_returns_static_fallback(db_session, defau
     claude.complete = AsyncMock(side_effect=RuntimeError("api down"))
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key="2:1",
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key="2:1",
         submission_count=5,
     )
     assert out.body
     assert out.is_fresh is False
-    row = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
-    ).first()
+    row = (await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))).first()
     assert row is None
 
 
@@ -219,25 +253,26 @@ async def test_transitional_state_returns_static_without_calling_llm(db_session,
     claude = _fake_claude("UNUSED")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=[], top_recommendation_key=None,
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=[],
+        top_recommendation_key=None,
         submission_count=5,
         recommendation_titles=[],
     )
     assert out.body == TRANSITIONAL_BODY
     assert out.is_fresh is True
     claude.complete.assert_not_called()
-    row = (
-        await db_session.execute(
-            select(UserNudge).where(UserNudge.user_id == user.id)
-        )
-    ).first()
+    row = (await db_session.execute(select(UserNudge).where(UserNudge.user_id == user.id))).first()
     assert row is None
 
 
 @pytest.mark.asyncio
 async def test_transitional_state_recommendation_titles_none_also_short_circuits(
-    db_session, default_course_id,
+    db_session,
+    default_course_id,
 ):
     """recommendation_titles defaults to None when callers omit it;
     the transitional guard must treat that as empty too."""
@@ -245,8 +280,12 @@ async def test_transitional_state_recommendation_titles_none_also_short_circuits
     claude = _fake_claude("UNUSED")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=[], top_recommendation_key=None,
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=[],
+        top_recommendation_key=None,
         submission_count=5,
         # recommendation_titles intentionally omitted
     )
@@ -263,8 +302,12 @@ async def test_weakness_present_bypasses_transitional_state(db_session, default_
     claude = _fake_claude("Phase 2 task 1 をやろう")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=["AI協調"], top_recommendation_key=None,
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=["AI協調"],
+        top_recommendation_key=None,
         submission_count=5,
         recommendation_titles=[],
     )
@@ -274,7 +317,8 @@ async def test_weakness_present_bypasses_transitional_state(db_session, default_
 
 @pytest.mark.asyncio
 async def test_recommendation_titles_present_bypasses_transitional_state(
-    db_session, default_course_id,
+    db_session,
+    default_course_id,
 ):
     """Symmetric to the previous test: a non-empty recommendation set
     is enough context for the LLM, so we must not short-circuit even
@@ -283,8 +327,12 @@ async def test_recommendation_titles_present_bypasses_transitional_state(
     claude = _fake_claude("二分探索木に挑戦しよう")
 
     out = await get_or_generate(
-        db_session, claude=claude, user_id=user.id, course_id=default_course_id,
-        weakness_tags=[], top_recommendation_key="2:1",
+        db_session,
+        claude=claude,
+        user_id=user.id,
+        course_id=default_course_id,
+        weakness_tags=[],
+        top_recommendation_key="2:1",
         submission_count=5,
         recommendation_titles=["二分探索木の実装"],
     )

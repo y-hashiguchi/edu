@@ -27,9 +27,7 @@ class GradingStatus(StrEnum):
 class GradingAttempt(Base):
     __tablename__ = "grading_attempts"
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('graded','failed')", name="ck_grading_attempts_status"
-        ),
+        CheckConstraint("status IN ('graded','failed')", name="ck_grading_attempts_status"),
         CheckConstraint(
             "score IS NULL OR score BETWEEN 0 AND 100",
             name="ck_grading_attempts_score",

@@ -5,7 +5,6 @@ from sqlalchemy import select
 
 from app.core.security import hash_password
 from app.models.course import Course
-from app.models.enrollment import Enrollment
 from app.models.user import User
 from app.services.enrollment import (
     AlreadyEnrolledError,
@@ -19,7 +18,9 @@ from app.services.enrollment import (
 
 async def _make_user(db, email="u@e.com", is_admin=False):
     user = User(
-        email=email, name="U", password_hash=hash_password("p"),
+        email=email,
+        name="U",
+        password_hash=hash_password("p"),
         is_admin=is_admin,
     )
     db.add(user)
@@ -33,9 +34,7 @@ async def _seed_courses(db):
     """Sprint 7: conftest now re-seeds the two real courses after every
     truncate, so this helper just fetches them back instead of inserting
     duplicates."""
-    res = await db.execute(
-        select(Course).where(Course.slug.in_(["ai-driven-dev", "ai-era-se"]))
-    )
+    res = await db.execute(select(Course).where(Course.slug.in_(["ai-driven-dev", "ai-era-se"])))
     rows = {c.slug: c for c in res.scalars().all()}
     return rows["ai-driven-dev"], rows["ai-era-se"]
 
@@ -76,9 +75,7 @@ async def test_require_active_enrollment_ok(db_session):
     await enroll_user(db_session, user_id=user.id, course_slug=a.slug)
     await db_session.commit()
 
-    found = await require_active_enrollment(
-        db_session, user_id=user.id, course_id=a.id
-    )
+    found = await require_active_enrollment(db_session, user_id=user.id, course_id=a.id)
     assert found.status == "active"
 
 
@@ -87,9 +84,7 @@ async def test_require_active_enrollment_raises_when_missing(db_session):
     a, _ = await _seed_courses(db_session)
     user = await _make_user(db_session)
     with pytest.raises(EnrollmentNotFoundError):
-        await require_active_enrollment(
-            db_session, user_id=user.id, course_id=a.id
-        )
+        await require_active_enrollment(db_session, user_id=user.id, course_id=a.id)
 
 
 @pytest.mark.asyncio
@@ -100,9 +95,7 @@ async def test_require_active_enrollment_ignores_paused(db_session):
     enr.status = "paused"
     await db_session.commit()
     with pytest.raises(EnrollmentNotFoundError):
-        await require_active_enrollment(
-            db_session, user_id=user.id, course_id=a.id
-        )
+        await require_active_enrollment(db_session, user_id=user.id, course_id=a.id)
 
 
 @pytest.mark.asyncio

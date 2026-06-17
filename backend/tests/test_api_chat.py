@@ -23,9 +23,7 @@ def test_chat_returns_reply_and_persists_history(auth_client):
     app.dependency_overrides[get_claude_client] = lambda: fake
 
     try:
-        response = auth_client.post(
-            "/api/chat", json={"phase": 1, "message": "Gitとは？"}
-        )
+        response = auth_client.post("/api/chat", json={"phase": 1, "message": "Gitとは？"})
         assert response.status_code == 200
         data = response.json()
         assert data["reply"] == "Gitはバージョン管理ツールです"

@@ -30,6 +30,7 @@ from app.core.file_storage import (
     read_file_bytes,
     stored_filename,
 )
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.grading_attempt import GradingAttempt
 from app.models.submission import Submission
@@ -51,8 +52,6 @@ from app.services.submission import (
     upsert_and_enqueue,
     upsert_and_grade,
 )
-
-from app.core.limiter import limiter
 
 router = APIRouter(prefix="/api/submissions", tags=["submissions"])
 
@@ -162,9 +161,7 @@ async def create_submission(
             detail=f"storage error: {e}",
         ) from e
 
-    files_rows = await file_storage_service.list_submission_files(
-        db=db, submission_id=row.id
-    )
+    files_rows = await file_storage_service.list_submission_files(db=db, submission_id=row.id)
     history = await list_grading_history(db, row.id)
     return _to_out(row, files_rows, history)
 
@@ -191,7 +188,7 @@ async def regrade(
     ``GET /api/me/submissions/{id}`` until ``graded_at`` is set."""
     try:
         if settings.grading_async_enabled:
-            row = await regrade_submission_async(
+            await regrade_submission_async(
                 db=db,
                 user_id=current_user.id,
                 course_slug=ctx.course.slug,
@@ -201,6 +198,7 @@ async def regrade(
             # constraint forbids it). The client uses this only to
             # learn that polling should begin.
             from datetime import UTC, datetime
+
             return GradingAttemptOut(
                 id=uuid.uuid4(),
                 status="pending",  # type: ignore[arg-type]
@@ -310,9 +308,7 @@ async def list_my_submissions(
     rows = [r for r in rows if r.course_id == ctx.course.id]
     out: list[SubmissionOut] = []
     for row in rows:
-        files_rows = await file_storage_service.list_submission_files(
-            db=db, submission_id=row.id
-        )
+        files_rows = await file_storage_service.list_submission_files(db=db, submission_id=row.id)
         history = await list_grading_history(db, row.id)
         out.append(_to_out(row, files_rows, history))
     return out

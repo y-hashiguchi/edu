@@ -93,6 +93,7 @@ def _build_sdk() -> _SDKLike:
     Playwright E2E so the dashboard journey is deterministic and free."""
     if settings.claude_stub_mode:
         from app.core.claude_stub import StubAsyncAnthropic
+
         return StubAsyncAnthropic()
     return AsyncAnthropic(api_key=settings.anthropic_api_key)
 

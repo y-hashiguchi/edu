@@ -14,9 +14,7 @@ def _load_migration():
     versions_dir = pathlib.Path(__file__).parent.parent / "alembic" / "versions"
     candidates = list(versions_dir.glob("*sprint7_multi_course*.py"))
     assert len(candidates) == 1, f"expected 1 sprint7 migration, got {candidates}"
-    spec = importlib.util.spec_from_file_location(
-        "sprint7_migration", candidates[0]
-    )
+    spec = importlib.util.spec_from_file_location("sprint7_migration", candidates[0])
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

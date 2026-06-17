@@ -13,9 +13,7 @@ from app.core.security import create_access_token, hash_password
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 async def _make_learner(db_session, *, email="l@e.com"):
@@ -48,7 +46,9 @@ async def _seed_notification(db_session, sender, recipient, *, title="hi", body=
 
 @pytest.mark.asyncio
 async def test_list_returns_only_own_inbox_newest_first(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """Two learners + two notifications each; only the requesting
     learner's inbox is returned, sorted newest first."""
@@ -75,7 +75,9 @@ async def test_list_returns_only_own_inbox_newest_first(
 
 @pytest.mark.asyncio
 async def test_unread_count_excludes_read_rows(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     learner = await _make_learner(db_session)
     n1 = await _seed_notification(db_session, admin_user, learner)
@@ -91,7 +93,9 @@ async def test_unread_count_excludes_read_rows(
 
 @pytest.mark.asyncio
 async def test_mark_read_sets_read_at_and_is_idempotent(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     learner = await _make_learner(db_session)
     note = await _seed_notification(db_session, admin_user, learner)
@@ -108,7 +112,9 @@ async def test_mark_read_sets_read_at_and_is_idempotent(
 
 @pytest.mark.asyncio
 async def test_intruder_cannot_mark_others_notification_read(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """BOLA: a learner with a valid token cannot mark someone else's
     notification read by guessing the ID. Returns 404 (never 403) so
@@ -132,7 +138,9 @@ async def test_mark_read_404_for_unknown_id(client, db_session):
 
 @pytest.mark.asyncio
 async def test_list_caps_at_notification_poll_limit(
-    client, db_session, admin_user,
+    client,
+    db_session,
+    admin_user,
 ):
     """Default cap from settings.notification_poll_limit keeps the
     30-second poll cheap regardless of inbox depth."""
@@ -154,14 +162,15 @@ async def test_list_caps_at_notification_poll_limit(
 @pytest.mark.asyncio
 async def test_unauthenticated_returns_401(client):
     assert client.get("/api/me/notifications").status_code == 401
-    assert client.post(
-        f"/api/me/notifications/{uuid_mod.uuid4()}/read"
-    ).status_code == 401
+    assert client.post(f"/api/me/notifications/{uuid_mod.uuid4()}/read").status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_mark_read_rate_limited_at_high_rate(
-    client, db_session, admin_user, monkeypatch,
+    client,
+    db_session,
+    admin_user,
+    monkeypatch,
 ):
     """MED-4 (sprint-4 security follow-up): mark-read is idempotent so
     state cannot be broken, but a stolen learner token must not be able
@@ -188,8 +197,5 @@ async def test_mark_read_rate_limited_at_high_rate(
         pass
 
     _auth(client, learner.id)
-    statuses = [
-        client.post(f"/api/me/notifications/{note.id}/read").status_code
-        for _ in range(7)
-    ]
+    statuses = [client.post(f"/api/me/notifications/{note.id}/read").status_code for _ in range(7)]
     assert 429 in statuses, statuses

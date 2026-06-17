@@ -87,10 +87,7 @@ def _build_legacy_curriculum() -> Mapping[int, PhaseData]:
             goal=p.goal,
             duration=_LEGACY_DURATION.get(p.phase, ""),
             skills=list(_LEGACY_SKILLS.get(p.phase, [])),
-            tasks=[
-                TaskItem(title=t.title, skill_tags=list(t.skill_tags))
-                for t in p.tasks
-            ],
+            tasks=[TaskItem(title=t.title, skill_tags=list(t.skill_tags)) for t in p.tasks],
             system_prompt=p.system_prompt,
         )
     return MappingProxyType(out)
@@ -104,28 +101,20 @@ def get_phase(phase_no: int) -> PhaseData:
         return CURRICULUM[phase_no]
     except KeyError:
         valid = sorted(CURRICULUM.keys())
-        raise KeyError(
-            f"Phase {phase_no} not found. Valid phases: {valid}"
-        ) from None
+        raise KeyError(f"Phase {phase_no} not found. Valid phases: {valid}") from None
 
 
 def get_task_title(phase_no: int, task_no: int) -> str:
     tasks = get_phase(phase_no)["tasks"]
     if task_no < 1 or task_no > len(tasks):
-        raise KeyError(
-            f"task_no {task_no} out of range for phase {phase_no} "
-            f"(1..{len(tasks)})"
-        )
+        raise KeyError(f"task_no {task_no} out of range for phase {phase_no} (1..{len(tasks)})")
     return tasks[task_no - 1]["title"]
 
 
 def get_task_skill_tags(phase_no: int, task_no: int) -> list[str]:
     tasks = get_phase(phase_no)["tasks"]
     if task_no < 1 or task_no > len(tasks):
-        raise KeyError(
-            f"task_no {task_no} out of range for phase {phase_no} "
-            f"(1..{len(tasks)})"
-        )
+        raise KeyError(f"task_no {task_no} out of range for phase {phase_no} (1..{len(tasks)})")
     return list(tasks[task_no - 1]["skill_tags"])
 
 

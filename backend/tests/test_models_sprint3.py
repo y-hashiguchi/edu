@@ -23,9 +23,7 @@ async def _make_user(db) -> User:
 
 
 async def _make_submission(db, user_id: uuid.UUID, course_id: uuid.UUID) -> Submission:
-    s = Submission(
-        user_id=user_id, course_id=course_id, phase=1, task_no=1, content="hello"
-    )
+    s = Submission(user_id=user_id, course_id=course_id, phase=1, task_no=1, content="hello")
     db.add(s)
     await db.flush()
     return s
@@ -67,9 +65,7 @@ async def test_submission_file_cascades_on_submission_delete(db_session, default
     await db_session.delete(sub)
     await db_session.commit()
 
-    remaining = (
-        await db_session.execute(select(SubmissionFile))
-    ).scalars().all()
+    remaining = (await db_session.execute(select(SubmissionFile))).scalars().all()
     assert remaining == []
 
 
@@ -145,7 +141,5 @@ async def test_grading_attempt_cascades_on_submission_delete(db_session, default
     await db_session.commit()
     await db_session.delete(sub)
     await db_session.commit()
-    remaining = (
-        await db_session.execute(select(GradingAttempt))
-    ).scalars().all()
+    remaining = (await db_session.execute(select(GradingAttempt))).scalars().all()
     assert remaining == []

@@ -1,10 +1,7 @@
+import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import uuid
-
-_AI_DRIVEN_DEV_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
-_AI_DRIVEN_DEV_SLUG = "ai-driven-dev"
 
 from app.core.claude_client import ClaudeClient
 from app.core.security import hash_password
@@ -17,11 +14,12 @@ from app.services.submission import (
     upsert_and_grade,
 )
 
+_AI_DRIVEN_DEV_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+_AI_DRIVEN_DEV_SLUG = "ai-driven-dev"
+
 
 async def _user(db) -> User:
-    u = User(
-        email="alice@example.com", name="A", password_hash=hash_password("password123")
-    )
+    u = User(email="alice@example.com", name="A", password_hash=hash_password("password123"))
     db.add(u)
     await db.flush()
     await initialize_progress(db, u.id)
@@ -31,9 +29,7 @@ async def _user(db) -> User:
 
 def _fake(reply: str) -> ClaudeClient:
     fake_sdk = MagicMock()
-    fake_sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply)])
-    )
+    fake_sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply)]))
     return ClaudeClient(sdk=fake_sdk, model="claude-sonnet-4-5")
 
 

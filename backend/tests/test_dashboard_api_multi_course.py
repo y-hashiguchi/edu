@@ -22,9 +22,7 @@ async def _get_course(db, slug):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_requires_active_enrollment(
-    client, auth_user, auth_token, db_session
-):
+async def test_dashboard_requires_active_enrollment(client, auth_user, auth_token, db_session):
     # No enrollment for ai-era-se -> 403 (conftest already seeded the
     # Course row; auth_user is enrolled in ai-driven-dev only).
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
@@ -43,18 +41,14 @@ async def test_dashboard_returns_default_course_when_param_missing(
 
 
 @pytest.mark.asyncio
-async def test_dashboard_unknown_course_returns_404(
-    client, auth_user, auth_token
-):
+async def test_dashboard_unknown_course_returns_404(client, auth_user, auth_token):
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.get("/api/me/dashboard?course=nope")
     assert res.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_dashboard_data_isolated_per_course(
-    client, auth_user, auth_token, db_session
-):
+async def test_dashboard_data_isolated_per_course(client, auth_user, auth_token, db_session):
     """Submissions in course A must not contribute to dashboard for course B."""
     se = await _get_course(db_session, "ai-era-se")
     await _enroll(db_session, auth_user.id, se.id)

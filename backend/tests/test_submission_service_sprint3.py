@@ -4,9 +4,6 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-_AI_DRIVEN_DEV_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
-_AI_DRIVEN_DEV_SLUG = "ai-driven-dev"
 from sqlalchemy import select
 
 from app.core.claude_client import ClaudeClient
@@ -15,6 +12,9 @@ from app.models.grading_attempt import GradingAttempt, GradingStatus
 from app.models.submission_file import SubmissionFile
 from app.models.user import User
 from app.services.progress import initialize_progress
+
+_AI_DRIVEN_DEV_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+_AI_DRIVEN_DEV_SLUG = "ai-driven-dev"
 
 
 def _png_bytes() -> bytes:
@@ -27,9 +27,7 @@ def _png_bytes() -> bytes:
 
 def _fake_claude(reply_text: str) -> ClaudeClient:
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply_text)])
-    )
+    sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply_text)]))
     return ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
 
@@ -85,20 +83,28 @@ async def test_upsert_with_files_persists_files_and_grading_attempt(
         uploads=[("photo.png", _png_bytes())],
         course_id=_AI_DRIVEN_DEV_ID,
         course_slug=_AI_DRIVEN_DEV_SLUG,
-)
+    )
 
     assert row.score == 92
     files = (
-        await db_session.execute(
-            select(SubmissionFile).where(SubmissionFile.submission_id == row.id)
+        (
+            await db_session.execute(
+                select(SubmissionFile).where(SubmissionFile.submission_id == row.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(files) == 1
     attempts = (
-        await db_session.execute(
-            select(GradingAttempt).where(GradingAttempt.submission_id == row.id)
+        (
+            await db_session.execute(
+                select(GradingAttempt).where(GradingAttempt.submission_id == row.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(attempts) == 1
     assert attempts[0].status == GradingStatus.GRADED
 
@@ -121,7 +127,7 @@ async def test_resubmit_replaces_old_files(db_session, tmp_path, monkeypatch):
         uploads=[("a.png", _png_bytes())],
         course_id=_AI_DRIVEN_DEV_ID,
         course_slug=_AI_DRIVEN_DEV_SLUG,
-)
+    )
 
     row2 = await sub_mod.upsert_and_grade(
         db=db_session,
@@ -133,20 +139,28 @@ async def test_resubmit_replaces_old_files(db_session, tmp_path, monkeypatch):
         uploads=[("b.png", _png_bytes())],
         course_id=_AI_DRIVEN_DEV_ID,
         course_slug=_AI_DRIVEN_DEV_SLUG,
-)
+    )
 
     assert row1.id == row2.id
     files = (
-        await db_session.execute(
-            select(SubmissionFile).where(SubmissionFile.submission_id == row2.id)
+        (
+            await db_session.execute(
+                select(SubmissionFile).where(SubmissionFile.submission_id == row2.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert [f.file_path.endswith("b.png") for f in files] == [True]
     attempts = (
-        await db_session.execute(
-            select(GradingAttempt).where(GradingAttempt.submission_id == row2.id)
+        (
+            await db_session.execute(
+                select(GradingAttempt).where(GradingAttempt.submission_id == row2.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(attempts) == 2
 
 
@@ -177,17 +191,21 @@ async def test_regrade_appends_attempt(db_session, tmp_path, monkeypatch):
         claude=claude2,
         user_id=user.id,
         submission_id=row.id,
-        course_slug=_AI_DRIVEN_DEV_SLUG
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
 
     assert attempt.score == 95
     await db_session.refresh(row)
     assert row.score == 95
     attempts = (
-        await db_session.execute(
-            select(GradingAttempt).where(GradingAttempt.submission_id == row.id)
+        (
+            await db_session.execute(
+                select(GradingAttempt).where(GradingAttempt.submission_id == row.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(attempts) == 2
 
 
@@ -218,15 +236,13 @@ async def test_regrade_enforces_cooldown(db_session, tmp_path, monkeypatch):
             claude=claude,
             user_id=user.id,
             submission_id=row.id,
-        course_slug=_AI_DRIVEN_DEV_SLUG
+            course_slug=_AI_DRIVEN_DEV_SLUG,
         )
     assert exc.value.retry_after_seconds > 0
 
 
 @pytest.mark.asyncio
-async def test_failed_attempts_do_not_count_toward_cooldown(
-    db_session, tmp_path, monkeypatch
-):
+async def test_failed_attempts_do_not_count_toward_cooldown(db_session, tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     monkeypatch.setenv("REGRADE_COOLDOWN_SECONDS", "60")
     _, _, _, sub_mod = _reload_chain()
@@ -255,15 +271,13 @@ async def test_failed_attempts_do_not_count_toward_cooldown(
         claude=good_claude,
         user_id=user.id,
         submission_id=row.id,
-        course_slug=_AI_DRIVEN_DEV_SLUG
+        course_slug=_AI_DRIVEN_DEV_SLUG,
     )
     assert attempt.status == GradingStatus.GRADED
 
 
 @pytest.mark.asyncio
-async def test_concurrent_regrade_serialised_by_row_lock(
-    db_session, tmp_path, monkeypatch
-):
+async def test_concurrent_regrade_serialised_by_row_lock(db_session, tmp_path, monkeypatch):
     """Two parallel regrade calls cannot both bypass the cooldown.
 
     Reproduces the pre-fix race where both sessions read the same "cooldown
@@ -328,7 +342,7 @@ async def test_concurrent_regrade_serialised_by_row_lock(
                     claude=slow_claude,
                     user_id=user_id,
                     submission_id=submission_id,
-        course_slug=_AI_DRIVEN_DEV_SLUG
+                    course_slug=_AI_DRIVEN_DEV_SLUG,
                 )
             except sub_mod.RegradeCooldownError as e:
                 return e
@@ -341,9 +355,7 @@ async def test_concurrent_regrade_serialised_by_row_lock(
 
 
 @pytest.mark.asyncio
-async def test_regrade_rejects_other_users_submission(
-    db_session, tmp_path, monkeypatch
-):
+async def test_regrade_rejects_other_users_submission(db_session, tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path))
     monkeypatch.setenv("REGRADE_COOLDOWN_SECONDS", "0")
     _, _, _, sub_mod = _reload_chain()
@@ -370,5 +382,5 @@ async def test_regrade_rejects_other_users_submission(
             claude=claude,
             user_id=intruder.id,
             submission_id=row.id,
-        course_slug=_AI_DRIVEN_DEV_SLUG
+            course_slug=_AI_DRIVEN_DEV_SLUG,
         )

@@ -32,6 +32,7 @@ frontend/src/**/*.js
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
+.e2e-backend.log
 
 # Local e2e screenshots from ad-hoc Playwright runs.
 # Committed reference screenshots (e2e-sprint3-*.png) remain tracked.

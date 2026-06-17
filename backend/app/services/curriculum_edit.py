@@ -10,9 +10,10 @@ service is responsible for:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,9 +39,7 @@ class PhaseNotFoundError(Exception):
 
 class TaskNotFoundError(Exception):
     def __init__(self, slug: str, phase_no: int, task_no: int) -> None:
-        super().__init__(
-            f"task {task_no} not found in phase {phase_no} of course {slug!r}"
-        )
+        super().__init__(f"task {task_no} not found in phase {phase_no} of course {slug!r}")
         self.slug = slug
         self.phase_no = phase_no
         self.task_no = task_no
@@ -48,18 +47,14 @@ class TaskNotFoundError(Exception):
 
 class CannotDeleteLastTaskError(Exception):
     def __init__(self, slug: str, phase_no: int) -> None:
-        super().__init__(
-            f"cannot delete the last task in phase {phase_no} of course {slug!r}"
-        )
+        super().__init__(f"cannot delete the last task in phase {phase_no} of course {slug!r}")
         self.slug = slug
         self.phase_no = phase_no
 
 
 class TaskHasSubmissionsError(Exception):
     def __init__(self, slug: str, phase_no: int, task_no: int) -> None:
-        super().__init__(
-            f"task {task_no} in phase {phase_no} of course {slug!r} has submissions"
-        )
+        super().__init__(f"task {task_no} in phase {phase_no} of course {slug!r} has submissions")
         self.slug = slug
         self.phase_no = phase_no
         self.task_no = task_no
@@ -68,8 +63,7 @@ class TaskHasSubmissionsError(Exception):
 class InvalidTaskMoveError(Exception):
     def __init__(self, slug: str, phase_no: int, task_no: int, to_task_no: int) -> None:
         super().__init__(
-            f"invalid move task {task_no} -> {to_task_no} "
-            f"in phase {phase_no} of course {slug!r}"
+            f"invalid move task {task_no} -> {to_task_no} in phase {phase_no} of course {slug!r}"
         )
         self.slug = slug
         self.phase_no = phase_no
@@ -79,9 +73,7 @@ class InvalidTaskMoveError(Exception):
 
 class InvalidPhaseMoveError(Exception):
     def __init__(self, slug: str, phase_no: int, to_phase_no: int) -> None:
-        super().__init__(
-            f"invalid move phase {phase_no} -> {to_phase_no} in course {slug!r}"
-        )
+        super().__init__(f"invalid move phase {phase_no} -> {to_phase_no} in course {slug!r}")
         self.slug = slug
         self.phase_no = phase_no
         self.to_phase_no = to_phase_no
@@ -95,9 +87,7 @@ class CannotDeleteLastPhaseError(Exception):
 
 class PhaseHasSubmissionsError(Exception):
     def __init__(self, slug: str, phase_no: int) -> None:
-        super().__init__(
-            f"phase {phase_no} in course {slug!r} has submissions"
-        )
+        super().__init__(f"phase {phase_no} in course {slug!r} has submissions")
         self.slug = slug
         self.phase_no = phase_no
 
@@ -109,8 +99,7 @@ _DEFAULT_NEW_TASK_DESCRIPTION = "説明を入力してください。"
 _DEFAULT_NEW_PHASE_TITLE = "新しい Phase"
 _DEFAULT_NEW_PHASE_GOAL = "目標を入力してください。"
 _DEFAULT_NEW_SYSTEM_PROMPT = (
-    "あなたは教育AIチューターです。\n"
-    "研修生の質問に3〜5文程度の日本語で答えてください。"
+    "あなたは教育AIチューターです。\n研修生の質問に3〜5文程度の日本語で答えてください。"
 )
 
 
@@ -129,9 +118,7 @@ class PublishResult:
 
 
 async def _get_course_by_slug(db: AsyncSession, slug: str) -> Course:
-    course = (
-        await db.execute(select(Course).where(Course.slug == slug))
-    ).scalar_one_or_none()
+    course = (await db.execute(select(Course).where(Course.slug == slug))).scalar_one_or_none()
     if course is None:
         raise CourseNotFoundError(slug)
     return course
@@ -236,9 +223,7 @@ async def put_task_draft(
 # ---------------------------------------------------------------------------
 
 
-async def publish_course(
-    db: AsyncSession, *, course_slug: str
-) -> PublishResult:
+async def publish_course(db: AsyncSession, *, course_slug: str) -> PublishResult:
     """全 draft_* を対応する published 列に COPY、draft_* を NULL に。
 
     Returns: 影響行数。0 件も idempotent (200 OK)。
@@ -249,9 +234,11 @@ async def publish_course(
     """
     course = await _get_course_by_slug(db, course_slug)
 
-    phases = (await db.execute(
-        select(CurriculumPhase).where(CurriculumPhase.course_id == course.id)
-    )).scalars().all()
+    phases = (
+        (await db.execute(select(CurriculumPhase).where(CurriculumPhase.course_id == course.id)))
+        .scalars()
+        .all()
+    )
 
     published_phase = 0
     for p in phases:
@@ -273,9 +260,13 @@ async def publish_course(
             p.updated_at = datetime.now(UTC)
 
     phase_ids = [p.id for p in phases]
-    tasks = (await db.execute(
-        select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))
-    )).scalars().all() if phase_ids else []
+    tasks = (
+        (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))))
+        .scalars()
+        .all()
+        if phase_ids
+        else []
+    )
 
     phase_id_to_no = {p.id: p.phase_no for p in phases}
     task_title_published: list[tuple[Any, int]] = []
@@ -343,9 +334,9 @@ async def publish_course(
 async def discard_drafts(db: AsyncSession, *, course_slug: str) -> None:
     """当該 course 配下の全 draft_* 列を NULL にする。published は変更なし。"""
     course = await _get_course_by_slug(db, course_slug)
-    phase_id_rows = (await db.execute(
-        select(CurriculumPhase.id).where(CurriculumPhase.course_id == course.id)
-    )).all()
+    phase_id_rows = (
+        await db.execute(select(CurriculumPhase.id).where(CurriculumPhase.course_id == course.id))
+    ).all()
     phase_ids = [row[0] for row in phase_id_rows]
 
     await db.execute(
@@ -380,9 +371,11 @@ async def discard_drafts(db: AsyncSession, *, course_slug: str) -> None:
 async def count_pending_drafts(db: AsyncSession, *, course_slug: str) -> int:
     """draft_* に非 NULL がある field の総数を返す (Phase + Task)。"""
     course = await _get_course_by_slug(db, course_slug)
-    phases = (await db.execute(
-        select(CurriculumPhase).where(CurriculumPhase.course_id == course.id)
-    )).scalars().all()
+    phases = (
+        (await db.execute(select(CurriculumPhase).where(CurriculumPhase.course_id == course.id)))
+        .scalars()
+        .all()
+    )
     n = 0
     for p in phases:
         n += sum(
@@ -392,9 +385,11 @@ async def count_pending_drafts(db: AsyncSession, *, course_slug: str) -> int:
         )
     phase_ids = [p.id for p in phases]
     if phase_ids:
-        tasks = (await db.execute(
-            select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))
-        )).scalars().all()
+        tasks = (
+            (await db.execute(select(CurriculumTask).where(CurriculumTask.phase_id.in_(phase_ids))))
+            .scalars()
+            .all()
+        )
         for t in tasks:
             n += sum(
                 1
@@ -415,9 +410,7 @@ async def count_pending_drafts(db: AsyncSession, *, course_slug: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-async def _list_phase_tasks_ordered(
-    db: AsyncSession, phase_id
-) -> list[CurriculumTask]:
+async def _list_phase_tasks_ordered(db: AsyncSession, phase_id) -> list[CurriculumTask]:
     result = await db.execute(
         select(CurriculumTask)
         .where(CurriculumTask.phase_id == phase_id)
@@ -440,18 +433,22 @@ async def _remap_task_numbers(
     now = datetime.now(UTC)
 
     tasks = (
-        await db.execute(
-            select(CurriculumTask).where(
-                CurriculumTask.phase_id.in_(
-                    select(CurriculumPhase.id).where(
-                        CurriculumPhase.course_id == course_id,
-                        CurriculumPhase.phase_no == phase_no,
-                    )
-                ),
-                CurriculumTask.task_no.in_(changed_old),
+        (
+            await db.execute(
+                select(CurriculumTask).where(
+                    CurriculumTask.phase_id.in_(
+                        select(CurriculumPhase.id).where(
+                            CurriculumPhase.course_id == course_id,
+                            CurriculumPhase.phase_no == phase_no,
+                        )
+                    ),
+                    CurriculumTask.task_no.in_(changed_old),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for t in tasks:
         t.task_no = _TASK_NO_OFFSET + t.task_no
@@ -527,9 +524,7 @@ async def delete_task(
     if len(tasks) <= 1:
         raise CannotDeleteLastTaskError(course_slug, phase_no)
 
-    row = await _get_task_or_raise(
-        db, course_slug, phase_no, phase.id, task_no
-    )
+    row = await _get_task_or_raise(db, course_slug, phase_no, phase.id, task_no)
 
     sub_count = (
         await db.execute(
@@ -548,9 +543,7 @@ async def delete_task(
     await db.execute(delete(CurriculumTask).where(CurriculumTask.id == row.id))
     await db.flush()
 
-    mapping = {
-        t.task_no: t.task_no - 1 for t in tasks if t.task_no > task_no
-    }
+    mapping = {t.task_no: t.task_no - 1 for t in tasks if t.task_no > task_no}
     await _remap_task_numbers(
         db,
         course_id=course.id,
@@ -640,9 +633,7 @@ async def move_phase(
 # ---------------------------------------------------------------------------
 
 
-async def _list_phases_ordered(
-    db: AsyncSession, course_id
-) -> list[CurriculumPhase]:
+async def _list_phases_ordered(db: AsyncSession, course_id) -> list[CurriculumPhase]:
     result = await db.execute(
         select(CurriculumPhase)
         .where(CurriculumPhase.course_id == course_id)
@@ -664,13 +655,17 @@ async def _remap_phase_numbers(
     now = datetime.now(UTC)
 
     phases = (
-        await db.execute(
-            select(CurriculumPhase).where(
-                CurriculumPhase.course_id == course_id,
-                CurriculumPhase.phase_no.in_(changed_old),
+        (
+            await db.execute(
+                select(CurriculumPhase).where(
+                    CurriculumPhase.course_id == course_id,
+                    CurriculumPhase.phase_no.in_(changed_old),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for p in phases:
         p.phase_no = _PHASE_NO_OFFSET + p.phase_no
@@ -741,13 +736,17 @@ async def _backfill_locked_progress_for_phase(
 ) -> None:
     """新 Phase 追加時、active enrollment に locked progress 行を追加。"""
     user_ids = (
-        await db.execute(
-            select(Enrollment.user_id).where(
-                Enrollment.course_id == course_id,
-                Enrollment.status == "active",
+        (
+            await db.execute(
+                select(Enrollment.user_id).where(
+                    Enrollment.course_id == course_id,
+                    Enrollment.status == "active",
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not user_ids:
         return
 
@@ -759,7 +758,9 @@ async def _backfill_locked_progress_for_phase(
                     Progress.phase == phase_no,
                 )
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     for user_id in user_ids:
         if user_id in existing:
@@ -807,9 +808,7 @@ async def add_phase(
             updated_at=now,
         )
     )
-    await _backfill_locked_progress_for_phase(
-        db, course_id=course.id, phase_no=next_no
-    )
+    await _backfill_locked_progress_for_phase(db, course_id=course.id, phase_no=next_no)
     await db.flush()
     return row
 
@@ -852,7 +851,5 @@ async def delete_phase(
     )
     await db.flush()
 
-    mapping = {
-        p.phase_no: p.phase_no - 1 for p in phases if p.phase_no > phase_no
-    }
+    mapping = {p.phase_no: p.phase_no - 1 for p in phases if p.phase_no > phase_no}
     await _remap_phase_numbers(db, course_id=course.id, mapping=mapping)

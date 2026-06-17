@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.courses import get_course
 from app.data.curriculum import CURRICULUM  # noqa: F401 — kept for legacy callers
-
 from app.models.progress import Progress, ProgressStatus
 from app.models.submission import Submission
 
@@ -43,9 +42,7 @@ async def initialize_progress_for_course(
                 course_id=course_id,
                 phase=phase_no,
                 status=(
-                    ProgressStatus.IN_PROGRESS.value
-                    if is_first
-                    else ProgressStatus.LOCKED.value
+                    ProgressStatus.IN_PROGRESS.value if is_first else ProgressStatus.LOCKED.value
                 ),
                 started_at=now if is_first else None,
             )
@@ -77,9 +74,7 @@ async def initialize_progress(db: AsyncSession, user_id: uuid.UUID) -> None:
     course_data = get_course(DEFAULT_COURSE_SLUG)
     db_course = await _get_course_by_slug(db, DEFAULT_COURSE_SLUG)
     phase_numbers = [p.phase for p in course_data.phases]
-    await initialize_progress_for_course(
-        db, user_id, db_course.id, phase_numbers
-    )
+    await initialize_progress_for_course(db, user_id, db_course.id, phase_numbers)
 
 
 async def list_progress(
@@ -107,9 +102,7 @@ async def _get(
     phase: int,
     course_id: uuid.UUID | None = None,
 ) -> Progress | None:
-    stmt = select(Progress).where(
-        Progress.user_id == user_id, Progress.phase == phase
-    )
+    stmt = select(Progress).where(Progress.user_id == user_id, Progress.phase == phase)
     if course_id is not None:
         stmt = stmt.where(Progress.course_id == course_id)
     result = await db.execute(stmt)

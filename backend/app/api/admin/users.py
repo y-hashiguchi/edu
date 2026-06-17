@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_admin
-from app.data.courses import CourseNotFoundError as RuntimeCourseNotFoundError, get_course
-from app.data.courses import runtime
+from app.data.courses import CourseNotFoundError as RuntimeCourseNotFoundError
+from app.data.courses import get_course, runtime
 from app.db.session import get_db
 from app.models.progress import ProgressStatus
 from app.models.user import User
@@ -43,15 +43,14 @@ async def list_users(
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AdminUserListOut:
-    rows = await admin_query.list_users_with_progress(
-        db, limit=limit, offset=offset
-    )
+    rows = await admin_query.list_users_with_progress(db, limit=limit, offset=offset)
     total = await admin_query.count_users(db)
 
     # Sprint 6: bulk 集計で N+1 回避
     # Sprint 7: weakness は (user_id, course_id) のペアで集計。primary course
     # が無い (active enrollment ゼロの) ユーザーは tag = None として残す。
     from app.services.weakness import compute_top_weakness_tags_bulk
+
     user_course_pairs = [
         (u.id, primary_course_id)
         for u, _progs, primary_course_id in rows
@@ -66,9 +65,7 @@ async def list_users(
             name=u.name,
             created_at=u.created_at,
             is_admin=u.is_admin,
-            completed_phases=sum(
-                1 for p in progs if p.status == ProgressStatus.COMPLETED.value
-            ),
+            completed_phases=sum(1 for p in progs if p.status == ProgressStatus.COMPLETED.value),
             in_progress_phases=sum(
                 1 for p in progs if p.status == ProgressStatus.IN_PROGRESS.value
             ),
@@ -87,9 +84,7 @@ async def get_user(
 ) -> AdminUserDetail:
     found = await admin_query.get_user_detail(db, user_id)
     if found is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     user, progress, latest_scores, enrollment_rows = found
     enrollments = [
         EnrollmentOut(
@@ -117,17 +112,13 @@ class AdminEnrollRequest(BaseModel):
     """Sprint 7 LOW-2 — admin-driven enroll payload."""
 
     course_slug: str = Field(min_length=1, max_length=64)
-    cohort_label: str | None = Field(
-        default=None, max_length=80, pattern=_COHORT_LABEL_PATTERN
-    )
+    cohort_label: str | None = Field(default=None, max_length=80, pattern=_COHORT_LABEL_PATTERN)
 
 
 class AdminEnrollmentCohortPatch(BaseModel):
     """Sprint 13 follow-up — update cohort_label on an existing enrollment."""
 
-    cohort_label: str | None = Field(
-        default=None, max_length=80, pattern=_COHORT_LABEL_PATTERN
-    )
+    cohort_label: str | None = Field(default=None, max_length=80, pattern=_COHORT_LABEL_PATTERN)
 
 
 @router.post(
@@ -147,13 +138,9 @@ async def admin_enroll(
     into a second course was direct SQL. This route reuses ``enroll_user``
     and seeds per-course progress so the learner can immediately start
     on the new course."""
-    target = (
-        await db.execute(select(User).where(User.id == user_id))
-    ).scalar_one_or_none()
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if target is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
 
     try:
         enr = await enroll_user(
@@ -163,13 +150,9 @@ async def admin_enroll(
             cohort_label=payload.cohort_label,
         )
     except AlreadyEnrolledError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     except CourseNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
 
     try:
         course_data = get_course(payload.course_slug)
@@ -207,13 +190,9 @@ async def admin_patch_enrollment(
     _admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentOut:
-    target = (
-        await db.execute(select(User).where(User.id == user_id))
-    ).scalar_one_or_none()
+    target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if target is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
 
     try:
         enr = await update_enrollment_cohort_label(

@@ -27,9 +27,7 @@ async def _make_user_and_submission(db, course_id) -> tuple[User, Submission]:
     )
     db.add(user)
     await db.flush()
-    sub = Submission(
-        user_id=user.id, course_id=course_id, phase=1, task_no=1, content="x"
-    )
+    sub = Submission(user_id=user.id, course_id=course_id, phase=1, task_no=1, content="x")
     db.add(sub)
     await db.flush()
     return user, sub
@@ -64,10 +62,14 @@ async def test_persist_uploads_creates_db_rows_and_files(
     await db_session.commit()
     assert len(files) == 1
     rows = (
-        await db_session.execute(
-            select(SubmissionFile).where(SubmissionFile.submission_id == sub.id)
+        (
+            await db_session.execute(
+                select(SubmissionFile).where(SubmissionFile.submission_id == sub.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
 
 
@@ -130,16 +132,18 @@ async def test_clear_existing_files_drops_db_and_disk(
     )
     await db_session.commit()
 
-    await svc_mod.clear_existing_files(
-        db=db_session, user_id=user.id, submission_id=sub.id
-    )
+    await svc_mod.clear_existing_files(db=db_session, user_id=user.id, submission_id=sub.id)
     await db_session.commit()
 
     remaining = (
-        await db_session.execute(
-            select(SubmissionFile).where(SubmissionFile.submission_id == sub.id)
+        (
+            await db_session.execute(
+                select(SubmissionFile).where(SubmissionFile.submission_id == sub.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert remaining == []
     assert not fs_mod.submission_dir(user.id, sub.id).exists()
 

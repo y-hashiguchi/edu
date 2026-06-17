@@ -20,9 +20,7 @@ async def test_admin_enroll_requires_admin(client, auth_user, auth_token):
 
 
 @pytest.mark.asyncio
-async def test_admin_enroll_rejects_unknown_slug(
-    client, auth_user, admin_token
-):
+async def test_admin_enroll_rejects_unknown_slug(client, auth_user, admin_token):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.post(
         f"/api/admin/users/{auth_user.id}/enrollments",
@@ -32,9 +30,7 @@ async def test_admin_enroll_rejects_unknown_slug(
 
 
 @pytest.mark.asyncio
-async def test_admin_enroll_returns_404_when_user_unknown(
-    client, admin_token
-):
+async def test_admin_enroll_returns_404_when_user_unknown(client, admin_token):
     import uuid as uuidlib
 
     ghost = uuidlib.uuid4()
@@ -47,9 +43,7 @@ async def test_admin_enroll_returns_404_when_user_unknown(
 
 
 @pytest.mark.asyncio
-async def test_admin_enroll_409_when_already_enrolled(
-    client, auth_user, admin_token, db_session
-):
+async def test_admin_enroll_409_when_already_enrolled(client, auth_user, admin_token, db_session):
     """auth_user is already enrolled in ai-driven-dev by the fixture."""
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.post(
@@ -74,11 +68,7 @@ async def test_admin_enroll_adds_course_and_seeds_progress(
     assert body["status"] == "active"
 
     # Enrollment row exists
-    se = (
-        await db_session.execute(
-            select(Course).where(Course.slug == "ai-era-se")
-        )
-    ).scalar_one()
+    se = (await db_session.execute(select(Course).where(Course.slug == "ai-era-se"))).scalar_one()
     enr = (
         await db_session.execute(
             select(Enrollment).where(
@@ -91,19 +81,26 @@ async def test_admin_enroll_adds_course_and_seeds_progress(
 
     # Progress was seeded for all ai-era-se phases
     se_progress = (
-        await db_session.execute(
-            select(Progress).where(
-                Progress.user_id == auth_user.id,
-                Progress.course_id == se.id,
+        (
+            await db_session.execute(
+                select(Progress).where(
+                    Progress.user_id == auth_user.id,
+                    Progress.course_id == se.id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert {p.phase for p in se_progress} == {1, 2, 3, 4}
 
 
 @pytest.mark.asyncio
 async def test_admin_patch_enrollment_cohort_label(
-    client, auth_user, admin_token, db_session,
+    client,
+    auth_user,
+    admin_token,
+    db_session,
 ):
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     res = client.patch(
@@ -116,16 +113,20 @@ async def test_admin_patch_enrollment_cohort_label(
     assert body["course_slug"] == "ai-driven-dev"
 
     enr = (
-        await db_session.execute(
-            select(Enrollment).where(Enrollment.user_id == auth_user.id)
-        )
-    ).scalars().first()
+        (await db_session.execute(select(Enrollment).where(Enrollment.user_id == auth_user.id)))
+        .scalars()
+        .first()
+    )
     assert enr.cohort_label == "2026-spring"
 
 
 @pytest.mark.asyncio
 async def test_admin_patch_enrollment_clears_label(
-    client, auth_user, admin_token, db_session, default_course_id,
+    client,
+    auth_user,
+    admin_token,
+    db_session,
+    default_course_id,
 ):
     from sqlalchemy import update
 
@@ -150,7 +151,9 @@ async def test_admin_patch_enrollment_clears_label(
 
 @pytest.mark.asyncio
 async def test_admin_patch_enrollment_requires_admin(
-    client, auth_user, auth_token,
+    client,
+    auth_user,
+    auth_token,
 ):
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     res = client.patch(
@@ -162,7 +165,8 @@ async def test_admin_patch_enrollment_requires_admin(
 
 @pytest.mark.asyncio
 async def test_admin_patch_enrollment_404_when_not_enrolled(
-    client, admin_token,
+    client,
+    admin_token,
 ):
     import uuid as uuidlib
 

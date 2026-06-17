@@ -16,9 +16,7 @@ def _load_migration_by_glob(pattern: str, name: str):
 
 
 def _load_migration():
-    return _load_migration_by_glob(
-        "*sprint9_curriculum_editing*.py", "sprint9_migration"
-    )
+    return _load_migration_by_glob("*sprint9_curriculum_editing*.py", "sprint9_migration")
 
 
 def test_sprint9_migration_chains_from_sprint7_followup():
@@ -28,9 +26,7 @@ def test_sprint9_migration_chains_from_sprint7_followup():
 
 def test_sprint9_migration_uses_fixed_uuids():
     m = _load_migration()
-    assert m.AI_DRIVEN_DEV_UUID == uuid.UUID(
-        "00000000-0000-4000-8000-000000000001"
-    )
+    assert m.AI_DRIVEN_DEV_UUID == uuid.UUID("00000000-0000-4000-8000-000000000001")
     assert m.AI_ERA_SE_UUID == uuid.UUID("00000000-0000-4000-8000-000000000002")
 
 
@@ -39,6 +35,7 @@ def test_sprint9_migration_seed_does_not_import_registry():
     凍結されている (将来 registry を変更しても migration 挙動不変)。"""
     m = _load_migration()
     import inspect
+
     source = inspect.getsource(m)
     assert "from app.data.courses" not in source
     assert "COURSE_REGISTRY" not in source
@@ -53,9 +50,7 @@ def test_sprint9_uuids_match_sprint7_course_seed():
     """Sprint 9 migration の course_id FK が Sprint 7 で INSERT された
     courses.id と同じ literal を使っていることを保証する。値がズレると
     `make migrate` 時に FK 違反で落ちる。"""
-    sprint7 = _load_migration_by_glob(
-        "*sprint7_multi_course*.py", "sprint7_migration"
-    )
+    sprint7 = _load_migration_by_glob("*sprint7_multi_course*.py", "sprint7_migration")
     sprint9 = _load_migration()
     assert sprint9.AI_DRIVEN_DEV_UUID == sprint7.AI_DRIVEN_DEV_UUID
     assert sprint9.AI_ERA_SE_UUID == sprint7.AI_ERA_SE_UUID

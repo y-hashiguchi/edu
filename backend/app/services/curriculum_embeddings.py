@@ -12,8 +12,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.embedding_client import EmbeddingClient
-from app.data.courses import CourseNotFoundError, get_course
-from app.data.courses import runtime
+from app.data.courses import CourseNotFoundError, get_course, runtime
 from app.data.curriculum import CURRICULUM
 from app.models.course import Course
 from app.models.embedding import Embedding
@@ -24,9 +23,7 @@ logger = logging.getLogger(__name__)
 _CURRICULUM_SOURCE_TYPES = ("curriculum_task", "curriculum_skill")
 
 
-def task_embedding_source_ref(
-    course_slug: str, phase_no: int, task_index: int
-) -> str:
+def task_embedding_source_ref(course_slug: str, phase_no: int, task_index: int) -> str:
     return f"course:{course_slug}:phase:{phase_no}:task:{task_index}"
 
 
@@ -164,7 +161,5 @@ async def seed_all_course_embeddings(
     courses = list((await db.execute(select(Course))).scalars().all())
     total = 0
     for course in courses:
-        total += await seed_course_embeddings(
-            db, course.slug, client=client
-        )
+        total += await seed_course_embeddings(db, course.slug, client=client)
     return total

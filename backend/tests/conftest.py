@@ -61,12 +61,11 @@ async def db_session(_setup_db):
 
     async with engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
-            await conn.execute(
-                text(f'TRUNCATE TABLE "{table.name}" RESTART IDENTITY CASCADE')
-            )
+            await conn.execute(text(f'TRUNCATE TABLE "{table.name}" RESTART IDENTITY CASCADE'))
 
     async with SessionLocal() as session:
         from app.models.course import Course
+
         for _slug, c in COURSE_REGISTRY.items():
             session.add(
                 Course(
@@ -82,6 +81,7 @@ async def db_session(_setup_db):
         # Sprint 9: curriculum_phases / curriculum_tasks も毎テスト再 seed
         from app.models.curriculum_phase import CurriculumPhase
         from app.models.curriculum_task import CurriculumTask
+
         for _slug, c in COURSE_REGISTRY.items():
             for phase in c.phases:
                 phase_row = CurriculumPhase(
@@ -94,19 +94,22 @@ async def db_session(_setup_db):
                 session.add(phase_row)
                 await session.flush()
                 for t in phase.tasks:
-                    session.add(CurriculumTask(
-                        phase_id=phase_row.id,
-                        task_no=t.task_no,
-                        title=t.title,
-                        description=t.description,
-                        skill_tags=list(t.skill_tags),
-                        deliverable=t.deliverable,
-                        week_label=t.week_label,
-                    ))
+                    session.add(
+                        CurriculumTask(
+                            phase_id=phase_row.id,
+                            task_no=t.task_no,
+                            title=t.title,
+                            description=t.description,
+                            skill_tags=list(t.skill_tags),
+                            deliverable=t.deliverable,
+                            week_label=t.week_label,
+                        )
+                    )
         await session.commit()
 
         # Sprint 9: cache を test DB の内容で初期化
         from app.data.courses import runtime
+
         await runtime.reload_from_db(session)
 
         yield session
@@ -123,6 +126,7 @@ async def seed_curriculum(db_session):
 async def default_course_id(db_session):
     """Sprint 7 — the ai-driven-dev course's fixed UUID."""
     import uuid
+
     return uuid.UUID("00000000-0000-4000-8000-000000000001")
 
 
@@ -131,6 +135,7 @@ async def se_course_id(db_session):
     """Sprint 7 — the ai-era-se course's fixed UUID (used by tests that
     exercise the second course)."""
     import uuid
+
     return uuid.UUID("00000000-0000-4000-8000-000000000002")
 
 
@@ -209,6 +214,7 @@ async def admin_user(db_session, default_course_id):
 @pytest_asyncio.fixture
 async def admin_token(admin_user) -> str:
     from app.core.security import create_access_token
+
     return create_access_token(subject=str(admin_user.id))
 
 
@@ -284,14 +290,13 @@ async def seed_multiple_learners_with_submissions(
         phase_numbers = [p.phase for p in course_data.phases]
         for email, subs in specs:
             user = User(
-                email=email, name=email[:2],
+                email=email,
+                name=email[:2],
                 password_hash=hash_password("p"),
             )
             db_session.add(user)
             await db_session.flush()
-            await enroll_user(
-                db_session, user_id=user.id, course_slug=DEFAULT_COURSE_SLUG
-            )
+            await enroll_user(db_session, user_id=user.id, course_slug=DEFAULT_COURSE_SLUG)
             await initialize_progress_for_course(
                 db_session, user.id, default_course_id, phase_numbers
             )

@@ -1,6 +1,7 @@
 """Sprint 7 — course registry contract tests."""
 
 import uuid
+from dataclasses import FrozenInstanceError
 
 import pytest
 
@@ -60,7 +61,7 @@ def test_get_phase_raises_on_unknown_phase():
 
 def test_course_data_is_frozen():
     c = get_course("ai-driven-dev")
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         c.title = "mutated"  # type: ignore[misc]
 
 

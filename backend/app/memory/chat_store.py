@@ -38,10 +38,7 @@ class SqlChatStore:
             )
             .order_by(ChatHistory.created_at)
         )
-        return [
-            {"role": m.role, "content": m.content}
-            for m in result.scalars().all()
-        ]
+        return [{"role": m.role, "content": m.content} for m in result.scalars().all()]
 
     async def append(
         self,

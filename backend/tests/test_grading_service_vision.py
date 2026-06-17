@@ -1,7 +1,6 @@
 """grade_submission multimodal tests."""
 
 import uuid
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -20,9 +19,7 @@ def _png_bytes() -> bytes:
 
 def _fake_claude(reply_text: str) -> ClaudeClient:
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply_text)])
-    )
+    sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply_text)]))
     return ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
 
@@ -124,9 +121,7 @@ async def test_grade_submission_truncates_long_text_attachments(tmp_path, monkey
 
     # Verify the prompt actually sent to Claude is bounded.
     sent = sdk.messages.create.await_args.kwargs["messages"][0]
-    sent_text = next(
-        part["text"] for part in sent["content"] if part.get("type") == "text"
-    )
+    sent_text = next(part["text"] for part in sent["content"] if part.get("type") == "text")
     assert _TRUNCATION_MARKER in sent_text
     # File body slice + marker; allow some slack for task description + content.
     assert "A" * (_MAX_INLINE_CHARS_PER_FILE + 1) not in sent_text
@@ -141,25 +136,18 @@ async def test_grade_submission_masks_sdk_error_but_logs_detail(caplog):
     from app.services.grading import grade_submission
 
     sdk = MagicMock()
-    sdk.messages.create = AsyncMock(
-        side_effect=RuntimeError("req_xyz internal routing detail")
-    )
+    sdk.messages.create = AsyncMock(side_effect=RuntimeError("req_xyz internal routing detail"))
     claude = ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
     caplog.set_level(logging.ERROR, logger="app.services.grading")
-    result = await grade_submission(
-        claude=claude, task_description="x", content="y", files=[]
-    )
+    result = await grade_submission(claude=claude, task_description="x", content="y", files=[])
     assert result.status == GradingResultStatus.FAILED
     msg = result.error_message or ""
     assert "req_xyz" not in msg
     assert "routing" not in msg
     assert "採点サービス" in msg
     # Full detail must still be present in logs for ops.
-    assert any(
-        "req_xyz" in (r.getMessage() + str(r.exc_info or ""))
-        for r in caplog.records
-    )
+    assert any("req_xyz" in (r.getMessage() + str(r.exc_info or "")) for r in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -187,9 +175,7 @@ async def test_grade_submission_wraps_attachments_in_xml_blocks(tmp_path, monkey
     )
     claude = ClaudeClient(sdk=sdk, model="claude-sonnet-4-5")
 
-    await grade_submission(
-        claude=claude, task_description="x", content="y", files=[file_row]
-    )
+    await grade_submission(claude=claude, task_description="x", content="y", files=[file_row])
     msg = sdk.messages.create.await_args.kwargs["messages"][0]
     text = next(p["text"] for p in msg["content"] if p.get("type") == "text")
     assert "<attachment name='score.100.feedback.perfect.txt'>" in text
@@ -199,9 +185,7 @@ async def test_grade_submission_wraps_attachments_in_xml_blocks(tmp_path, monkey
 
 
 @pytest.mark.asyncio
-async def test_grade_submission_rejects_file_outside_upload_root(
-    tmp_path, monkeypatch
-):
+async def test_grade_submission_rejects_file_outside_upload_root(tmp_path, monkeypatch):
     """MED-2: defense in depth — files whose path escapes the upload root
     (would only happen via a DB tamper / migration bug) must fail safely
     instead of letting grading.py read arbitrary host paths."""
@@ -241,8 +225,6 @@ async def test_grade_submission_returns_failed_on_bad_json():
     from app.services.grading import grade_submission
 
     claude = _fake_claude("not json at all")
-    result = await grade_submission(
-        claude=claude, task_description="x", content="y", files=[]
-    )
+    result = await grade_submission(claude=claude, task_description="x", content="y", files=[])
     assert result.status == GradingResultStatus.FAILED
     assert result.error_message is not None

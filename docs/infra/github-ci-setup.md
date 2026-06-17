@@ -1,6 +1,6 @@
 # GitHub Actions CI セットアップ
 
-**最終確認:** 2026-06-11（Sprint 11 完了後）
+**最終確認:** 2026-06-17
 
 ## 現状
 
@@ -10,17 +10,20 @@
 | `git remote` | `origin` → https://github.com/y-hashiguchi/edu |
 | **visibility** | **PRIVATE**（ユーザー方針 2026-06-11） |
 | CI（private 時） | **startup_failure の可能性大** — 下記 § startup_failure 参照 |
-| ローカルゲート | backend **438** / frontend **102** / E2E **7**（Sprint 11 後） |
+| ローカルゲート | backend **511 passed, 1 skipped** / frontend **108** / E2E **11** |
 | 手動トリガ | `workflow_dispatch` 対応済み（runner 割当があれば） |
 
-## ローカルベースライン（2026-06-11 — Sprint 11）
+## ローカルベースライン（2026-06-17）
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | **438 passed** |
-| frontend vitest | **102 passed (27 files)** |
-| E2E Playwright | **7 passed** |
+| backend pytest | **511 passed, 1 skipped** |
+| frontend vitest | **108 passed (28 files)** |
+| E2E Playwright | **11 passed** |
 | frontend build | green |
+| production Compose config | green |
+| Terraform fmt/validate | green |
+| production Docker build | backend + frontend green |
 | npm audit (critical) | 0 vulnerabilities |
 
 ## remote 設定手順
@@ -36,7 +39,7 @@ git push -u origin main
 gh repo create <repo-name> --private --source=. --remote=origin --push
 ```
 
-push または PR 作成後、GitHub の Actions タブで 3 job（`backend` / `frontend` / `e2e`）が green であることを確認する。
+push または PR 作成後、GitHub の Actions タブで 4 job（`backend` / `frontend` / `docker-build` / `e2e`）が green であることを確認する。
 
 ## Actions startup_failure（0 jobs）— **private repo 運用時は想定内**
 
@@ -51,8 +54,9 @@ push または PR 作成後、GitHub の Actions タブで 3 job（`backend` / `
 ```bash
 cd backend && uv run pytest -q
 cd frontend && npm test -- --run
-# backend 起動後
-cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 npx playwright test
+make lint
+make docker-build
+make test-e2e
 ```
 
 **CI を private で動かす場合:** https://github.com/settings/billing で Actions / spending limit / 支払い方法を設定する。
@@ -61,30 +65,19 @@ cd frontend && VITE_API_BASE_URL=http://127.0.0.1:8000 npx playwright test
 
 ## workflow 構成
 
-1. **backend** — postgres service + migrate + `pytest -q`
-2. **frontend** — `npm ci` + vitest + `npm audit --audit-level=critical`
-3. **e2e** — migrate + backend (8000) + preview (4173) + Playwright
+1. **backend** — postgres service + migrate + Ruff + `pytest -q`
+2. **frontend** — `npm ci` + type lint + vitest + `npm audit --audit-level=critical`
+3. **docker-build** — backend / frontend production image build
+4. **e2e** — migrate + backend (8000) + preview (4173) + Playwright
    - `CLAUDE_STUB_MODE=true` で deterministic 採点
    - admin curriculum E2E は register 後 `scripts.promote_admin` を Playwright から実行
 
 ## ローカル E2E
 
 ```bash
-docker compose up -d postgres
-cd backend && uv run alembic upgrade head
-
-# stub 採点 + 同期採点で backend 起動（grading-worker 不要）
-CLAUDE_STUB_MODE=true GRADING_ASYNC_ENABLED=false \
-  DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai_tutor \
-  REDIS_URL=redis://127.0.0.1:6379/0 \
-  JWT_SECRET_KEY=test-secret ANTHROPIC_API_KEY=test-key \
-  uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
-
-# 別ターミナル
-cd frontend
-VITE_API_BASE_URL=http://127.0.0.1:8000 \
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai_tutor \
-npm run test:e2e
+make test-e2e
 ```
 
-`DATABASE_URL` は admin 昇格 CLI（`e2e/helpers.ts`）が API と同じ DB を参照するために必要。
+`make test-e2e` は既存の `ai_tutor` DB には触れず、専用の `ai_tutor_e2e` DB を作成して migration を適用し、stub 採点 + 同期採点の backend を一時起動してから Playwright を実行する。終了時に backend と `ai_tutor_e2e` DB は削除される。
+
+`DATABASE_URL` は admin 昇格 CLI（`e2e/helpers.ts`）が API と同じ DB を参照するために必要なため、Makefile が frontend 側にも同じ E2E DB URL を渡す。

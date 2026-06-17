@@ -7,7 +7,6 @@ import uuid
 
 from app.data.courses.types import CourseData, PhaseData, TaskItem
 
-
 AI_USAGE_RULES = (
     "【AI 活用ルール】\n"
     "1. AIに聞いた内容は必ず自分の言葉で再説明できること（コピペ禁止）\n"
@@ -66,8 +65,7 @@ _PHASE_1_TASKS: tuple[TaskItem, ...] = (
         week_label="第1週",
         title="Git・ターミナル・VS Code 基礎",
         description=(
-            "3プロジェクトのリポジトリをcloneしてブランチを切る。"
-            "コミット・プッシュを体験する"
+            "3プロジェクトのリポジトリをcloneしてブランチを切る。コミット・プッシュを体験する"
         ),
         deliverable="Git操作が一人でできる",
         skill_tags=("Git/GitHub", "開発環境"),
@@ -180,8 +178,7 @@ _PHASE_2_TASKS: tuple[TaskItem, ...] = (
         week_label="第11週",
         title="FastAPI実装（基本CRUD）",
         description=(
-            "予約登録・一覧取得・更新・削除のAPIを実装しDockerで動かす。"
-            "SwaggerUIで動作確認する"
+            "予約登録・一覧取得・更新・削除のAPIを実装しDockerで動かす。SwaggerUIで動作確認する"
         ),
         deliverable="動くAPI（Swagger確認済）",
         skill_tags=("API基礎",),
@@ -434,13 +431,11 @@ AI_ERA_SE_COURSE = CourseData(
             goal="開発環境・業務の仕組み・AIとの最初の対話を体感する",
             tasks=_PHASE_1_TASKS,
             system_prompt=(
-                _SE_TUTOR_BASE
-                + "\n現在のフェーズ：Phase 1「土台づくり」（第1〜8週）。\n"
+                _SE_TUTOR_BASE + "\n現在のフェーズ：Phase 1「土台づくり」（第1〜8週）。\n"
                 "指導方針：\n"
                 "- 用語が新しい受講者を前提に、専門語を必ず噛み砕く\n"
                 "- 「答えを返す」より「次の問いを立てさせる」\n"
-                "- 3〜5文程度で日本語で返答する"
-                + _PHASE_1_EVAL
+                "- 3〜5文程度で日本語で返答する" + _PHASE_1_EVAL
             ),
         ),
         PhaseData(
@@ -449,13 +444,11 @@ AI_ERA_SE_COURSE = CourseData(
             goal="小さくても動くものを設計〜実装まで作り切る体験をする",
             tasks=_PHASE_2_TASKS,
             system_prompt=(
-                _SE_TUTOR_BASE
-                + "\n現在のフェーズ：Phase 2「実践力の習得」（第9〜20週）。\n"
+                _SE_TUTOR_BASE + "\n現在のフェーズ：Phase 2「実践力の習得」（第9〜20週）。\n"
                 "指導方針：\n"
                 "- 設計と実装の両方を手を動かして進める\n"
                 "- 既存フレームワークのコードリーディングを重視する\n"
-                "- 3〜5文程度で日本語で返答する"
-                + _PHASE_2_EVAL
+                "- 3〜5文程度で日本語で返答する" + _PHASE_2_EVAL
             ),
         ),
         PhaseData(
@@ -464,13 +457,11 @@ AI_ERA_SE_COURSE = CourseData(
             goal="AIを相棒として使いこなし、生産性と品質を同時に上げる",
             tasks=_PHASE_3_TASKS,
             system_prompt=(
-                _SE_TUTOR_BASE
-                + "\n現在のフェーズ：Phase 3「AI活用・協働」（第21〜36週）。\n"
+                _SE_TUTOR_BASE + "\n現在のフェーズ：Phase 3「AI活用・協働」（第21〜36週）。\n"
                 "指導方針：\n"
                 "- セキュリティとAI連携の両立を意識させる\n"
                 "- プロンプト改善のPDCAを習慣化させる\n"
-                "- 3〜5文程度で日本語で返答する"
-                + _PHASE_3_EVAL
+                "- 3〜5文程度で日本語で返答する" + _PHASE_3_EVAL
             ),
         ),
         PhaseData(
@@ -479,13 +470,11 @@ AI_ERA_SE_COURSE = CourseData(
             goal="チームに貢献し、後輩を教えられるSEになる",
             tasks=_PHASE_4_TASKS,
             system_prompt=(
-                _SE_TUTOR_BASE
-                + "\n現在のフェーズ：Phase 4「自律・発信」（第37〜48週）。\n"
+                _SE_TUTOR_BASE + "\n現在のフェーズ：Phase 4「自律・発信」（第37〜48週）。\n"
                 "指導方針：\n"
                 "- 卒業課題の自律推進を支援し、答えは直接教えない\n"
                 "- 技術選定の根拠を言語化させる\n"
-                "- 3〜5文程度で日本語で返答する"
-                + _PHASE_4_EVAL
+                "- 3〜5文程度で日本語で返答する" + _PHASE_4_EVAL
             ),
         ),
     ),

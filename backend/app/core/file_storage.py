@@ -171,16 +171,12 @@ async def save_upload(
             content=content,
         )
     if len(content) > settings.max_file_size_bytes:
-        raise FileTooLargeError(
-            f"file exceeds {settings.max_file_size_bytes} bytes"
-        )
+        raise FileTooLargeError(f"file exceeds {settings.max_file_size_bytes} bytes")
     safe_name = sanitize_filename(filename)
     ext = validate_extension(safe_name)
     mime = detect_mime_type(content)
     if not _mime_matches_extension(mime, ext):
-        raise MimeMismatchError(
-            f"content type '{mime}' does not match extension '.{ext}'"
-        )
+        raise MimeMismatchError(f"content type '{mime}' does not match extension '.{ext}'")
 
     target_dir = submission_dir(user_id, submission_id)
 
@@ -198,9 +194,7 @@ async def save_upload(
     )
 
 
-def delete_submission_files(
-    user_id: uuid.UUID | str, submission_id: uuid.UUID | str
-) -> None:
+def delete_submission_files(user_id: uuid.UUID | str, submission_id: uuid.UUID | str) -> None:
     if _use_s3():
         from app.core.file_storage_s3 import delete_submission_files_s3
 
@@ -221,7 +215,5 @@ def read_file_bytes(file_path: str) -> bytes:
     try:
         p.relative_to(root)
     except ValueError as exc:
-        raise PathTraversalError(
-            f"path '{file_path}' is outside upload root"
-        ) from exc
+        raise PathTraversalError(f"path '{file_path}' is outside upload root") from exc
     return p.read_bytes()

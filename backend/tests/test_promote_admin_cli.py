@@ -30,9 +30,7 @@ async def test_promote_flips_is_admin(db_session, capsys):
 
     # Re-fetch through a fresh statement to confirm the DB write — relying
     # on the cached `user.is_admin` would mask a missing commit.
-    refreshed = (
-        await db_session.execute(select(User).where(User.id == target_id))
-    ).scalar_one()
+    refreshed = (await db_session.execute(select(User).where(User.id == target_id))).scalar_one()
     await db_session.refresh(refreshed)
     assert refreshed.is_admin is True
 

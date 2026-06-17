@@ -12,14 +12,16 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.nudge import (
-    LLM_FAILURE_FALLBACK, NudgeResult, get_or_generate,
+    LLM_FAILURE_FALLBACK,
+    NudgeResult,
+    get_or_generate,
 )
 from app.services.progress_summary import (
-    ProgressSummary, compute_progress_summary,
+    ProgressSummary,
+    compute_progress_summary,
 )
 from app.services.recommendation import Recommendation, compute_recommendations
 from app.services.weakness import WeaknessResult, compute_weakness
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +50,18 @@ async def compose_dashboard(
     # latency becomes a complaint.
     try:
         progress = await compute_progress_summary(
-            db, user_id, course_id, course_slug,
+            db,
+            user_id,
+            course_id,
+            course_slug,
         )
     except Exception:
         logger.exception("progress_summary failed")
         progress = ProgressSummary(
-            completed_tasks=0, total_tasks=0,
-            submission_count=0, average_score=None,
+            completed_tasks=0,
+            total_tasks=0,
+            submission_count=0,
+            average_score=None,
         )
 
     try:
@@ -66,7 +73,8 @@ async def compose_dashboard(
     top_tags = [w.tag for w in weakness.top_weaknesses]
     try:
         recs = await compute_recommendations(
-            db, embedding_client,
+            db,
+            embedding_client,
             user_id=user_id,
             course_id=course_id,
             course_slug=course_slug,
@@ -77,18 +85,16 @@ async def compose_dashboard(
         recs = []
 
     top_rec_key = f"{recs[0].phase}:{recs[0].task_no}" if recs else None
-    progress_text = (
-        f"完了: {progress.completed_tasks}/{progress.total_tasks} タスク"
-        + (
-            f"、平均スコア: {progress.average_score}"
-            if progress.average_score is not None else ""
-        )
+    progress_text = f"完了: {progress.completed_tasks}/{progress.total_tasks} タスク" + (
+        f"、平均スコア: {progress.average_score}" if progress.average_score is not None else ""
     )
     rec_titles = [r.title for r in recs]
 
     try:
         nudge = await get_or_generate(
-            db, claude=claude, user_id=user_id,
+            db,
+            claude=claude,
+            user_id=user_id,
             course_id=course_id,
             weakness_tags=top_tags,
             top_recommendation_key=top_rec_key,
@@ -105,8 +111,10 @@ async def compose_dashboard(
         )
 
     return DashboardData(
-        progress_summary=progress, weakness=weakness,
-        recommendations=recs, nudge=nudge,
+        progress_summary=progress,
+        weakness=weakness,
+        recommendations=recs,
+        nudge=nudge,
     )
 
 
@@ -138,13 +146,18 @@ async def compose_dashboard_for_admin(
     exception does not 500 the entire admin dashboard."""
     try:
         progress = await compute_progress_summary(
-            db, user_id, course_id, course_slug,
+            db,
+            user_id,
+            course_id,
+            course_slug,
         )
     except Exception:
         logger.exception("progress_summary failed (admin)")
         progress = ProgressSummary(
-            completed_tasks=0, total_tasks=0,
-            submission_count=0, average_score=None,
+            completed_tasks=0,
+            total_tasks=0,
+            submission_count=0,
+            average_score=None,
         )
 
     try:
@@ -156,7 +169,8 @@ async def compose_dashboard_for_admin(
     top_tags = [w.tag for w in weakness.top_weaknesses]
     try:
         recs = await compute_recommendations(
-            db, embedding_client,
+            db,
+            embedding_client,
             user_id=user_id,
             course_id=course_id,
             course_slug=course_slug,
@@ -167,5 +181,7 @@ async def compose_dashboard_for_admin(
         recs = []
 
     return AdminDashboardData(
-        progress_summary=progress, weakness=weakness, recommendations=recs,
+        progress_summary=progress,
+        weakness=weakness,
+        recommendations=recs,
     )

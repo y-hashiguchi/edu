@@ -139,6 +139,31 @@ S3_UPLOAD_REGION=ap-northeast-1
 - ローカル disk モード（`UPLOAD_STORAGE_BACKEND=local`）は従来どおり `upload_dir` + Compose volume
 - `grading-worker` も同じ env を読むため、worker から S3 へ到達できること
 
+#### 既存 local uploads の S3 移行
+
+`UPLOAD_STORAGE_BACKEND=local` で運用済みの環境を S3 に切り替える場合、backend コンテナから移行スクリプトを実行する。
+
+```bash
+# 1. 対象確認（DB/S3 は変更しない）
+docker compose -f docker-compose.prod.yml exec backend \
+  uv run python -m scripts.migrate_uploads_to_s3 --dry-run
+
+# 2. 少量で試行
+docker compose -f docker-compose.prod.yml exec backend \
+  uv run python -m scripts.migrate_uploads_to_s3 --limit 10
+
+# 3. 本実行
+docker compose -f docker-compose.prod.yml exec backend \
+  uv run python -m scripts.migrate_uploads_to_s3
+```
+
+- 移行対象は `submission_files.file_path` が `s3://` で始まらない行
+- S3 key は `S3_UPLOAD_PREFIX/{user_id}/{submission_id}/{filename}`。既存 key がある場合は `_1`, `_2` suffix で上書きを避ける
+- `--dry-run` は S3 へ接続しない。S3 上の既存 key と衝突した場合の suffix は本実行時に確定する
+- 成功時は S3 upload 後に DB の `file_path` を `s3://bucket/key` へ更新する
+- ローカルファイルは削除しない。移行後に提出ファイルのダウンロードと採点 worker の読み込みを確認してから、別手順で volume を整理する
+- 個別エラーを記録して継続する場合は `--continue-on-error` を付ける。終了サマリの `errors` が 0 であることを確認する
+
 ### API 水平スケール
 
 TLS 構成では Caddy が `backend:8000` に reverse proxy する。Compose の組み込み DNS が replica 間でラウンドロビンする。
@@ -225,6 +250,7 @@ TLS 利用時は `-f docker-compose.prod.tls.yml` も付与。schema 変更は b
 ## 8. 関連
 
 - ALB + マネージド AWS: [alb-deploy.md](./alb-deploy.md)
+- ECS/Fargate 移行: [ecs-fargate.md](./ecs-fargate.md)
 - Compose 定義: [`docker-compose.prod.yml`](../../docker-compose.prod.yml), [`docker-compose.prod.tls.yml`](../../docker-compose.prod.tls.yml)
 - Caddy 設定: [`infra/caddy/Caddyfile`](../../infra/caddy/Caddyfile)
 - ローカル開発: [README.md](../../README.md)

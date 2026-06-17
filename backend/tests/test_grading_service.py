@@ -9,9 +9,7 @@ from app.services.grading import grade_submission
 
 def _fake(reply: str) -> ClaudeClient:
     fake_sdk = MagicMock()
-    fake_sdk.messages.create = AsyncMock(
-        return_value=MagicMock(content=[MagicMock(text=reply)])
-    )
+    fake_sdk.messages.create = AsyncMock(return_value=MagicMock(content=[MagicMock(text=reply)]))
     return ClaudeClient(sdk=fake_sdk, model="claude-sonnet-4-5")
 
 
@@ -33,9 +31,7 @@ async def test_grade_parses_json_object():
 async def test_grade_handles_wrapped_json():
     text = '評価結果は以下です:\n{"score": 60, "feedback": "もう少し具体例を"}\nです。'
     claude = _fake(text)
-    result = await grade_submission(
-        claude=claude, task_description="x", content="y", files=[]
-    )
+    result = await grade_submission(claude=claude, task_description="x", content="y", files=[])
     assert result.status == GradingResultStatus.GRADED
     assert result.score == 60
 
@@ -43,9 +39,7 @@ async def test_grade_handles_wrapped_json():
 @pytest.mark.asyncio
 async def test_grade_clamps_out_of_range_score():
     claude = _fake('{"score": 150, "feedback": "x"}')
-    result = await grade_submission(
-        claude=claude, task_description="x", content="y", files=[]
-    )
+    result = await grade_submission(claude=claude, task_description="x", content="y", files=[])
     assert result.status == GradingResultStatus.GRADED
     assert result.score == 100
 
@@ -53,8 +47,6 @@ async def test_grade_clamps_out_of_range_score():
 @pytest.mark.asyncio
 async def test_grade_returns_failed_on_unparseable():
     claude = _fake("これは JSON ではありません")
-    result = await grade_submission(
-        claude=claude, task_description="x", content="y", files=[]
-    )
+    result = await grade_submission(claude=claude, task_description="x", content="y", files=[])
     assert result.status == GradingResultStatus.FAILED
     assert result.error_message is not None

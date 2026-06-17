@@ -50,15 +50,10 @@ async def get_my_dashboard(
         progress_summary=ProgressSummaryOut.model_validate(data.progress_summary),
         weakness=WeaknessOut(
             has_enough_data=data.weakness.has_enough_data,
-            top_weaknesses=[
-                TagAverageOut.model_validate(w)
-                for w in data.weakness.top_weaknesses
-            ],
+            top_weaknesses=[TagAverageOut.model_validate(w) for w in data.weakness.top_weaknesses],
         ),
         recommendations=RecommendationsBlock(
-            items=[
-                RecommendationOut.model_validate(r) for r in data.recommendations
-            ],
+            items=[RecommendationOut.model_validate(r) for r in data.recommendations],
         ),
         nudge=NudgeOut(
             body=data.nudge.body,

@@ -62,7 +62,10 @@ make test                      # backend + frontend
 make verify                    # backend + frontend（E2E 前のローカル CI ゲート）
 make test-backend              # pytest（postgres を自動起動）
 make test-frontend             # vitest
-make test-e2e                  # Playwright（backend 起動後）
+make test-e2e                  # Playwright（専用 ai_tutor_e2e DB + stub backend を自動起動）
+make compose-config            # production Compose / TLS overlay の構文確認
+make terraform-validate        # Dockerized Terraform fmt/validate
+make docker-build              # backend/frontend production image build
 ```
 
 ## ディレクトリ構成
@@ -134,11 +137,12 @@ make test-e2e                  # Playwright（backend 起動後）
 
 ### CI / E2E
 
-- `.github/workflows/ci.yml`: backend pytest、frontend vitest、`npm audit --audit-level=critical`、Playwright E2E（**11 passed** 想定）
-- 最新 CI: `main` push で green（backend / frontend / e2e ジョブ）
+- `.github/workflows/ci.yml`: backend Ruff + pytest、frontend type lint + vitest + `npm audit --audit-level=critical`、production Docker build、Playwright E2E（**11 passed** 想定）
+- 最新 CI: `main` push で green（backend / frontend / docker-build / e2e ジョブ）
 - 初回 CI 実走: [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照（remote 未設定時は push 不可）
-- ローカル E2E: `docker compose up -d postgres backend`（`CLAUDE_STUB_MODE=true` 推奨）のあと `cd frontend && npm run test:e2e`
+- ローカル E2E: `make test-e2e`（専用 `ai_tutor_e2e` DB と stub backend を自動起動・終了時に削除）
 - 本番デプロイ: [docs/infra/production-deploy.md](docs/infra/production-deploy.md)
+- ECS/Fargate 移行: [docs/infra/ecs-fargate.md](docs/infra/ecs-fargate.md)
 
 ### コホート集計（Sprint 10）
 

@@ -8,6 +8,7 @@ from app.models.scheduled_broadcast import (
     ScheduledBroadcast,
     ScheduledBroadcastStatus,
 )
+from app.services.enrollment import _get_course_by_slug
 from app.services.scheduled_broadcast import (
     InvalidScheduleTimeError,
     ScheduledBroadcastNotPendingError,
@@ -15,7 +16,6 @@ from app.services.scheduled_broadcast import (
     create_scheduled_broadcast,
     process_due_scheduled_broadcasts,
 )
-from app.services.enrollment import _get_course_by_slug
 
 
 def _future(minutes: int = 10) -> datetime:
@@ -62,9 +62,7 @@ async def test_cancel_pending(db_session, admin_user):
         link=None,
         scheduled_at=_future(20),
     )
-    cancelled = await cancel_scheduled_broadcast(
-        db=db_session, broadcast_id=row.id
-    )
+    cancelled = await cancel_scheduled_broadcast(db=db_session, broadcast_id=row.id)
     assert cancelled.status == ScheduledBroadcastStatus.cancelled
 
 
@@ -87,7 +85,10 @@ async def test_cancel_sent_raises(db_session, admin_user):
 
 @pytest.mark.asyncio
 async def test_process_due_marks_sent(
-    db_session, admin_user, auth_user, monkeypatch,
+    db_session,
+    admin_user,
+    auth_user,
+    monkeypatch,
 ):
     monkeypatch.setattr(
         "app.services.scheduled_broadcast.settings.scheduled_broadcast_cron_enabled",

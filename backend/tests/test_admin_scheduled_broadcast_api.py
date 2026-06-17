@@ -8,9 +8,7 @@ from app.core.security import create_access_token
 
 
 def _auth(client, user_id) -> None:
-    client.headers.update(
-        {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
-    )
+    client.headers.update({"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"})
 
 
 def _future_iso(minutes: int = 10) -> str:
@@ -85,9 +83,7 @@ async def test_cancel_pending(client, admin_user):
             "scheduled_at": _future_iso(30),
         },
     ).json()
-    r = client.delete(
-        f"/api/admin/notifications/scheduled/{created['id']}"
-    )
+    r = client.delete(f"/api/admin/notifications/scheduled/{created['id']}")
     assert r.status_code == 200
     assert r.json()["status"] == "cancelled"
 

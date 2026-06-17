@@ -9,7 +9,6 @@ import uuid
 
 from app.data.courses.types import CourseData, PhaseData, TaskItem
 
-
 AI_DRIVEN_DEV_COURSE = CourseData(
     id=uuid.UUID("00000000-0000-4000-8000-000000000001"),
     slug="ai-driven-dev",
@@ -31,7 +30,10 @@ AI_DRIVEN_DEV_COURSE = CourseData(
                 TaskItem(
                     task_no=2,
                     title="VSCode拡張（GitLens・REST Client・GitHub Copilot）の導入と動作確認",
-                    description="VSCode拡張（GitLens・REST Client・GitHub Copilot）の導入と動作確認",
+                    description=(
+                        "VSCode拡張（GitLens・REST Client・GitHub Copilot）の"
+                        "導入と動作確認"
+                    ),
                     skill_tags=("開発環境",),
                 ),
                 TaskItem(
@@ -61,7 +63,10 @@ AI_DRIVEN_DEV_COURSE = CourseData(
                 TaskItem(
                     task_no=1,
                     title="Cursor IDEで顧客管理API（CRUD）をゼロから作成。AIとのやり取りログを記録",
-                    description="Cursor IDEで顧客管理API（CRUD）をゼロから作成。AIとのやり取りログを記録",
+                    description=(
+                        "Cursor IDEで顧客管理API（CRUD）をゼロから作成。"
+                        "AIとのやり取りログを記録"
+                    ),
                     skill_tags=("AI協調", "API基礎"),
                 ),
                 TaskItem(
@@ -133,7 +138,10 @@ AI_DRIVEN_DEV_COURSE = CourseData(
                 TaskItem(
                     task_no=1,
                     title="Claude APIでチャットボット作成（会話履歴保持・システムプロンプト設定）",
-                    description="Claude APIでチャットボット作成（会話履歴保持・システムプロンプト設定）",
+                    description=(
+                        "Claude APIでチャットボット作成"
+                        "（会話履歴保持・システムプロンプト設定）"
+                    ),
                     skill_tags=("LLM活用",),
                 ),
                 TaskItem(

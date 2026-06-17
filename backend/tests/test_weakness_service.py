@@ -22,7 +22,9 @@ async def _make_user(db_session, email="w@e.com"):
 
 @pytest.mark.asyncio
 async def test_returns_has_enough_data_false_when_below_threshold(
-    db_session, seed_graded_submission, default_course_id,
+    db_session,
+    seed_graded_submission,
+    default_course_id,
 ):
     """Submission < 3 件のとき has_enough_data=False、top_weaknesses=[]。"""
     user = await _make_user(db_session)
@@ -36,7 +38,9 @@ async def test_returns_has_enough_data_false_when_below_threshold(
 
 @pytest.mark.asyncio
 async def test_aggregates_by_tag_low_score_first(
-    db_session, seed_graded_submission, default_course_id,
+    db_session,
+    seed_graded_submission,
+    default_course_id,
 ):
     """3 件以上提出すると、タグ別平均が低い順に並ぶ。"""
     user = await _make_user(db_session)
@@ -70,7 +74,9 @@ async def test_returns_at_most_top_3(db_session, seed_graded_submission, default
 
 @pytest.mark.asyncio
 async def test_uses_latest_graded_attempt_per_submission(
-    db_session, seed_graded_submission, default_course_id,
+    db_session,
+    seed_graded_submission,
+    default_course_id,
 ):
     """再採点で 90 → 60 と変動した場合、60 を採用"""
     from datetime import UTC, datetime, timedelta
@@ -106,7 +112,10 @@ def test_constants_match_spec():
 
 @pytest.mark.asyncio
 async def test_skips_submissions_for_removed_curriculum_tasks(
-    db_session, seed_graded_submission, monkeypatch, default_course_id,
+    db_session,
+    seed_graded_submission,
+    monkeypatch,
+    default_course_id,
 ):
     """HIGH-2 (sprint-5 review): a learner who submitted against a
     task that has since been removed from curriculum must still get a
