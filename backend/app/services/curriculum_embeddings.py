@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.embedding_client import EmbeddingClient
@@ -16,9 +16,12 @@ from app.data.courses import CourseNotFoundError, get_course
 from app.data.courses import runtime
 from app.data.curriculum import CURRICULUM
 from app.models.course import Course
+from app.models.embedding import Embedding
 from app.services.embedding import upsert_embeddings
 
 logger = logging.getLogger(__name__)
+
+_CURRICULUM_SOURCE_TYPES = ("curriculum_task", "curriculum_skill")
 
 
 def task_embedding_source_ref(
@@ -122,6 +125,33 @@ async def seed_course_embeddings(
         items=items,
     )
     return len(items)
+
+
+async def prune_orphan_course_embeddings(
+    db: AsyncSession,
+    course_slug: str,
+) -> int:
+    """Remove curriculum_task/skill rows whose source_ref no longer exists."""
+    course_row = (
+        await db.execute(select(Course).where(Course.slug == course_slug))
+    ).scalar_one_or_none()
+    if course_row is None:
+        return 0
+    try:
+        items = build_embedding_items(course_slug)
+    except CourseNotFoundError:
+        await runtime.reload_course(db, course_slug)
+        items = build_embedding_items(course_slug)
+    valid_refs = {it[1] for it in items if it[0] in _CURRICULUM_SOURCE_TYPES}
+    stmt = delete(Embedding).where(
+        Embedding.course_id == course_row.id,
+        Embedding.source_type.in_(_CURRICULUM_SOURCE_TYPES),
+    )
+    if valid_refs:
+        stmt = stmt.where(Embedding.source_ref.notin_(valid_refs))
+    result = await db.execute(stmt)
+    await db.flush()
+    return result.rowcount or 0
 
 
 async def seed_all_course_embeddings(

@@ -403,6 +403,7 @@ async def remove_phase(
         )
     await db.commit()
     await _reload_course_cache(db, course_slug)
+    await enqueue_curriculum_embeddings_full(course_slug)
     logger.info(
         "curriculum.delete_phase slug=%s phase_no=%d by=%s",
         course_slug,
@@ -484,6 +485,7 @@ async def remove_task(
         )
     await db.commit()
     await _reload_course_cache(db, course_slug)
+    await enqueue_curriculum_embeddings_full(course_slug)
     logger.info(
         "curriculum.delete_task slug=%s phase=%d task_no=%d by=%s",
         course_slug,

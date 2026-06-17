@@ -2,10 +2,13 @@
 
 import pytest
 from unittest.mock import AsyncMock, patch
+from sqlalchemy import select
 
 from app.data.courses import runtime
+from app.models.embedding import EMBEDDING_DIM, Embedding
 from app.services.curriculum_embeddings import (
     build_embedding_items,
+    prune_orphan_course_embeddings,
     seed_course_embeddings,
     seed_course_embeddings_refs,
 )
@@ -47,3 +50,39 @@ async def test_seed_course_embeddings_calls_upsert(db_session, seed_curriculum):
         count = await seed_course_embeddings(db_session, "ai-driven-dev")
     assert count > 0
     mock_upsert.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_prune_orphan_course_embeddings(
+    db_session, seed_curriculum, default_course_id
+):
+    await runtime.reload_from_db(db_session)
+    valid_ref = "course:ai-driven-dev:phase:1:task:0"
+    orphan_ref = "course:ai-driven-dev:phase:1:task:99"
+    vec = [0.0] * EMBEDDING_DIM
+    for ref in (valid_ref, orphan_ref):
+        db_session.add(
+            Embedding(
+                user_id=None,
+                course_id=default_course_id,
+                source_type="curriculum_task",
+                source_ref=ref,
+                phase=1,
+                content="x",
+                embedding=vec,
+            )
+        )
+    await db_session.commit()
+
+    pruned = await prune_orphan_course_embeddings(db_session, "ai-driven-dev")
+    assert pruned == 1
+
+    refs = (
+        await db_session.execute(
+            select(Embedding.source_ref).where(
+                Embedding.course_id == default_course_id,
+                Embedding.source_type == "curriculum_task",
+            )
+        )
+    ).scalars().all()
+    assert refs == [valid_ref]

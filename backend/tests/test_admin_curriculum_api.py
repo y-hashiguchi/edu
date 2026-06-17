@@ -173,14 +173,24 @@ async def test_post_task_adds_at_end(
 
 @pytest.mark.asyncio
 async def test_delete_task_returns_204(
-    client, admin_user, admin_token, seed_curriculum
+    client, admin_user, admin_token, seed_curriculum, monkeypatch
 ):
+    full_calls: list[str] = []
+
+    async def _noop_full(slug: str) -> None:
+        full_calls.append(slug)
+
+    monkeypatch.setattr(
+        "app.api.admin.curriculum.enqueue_curriculum_embeddings_full",
+        _noop_full,
+    )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     client.post("/api/admin/curriculum/ai-driven-dev/phases/1/tasks")
     res = client.delete(
         "/api/admin/curriculum/ai-driven-dev/phases/1/tasks/4"
     )
     assert res.status_code == 204
+    assert full_calls == ["ai-driven-dev"]
     detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
     assert len(detail["phases"][0]["tasks"]) == 3
 
@@ -289,14 +299,24 @@ async def test_delete_phase_returns_204(
     async def _noop_seed(db, slug, *, client=None):
         return 0
 
+    full_calls: list[str] = []
+
+    async def _noop_full(slug: str) -> None:
+        full_calls.append(slug)
+
     monkeypatch.setattr(
         "app.services.curriculum_embeddings.seed_course_embeddings",
         _noop_seed,
+    )
+    monkeypatch.setattr(
+        "app.api.admin.curriculum.enqueue_curriculum_embeddings_full",
+        _noop_full,
     )
     client.headers.update({"Authorization": f"Bearer {admin_token}"})
     client.post("/api/admin/curriculum/ai-driven-dev/phases")
     res = client.delete("/api/admin/curriculum/ai-driven-dev/phases/5")
     assert res.status_code == 204
+    assert full_calls == ["ai-driven-dev"]
     detail = client.get("/api/admin/curriculum/ai-driven-dev").json()
     assert len(detail["phases"]) == 4
 

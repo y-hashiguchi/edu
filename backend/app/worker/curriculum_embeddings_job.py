@@ -38,15 +38,20 @@ async def run_curriculum_embeddings_full_job(
     _ctx: dict,
     course_slug: str,
 ) -> None:
-    from app.services.curriculum_embeddings import seed_course_embeddings
+    from app.services.curriculum_embeddings import (
+        prune_orphan_course_embeddings,
+        seed_course_embeddings,
+    )
 
     client = EmbeddingClient()
     async with SessionLocal() as db:
         await runtime.reload_course(db, course_slug)
         count = await seed_course_embeddings(db, course_slug, client=client)
+        pruned = await prune_orphan_course_embeddings(db, course_slug)
         await db.commit()
     logger.info(
-        "curriculum embeddings full job slug=%s embedded=%d",
+        "curriculum embeddings full job slug=%s embedded=%d pruned=%d",
         course_slug,
         count,
+        pruned,
     )
