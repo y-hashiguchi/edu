@@ -12,7 +12,7 @@
 
 | スイート | 結果 |
 |----------|------|
-| backend pytest | 498 passed, 1 skipped |
+| backend pytest | 502 passed, 1 skipped |
 | frontend vitest | 107 passed |
 | Playwright E2E | 11 passed |
 
@@ -32,6 +32,7 @@
 - **Sprint 24**: delete_task / delete_phase 後 embeddings 整理 → [`HANDOVER_2026-06-11_sprint24_done.md`](HANDOVER_2026-06-11_sprint24_done.md)
 - **Sprint 25**: CI embedding stub（HF 429 回避） → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
 - **Sprint 26**: production-deploy 拡張（TLS / マネージド DB / スケール） → [`HANDOVER_2026-06-17_sprint26_done.md`](HANDOVER_2026-06-17_sprint26_done.md)
+- **Sprint 27**: S3 upload storage → [`HANDOVER_2026-06-17_sprint27_done.md`](HANDOVER_2026-06-17_sprint27_done.md)
 - curriculum cache pub/sub（Redis、CI では無効 / notify は best-effort）
 - Sprint 6 MED-2/MED-6（bulk weakness 閾値統一、admin-on-admin dashboard 404）
 
@@ -87,4 +88,5 @@ cd backend && uv run alembic upgrade head
 - ~~delete_task / delete_phase embeddings 整理~~ → [`HANDOVER_2026-06-11_sprint24_done.md`](HANDOVER_2026-06-11_sprint24_done.md)
 - ~~CI HuggingFace 429 対策~~ → [`HANDOVER_2026-06-11_sprint25_done.md`](HANDOVER_2026-06-11_sprint25_done.md)
 - ~~TLS / 外部 LB / マネージド DB への production-deploy 拡張~~ → [`HANDOVER_2026-06-17_sprint26_done.md`](HANDOVER_2026-06-17_sprint26_done.md)
-- upload のオブジェクトストレージ化（multi-host スケール時）
+- ~~upload のオブジェクトストレージ化~~ → [`HANDOVER_2026-06-17_sprint27_done.md`](HANDOVER_2026-06-17_sprint27_done.md)
+- 外部 LB（ALB）向け Terraform / runbook

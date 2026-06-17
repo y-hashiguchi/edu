@@ -2,10 +2,10 @@
 
 import uuid
 from datetime import datetime
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from app.core.file_storage import stored_filename
 from app.schemas.grading import GradingAttemptOut
 
 
@@ -25,7 +25,7 @@ class SubmissionFileOut(BaseModel):
     def from_row(cls, row) -> "SubmissionFileOut":
         return cls(
             id=row.id,
-            filename=Path(row.file_path).name,
+            filename=stored_filename(row.file_path),
             mime_type=row.mime_type,
             size_bytes=row.size_bytes,
             created_at=row.created_at,

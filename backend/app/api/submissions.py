@@ -1,7 +1,6 @@
 """Submissions API: multipart upload, regrade, listing with history."""
 
 import uuid
-from pathlib import Path as FsPath
 
 from fastapi import (
     APIRouter,
@@ -29,6 +28,7 @@ from app.core.file_storage import (
     MimeMismatchError,
     PathTraversalError,
     read_file_bytes,
+    stored_filename,
 )
 from app.db.session import get_db
 from app.models.grading_attempt import GradingAttempt
@@ -281,7 +281,7 @@ async def download_file(
             detail="file unavailable",
         ) from e
 
-    filename = FsPath(file_row.file_path).name
+    filename = stored_filename(file_row.file_path)
     return Response(
         content=data,
         media_type=file_row.mime_type,

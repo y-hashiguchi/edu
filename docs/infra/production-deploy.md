@@ -120,7 +120,24 @@ make prod-managed
 
 - pgvector 拡張が有効な Postgres が必要（`CREATE EXTENSION vector`）
 - migration は backend 起動時に 1 回実行される。複数 replica 同時起動時は最初の 1 台だけ migration を走らせる運用も検討
-- `submission_uploads` volume は引き続き Compose 上。S3 等への移行は別途
+- `submission_uploads` volume は **local ストレージ時のみ** 必要（Sprint 27: S3 利用時は省略可）
+
+### S3 アップロード（multi-replica 推奨）
+
+backend を複数 replica にする場合、提出ファイルは共有オブジェクトストレージへ。
+
+```bash
+# .env
+UPLOAD_STORAGE_BACKEND=s3
+S3_UPLOAD_BUCKET=your-bucket
+S3_UPLOAD_PREFIX=uploads
+S3_UPLOAD_REGION=ap-northeast-1
+# IAM role または AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+```
+
+- DB の `submission_files.file_path` には `s3://bucket/key` を保存
+- ローカル disk モード（`UPLOAD_STORAGE_BACKEND=local`）は従来どおり `upload_dir` + Compose volume
+- `grading-worker` も同じ env を読むため、worker から S3 へ到達できること
 
 ### API 水平スケール
 
@@ -134,7 +151,7 @@ docker compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml \
 要件:
 
 - `CURRICULUM_CACHE_PUBSUB_ENABLED=true`
-- 共有: Postgres, Redis, `submission_uploads` volume（単一ホスト volume または NFS / オブジェクトストレージ移行）
+- 共有: Postgres, Redis、アップロード（S3 または `submission_uploads` volume）
 - 外部 LB（ALB 等）を使う場合は TLS overlay の代わりに LB で終端し、ターゲットグループに `:8000` を登録
 
 ---

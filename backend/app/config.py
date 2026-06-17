@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     max_file_size_bytes: int = 5 * 1024 * 1024  # 5 MB
     max_files_per_submission: int = 3
     allowed_upload_extensions: str = "py,java,js,ts,txt,md,png,jpg,jpeg,pdf"
+    # Sprint 27 — local disk (default) or S3 for multi-replica production.
+    upload_storage_backend: str = "local"
+    s3_upload_bucket: str = ""
+    s3_upload_prefix: str = "uploads"
+    s3_upload_region: str = ""
 
     # Grading (Sprint 3)
     regrade_cooldown_seconds: int = 60
@@ -56,6 +61,10 @@ class Settings(BaseSettings):
         if not self.claude_stub_mode and not self.anthropic_api_key:
             raise ValueError(
                 "anthropic_api_key is required when claude_stub_mode is false"
+            )
+        if self.upload_storage_backend == "s3" and not self.s3_upload_bucket.strip():
+            raise ValueError(
+                "s3_upload_bucket is required when upload_storage_backend is s3"
             )
         return self
 

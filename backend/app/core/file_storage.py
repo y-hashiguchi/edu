@@ -35,6 +35,7 @@ __all__ = [
     "read_file_bytes",
     "sanitize_filename",
     "save_upload",
+    "stored_filename",
     "storage_root",
     "submission_dir",
     "validate_extension",
@@ -141,6 +142,18 @@ def _unique_target(target_dir: Path, safe_name: str) -> Path:
     raise FileStorageError("could not find unique filename within 100 attempts")
 
 
+def _use_s3() -> bool:
+    return settings.upload_storage_backend == "s3"
+
+
+def stored_filename(file_path: str) -> str:
+    if file_path.startswith("s3://"):
+        from app.core.file_storage_s3 import stored_filename as s3_stored_filename
+
+        return s3_stored_filename(file_path)
+    return Path(file_path).name
+
+
 async def save_upload(
     *,
     user_id: uuid.UUID,
@@ -148,6 +161,15 @@ async def save_upload(
     filename: str,
     content: bytes,
 ) -> StoredFile:
+    if _use_s3():
+        from app.core.file_storage_s3 import save_upload_s3
+
+        return await save_upload_s3(
+            user_id=user_id,
+            submission_id=submission_id,
+            filename=filename,
+            content=content,
+        )
     if len(content) > settings.max_file_size_bytes:
         raise FileTooLargeError(
             f"file exceeds {settings.max_file_size_bytes} bytes"
@@ -179,12 +201,21 @@ async def save_upload(
 def delete_submission_files(
     user_id: uuid.UUID | str, submission_id: uuid.UUID | str
 ) -> None:
+    if _use_s3():
+        from app.core.file_storage_s3 import delete_submission_files_s3
+
+        delete_submission_files_s3(user_id, submission_id)
+        return
     target = submission_dir(user_id, submission_id)
     if target.exists():
         shutil.rmtree(target, ignore_errors=True)
 
 
 def read_file_bytes(file_path: str) -> bytes:
+    if file_path.startswith("s3://"):
+        from app.core.file_storage_s3 import read_file_bytes_s3
+
+        return read_file_bytes_s3(file_path)
     root = storage_root()
     p = Path(file_path).resolve()
     try:

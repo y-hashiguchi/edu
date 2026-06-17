@@ -4,11 +4,10 @@ import base64
 import json
 import logging
 import re
-from pathlib import Path
 
 from app.config import settings
 from app.core.claude_client import Attachment, ClaudeClient
-from app.core.file_storage import PathTraversalError, read_file_bytes
+from app.core.file_storage import PathTraversalError, read_file_bytes, stored_filename
 from app.models.submission_file import SubmissionFile
 from app.schemas.grading import GradingResult, GradingResultStatus
 
@@ -102,7 +101,7 @@ def _split_files(
                 )
             )
         elif f.mime_type.startswith(_TEXT_MIME_PREFIX):
-            name = Path(f.file_path).name
+            name = stored_filename(f.file_path)
             try:
                 body = raw.decode("utf-8")
             except UnicodeDecodeError:
