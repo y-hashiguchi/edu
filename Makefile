@@ -86,7 +86,11 @@ docker-build:
 	docker build -f frontend/Dockerfile.prod --build-arg VITE_API_BASE_URL=http://localhost:8000 frontend
 
 compose-config:
-	docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet
+	@set -e; \
+	created_env=0; \
+	if [ ! -f .env ]; then cp .env.example .env; created_env=1; fi; \
+	trap 'if [ "$$created_env" = "1" ]; then rm -f .env; fi' EXIT INT TERM; \
+	docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet; \
 	APP_DOMAIN=learn.example.com API_DOMAIN=api.example.com ACME_EMAIL=ops@example.com docker compose --env-file .env.example -f docker-compose.prod.yml -f docker-compose.prod.tls.yml config --quiet
 
 terraform-validate:
