@@ -1,4 +1,4 @@
-.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint docker-build docker-smoke compose-config terraform-validate clean migrate revision db-shell seed-embeddings worker
+.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint docker-build docker-smoke compose-config render-validate terraform-validate clean migrate revision db-shell seed-embeddings worker
 
 COMPOSE_PROD = docker compose -f docker-compose.prod.yml
 COMPOSE_PROD_BUNDLED = $(COMPOSE_PROD) --profile bundled-db
@@ -114,6 +114,9 @@ compose-config:
 	trap 'if [ "$$created_env" = "1" ]; then rm -f .env; fi' EXIT INT TERM; \
 	docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet; \
 	APP_DOMAIN=learn.example.com API_DOMAIN=api.example.com ACME_EMAIL=ops@example.com docker compose --env-file .env.example -f docker-compose.prod.yml -f docker-compose.prod.tls.yml config --quiet
+
+render-validate:
+	bash infra/scripts/test_render_blueprint.sh
 
 terraform-validate:
 	docker run --rm -v $(CURDIR):/workspace:ro --entrypoint sh hashicorp/terraform:1.9.8 -c 'set -e; \

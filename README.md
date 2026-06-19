@@ -64,6 +64,7 @@ make test-backend              # pytest（postgres を自動起動）
 make test-frontend             # vitest
 make test-e2e                  # Playwright（専用 ai_tutor_e2e DB + stub backend を自動起動）
 make compose-config            # production Compose / TLS overlay の構文確認
+make render-validate           # Render demo Blueprint の構造・安全設定確認
 make terraform-validate        # ALB/ECR/ECS Terraform + migration-gated deploy helper tests
 make docker-build              # backend/frontend production image build
 ```
@@ -143,6 +144,7 @@ make docker-build              # backend/frontend production image build
 - 初回 CI 実走: [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照（remote 未設定時は push 不可）
 - ローカル E2E: `make test-e2e`（専用 `ai_tutor_e2e` DB と stub backend を自動起動・終了時に削除）
 - 本番デプロイ: [docs/infra/production-deploy.md](docs/infra/production-deploy.md)
+- 最小デモ（Render）: [docs/infra/render-demo.md](docs/infra/render-demo.md)
 - ECS/Fargate 移行: [docs/infra/ecs-fargate.md](docs/infra/ecs-fargate.md) + [`infra/terraform/ecr/`](infra/terraform/ecr/) + [`infra/terraform/ecs/`](infra/terraform/ecs/)
 
 ### コホート集計（Sprint 10）

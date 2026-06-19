@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+
+services:
+  - type: web
+    name: edu-demo-api
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: sh -c 'uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}'
+    preDeployCommand: uv run alembic upgrade head
+    initialDeployHook: uv run python -m scripts.seed_embeddings
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    disk:
+      name: submission-uploads
+      mountPath: /app/uploads
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
+      - key: CLAUDE_STUB_MODE
+        value: "false"
+      - key: EMBEDDING_STUB_MODE
+        value: "true"
+      - key: GRADING_ASYNC_ENABLED
+        value: "false"
+      - key: CURRICULUM_CACHE_PUBSUB_ENABLED
+        value: "false"
+      - key: SCHEDULED_BROADCAST_CRON_ENABLED
+        value: "false"
+      - key: UPLOAD_STORAGE_BACKEND
+        value: local
+      - key: UPLOAD_DIR
+        value: /app/uploads
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+
+  - type: web
+    name: edu-demo-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
