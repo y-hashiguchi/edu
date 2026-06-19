@@ -64,7 +64,7 @@ make test-backend              # pytest（postgres を自動起動）
 make test-frontend             # vitest
 make test-e2e                  # Playwright（専用 ai_tutor_e2e DB + stub backend を自動起動）
 make compose-config            # production Compose / TLS overlay の構文確認
-make terraform-validate        # Dockerized Terraform fmt/validate
+make terraform-validate        # ALB/ECR/ECS Terraform + migration-gated deploy helper tests
 make docker-build              # backend/frontend production image build
 ```
 
@@ -138,11 +138,12 @@ make docker-build              # backend/frontend production image build
 ### CI / E2E
 
 - `.github/workflows/ci.yml`: backend Ruff + pytest、frontend type lint + vitest + `npm audit --audit-level=critical`、production Docker build、Playwright E2E（**11 passed** 想定）
+- production image smoke: `make docker-smoke`（一時 Postgres に migration を適用し、backend `/healthz` / catalog と frontend `/login` を確認後に全リソースを削除）
 - 最新 CI: `main` push で green（backend / frontend / docker-build / e2e ジョブ）
 - 初回 CI 実走: [docs/infra/github-ci-setup.md](docs/infra/github-ci-setup.md) 参照（remote 未設定時は push 不可）
 - ローカル E2E: `make test-e2e`（専用 `ai_tutor_e2e` DB と stub backend を自動起動・終了時に削除）
 - 本番デプロイ: [docs/infra/production-deploy.md](docs/infra/production-deploy.md)
-- ECS/Fargate 移行: [docs/infra/ecs-fargate.md](docs/infra/ecs-fargate.md)
+- ECS/Fargate 移行: [docs/infra/ecs-fargate.md](docs/infra/ecs-fargate.md) + [`infra/terraform/ecr/`](infra/terraform/ecr/) + [`infra/terraform/ecs/`](infra/terraform/ecs/)
 
 ### コホート集計（Sprint 10）
 

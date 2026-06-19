@@ -1,6 +1,6 @@
 # ECS/Fargate Deployment Runbook
 
-**最終更新:** 2026-06-17
+**最終更新:** 2026-06-18
 
 EC2 + Docker Compose 構成を、AWS ECS/Fargate に移すための設計メモと実行手順。ALB / RDS / ElastiCache / S3 は [alb-deploy.md](./alb-deploy.md) と同じ前提を使う。
 
@@ -27,6 +27,10 @@ Shared managed services
 
 Fargate では shared local volume を前提にしない。提出ファイルは `UPLOAD_STORAGE_BACKEND=s3` を必須にする。
 
+Terraform 参考実装: [`../../infra/terraform/ecs/`](../../infra/terraform/ecs/)
+ALB module は `target_type = "ip"` で適用し、出力された target group ARN と
+ALB security group ID を ECS module に渡す。
+
 ## Compose から ECS への対応
 
 | Compose service | ECS/Fargate | Notes |
@@ -41,26 +45,55 @@ Fargate では shared local volume を前提にしない。提出ファイルは
 ## Image
 
 ECR に backend / frontend の 2 image を push する。`grading-worker` は backend image を再利用し、command だけ変える。
+Repository Terraform: [`../../infra/terraform/ecr/`](../../infra/terraform/ecr/)
 
 ```bash
-AWS_ACCOUNT_ID=123456789012
-AWS_REGION=ap-northeast-1
-ECR_BASE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/edu"
-IMAGE_TAG="$(git rev-parse --short HEAD)"
-
-aws ecr get-login-password --region "$AWS_REGION" \
-  | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-
-docker build -t "$ECR_BASE-backend:$IMAGE_TAG" ./backend
-docker build -f frontend/Dockerfile.prod \
-  --build-arg VITE_API_BASE_URL=https://api.example.com \
-  -t "$ECR_BASE-frontend:$IMAGE_TAG" ./frontend
-
-docker push "$ECR_BASE-backend:$IMAGE_TAG"
-docker push "$ECR_BASE-frontend:$IMAGE_TAG"
+terraform -chdir=infra/terraform/ecr apply
+VITE_API_BASE_URL=https://api.example.com \
+  ./infra/scripts/push_ecr_images.sh
 ```
 
+helperはbackend/frontend build contextの未コミット変更を拒否し、ECR login、
+production build、`sha-<commit>` immutable tag pushを実行して、ECS Terraformへ
+設定する2つのimage URIを出力する。docsのみの差分はbuildを妨げない。
+
 ## Task Definitions
+
+`infra/terraform/ecs/` は既存 VPC / private subnets / ALB target groups /
+RDS / ElastiCache / S3 / ECR を入力として、以下を作成する。
+
+- ECS cluster + Container Insights
+- backend / grading-worker / frontend services
+- Alembic one-off migration task definition
+- CloudWatch logs
+- task/execution IAM roles
+- ALB からのみ 8000/80 を許可する task security group
+- Secrets Manager / SSM からの secret injection
+- backend / frontend CPU target tracking auto scaling
+- CloudWatch high-CPU / running-task-count alarms for all services
+- DynamoDB deployment lock
+
+```bash
+cd infra/terraform/ecs
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+terraform plan
+terraform apply
+```
+
+既定の scaling range:
+
+| Service | Min | Desired | Max | Metric |
+|---|---:|---:|---:|---|
+| backend | 2 | 2 | 6 | average CPU 60% |
+| frontend | 2 | 2 | 4 | average CPU 60% |
+| grading-worker | - | 1 | - | fixed count |
+
+worker は CPU 使用率と Redis queue depth が一致しないため、自動 scaling は
+custom CloudWatch metric を導入してから設定する。
+
+`alarm_action_arns` にSNS topic ARNを設定すると、high CPUとrunning task不足の
+alarm/復旧通知が送信される。
 
 ### backend
 
@@ -116,23 +149,28 @@ Use the same env/secrets as backend. The worker must reach RDS, ElastiCache, and
 
 ## Migration
 
-Do not run Alembic in every backend task startup. In ECS, run migration once as a one-off task before updating services:
+Do not run Alembic in every backend task startup. Terraform registers new task
+definition revisions but ignores ECS service `task_definition` drift. Deploy
+through the helper so migration completes before any service update:
 
 ```bash
-aws ecs run-task \
-  --cluster edu-prod \
-  --launch-type FARGATE \
-  --task-definition edu-backend-migrate:{revision} \
-  --network-configuration file://ecs-network.json \
-  --overrides '{
-    "containerOverrides": [
-      {
-        "name": "backend",
-        "command": ["uv", "run", "alembic", "upgrade", "head"]
-      }
-    ]
-  }'
+terraform -chdir=infra/terraform/ecs apply
+ECS_API_HEALTH_URL=https://api.example.com/healthz \
+ECS_FRONTEND_HEALTH_URL=https://learn.example.com/login \
+  ./infra/scripts/deploy_ecs.sh
 ```
+
+The helper requires `aws`, `terraform`, and `jq`. The executing AWS principal
+also needs `dynamodb:PutItem` / `dynamodb:DeleteItem` for the lock table. It:
+
+1. acquires the DynamoDB deployment lock
+2. rejects the deploy if any service is under capacity or already deploying
+3. runs the migration task and waits for it to stop
+4. aborts without updating services when exit code is non-zero
+5. updates backend, worker, and frontend sequentially
+6. waits for each ECS service to become stable
+7. checks the optional API/frontend URLs through the ALB
+8. restores already-updated services to their previous task definitions when a service update fails
 
 The backend image includes `alembic.ini`, `alembic/`, and `scripts/` so migration and operational scripts can run inside the same artifact.
 
@@ -142,11 +180,11 @@ The backend image includes `alembic.ini`, `alembic/`, and `scripts/` so migratio
 
 ## Deployment Order
 
-1. Build and push backend/frontend images with the same git SHA tag.
-2. Run Alembic one-off task and confirm success.
-3. Update `backend` ECS service to the new backend task definition.
-4. Update `grading-worker` ECS service to the same backend image revision.
-5. Update `frontend` ECS service.
+1. Apply ECR then ALB infrastructure when creating the environment.
+2. Run `push_ecr_images.sh` and copy its output image URIs into ECS variables.
+3. Run ECS `terraform apply`.
+4. Run `deploy_ecs.sh`.
+5. Confirm migration exit code and all three service stabilization waits succeed.
 6. Confirm ALB target groups are healthy.
 7. Smoke test:
 

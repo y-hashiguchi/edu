@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_tutor_smoke
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_tutor_smoke"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ai_tutor_smoke
+      JWT_SECRET_KEY: smoke-test-secret-key
+      ANTHROPIC_API_KEY: smoke-test-key
+      CLAUDE_STUB_MODE: "true"
+      EMBEDDING_STUB_MODE: "true"
+      GRADING_ASYNC_ENABLED: "false"
+      CURRICULUM_CACHE_PUBSUB_ENABLED: "false"
+      RATE_LIMIT_ENABLED: "false"
+      CORS_ALLOW_ORIGINS: http://localhost:${SMOKE_FRONTEND_PORT:-18080}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${SMOKE_BACKEND_PORT:-18000}:8000"
+    command:
+      [
+        "sh",
+        "-c",
+        "uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: http://localhost:${SMOKE_BACKEND_PORT:-18000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${SMOKE_FRONTEND_PORT:-18080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/login"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

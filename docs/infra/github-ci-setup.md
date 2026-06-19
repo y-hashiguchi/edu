@@ -1,6 +1,6 @@
 # GitHub Actions CI セットアップ
 
-**最終確認:** 2026-06-17
+**最終確認:** 2026-06-18
 
 ## 現状
 
@@ -22,8 +22,8 @@
 | E2E Playwright | **11 passed** |
 | frontend build | green |
 | production Compose config | green |
-| Terraform fmt/validate | green |
-| production Docker build | backend + frontend green |
+| Terraform fmt/validate/mock plan tests | provider lock + ALB 1件 + ECR 1件 + ECS 3件 + ShellCheck + deploy helper green |
+| production Docker smoke | backend migration + API/frontend health checks green |
 | npm audit (critical) | 0 vulnerabilities |
 
 ## remote 設定手順
@@ -55,7 +55,7 @@ push または PR 作成後、GitHub の Actions タブで 4 job（`backend` / `
 cd backend && uv run pytest -q
 cd frontend && npm test -- --run
 make lint
-make docker-build
+make docker-smoke
 make test-e2e
 ```
 
@@ -67,7 +67,13 @@ make test-e2e
 
 1. **backend** — postgres service + migrate + Ruff + `pytest -q`
 2. **frontend** — `npm ci` + type lint + vitest + `npm audit --audit-level=critical`
-3. **docker-build** — backend / frontend production image build
+3. **docker-build** — Compose / Terraform validation + production image smoke
+   - ALB/ECR/ECS Terraform provider lock / `fmt -check` / `validate` / mock plan tests
+   - ECR publish / ECS deploy helpers ShellCheck + dirty-build/migration/rollback/lock regression tests
+   - 一時 Postgres に Alembic migration を適用
+   - backend `/healthz` / `/api/courses/catalog` と frontend `/login` を確認
+   - 成否にかかわらず container / volume / build image を削除
+   - 失敗時は `compose ps` と全サービスログを出力してから削除
 4. **e2e** — migrate + backend (8000) + preview (4173) + Playwright
    - `CLAUDE_STUB_MODE=true` で deterministic 採点
    - admin curriculum E2E は register 後 `scripts.promote_admin` を Playwright から実行

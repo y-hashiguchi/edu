@@ -79,10 +79,8 @@ jobs:
         run: make compose-config
       - name: Validate Terraform
         run: make terraform-validate
-      - name: Build backend production image
-        run: docker build -f backend/Dockerfile backend
-      - name: Build frontend production image
-        run: docker build -f frontend/Dockerfile.prod --build-arg VITE_API_BASE_URL=http://localhost:8000 frontend
+      - name: Smoke test production images
+        run: make docker-smoke
 
   e2e:
     runs-on: ubuntu-latest

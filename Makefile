@@ -1,4 +1,4 @@
-.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint docker-build compose-config terraform-validate clean migrate revision db-shell seed-embeddings worker
+.PHONY: dev prod prod-tls prod-managed prod-tls-managed test test-backend test-frontend test-e2e verify lint docker-build docker-smoke compose-config terraform-validate clean migrate revision db-shell seed-embeddings worker
 
 COMPOSE_PROD = docker compose -f docker-compose.prod.yml
 COMPOSE_PROD_BUNDLED = $(COMPOSE_PROD) --profile bundled-db
@@ -85,6 +85,28 @@ docker-build:
 	docker build -f backend/Dockerfile backend
 	docker build -f frontend/Dockerfile.prod --build-arg VITE_API_BASE_URL=http://localhost:8000 frontend
 
+docker-smoke:
+	@set -e; \
+	project="edu-smoke-$$(date +%s)-$$$$"; \
+	cleanup() { \
+		status=$$?; \
+		if [ "$$status" -ne 0 ]; then \
+			docker compose -p "$$project" -f docker-compose.smoke.yml ps || true; \
+			docker compose -p "$$project" -f docker-compose.smoke.yml logs --no-color || true; \
+		fi; \
+		docker compose -p "$$project" -f docker-compose.smoke.yml down -v --remove-orphans --rmi local >/dev/null 2>&1 || true; \
+		exit "$$status"; \
+	}; \
+	trap cleanup EXIT; \
+	trap 'exit 130' INT; \
+	trap 'exit 143' TERM; \
+	SMOKE_BACKEND_PORT=$${SMOKE_BACKEND_PORT:-18000} \
+	SMOKE_FRONTEND_PORT=$${SMOKE_FRONTEND_PORT:-18080} \
+	docker compose -p "$$project" -f docker-compose.smoke.yml up -d --build --wait; \
+	curl -sf "http://127.0.0.1:$${SMOKE_BACKEND_PORT:-18000}/healthz" >/dev/null; \
+	curl -sf "http://127.0.0.1:$${SMOKE_BACKEND_PORT:-18000}/api/courses/catalog" >/dev/null; \
+	curl -sf "http://127.0.0.1:$${SMOKE_FRONTEND_PORT:-18080}/login" >/dev/null
+
 compose-config:
 	@set -e; \
 	created_env=0; \
@@ -94,8 +116,21 @@ compose-config:
 	APP_DOMAIN=learn.example.com API_DOMAIN=api.example.com ACME_EMAIL=ops@example.com docker compose --env-file .env.example -f docker-compose.prod.yml -f docker-compose.prod.tls.yml config --quiet
 
 terraform-validate:
-	docker run --rm -v $(CURDIR):/workspace:ro -w /workspace/infra/terraform/alb hashicorp/terraform:1.9.8 fmt -check
-	docker run --rm -v $(CURDIR):/workspace:ro --entrypoint sh hashicorp/terraform:1.9.8 -c 'cp -R /workspace/infra/terraform/alb /tmp/alb && cd /tmp/alb && terraform init -backend=false && terraform validate'
+	docker run --rm -v $(CURDIR):/workspace:ro --entrypoint sh hashicorp/terraform:1.9.8 -c 'set -e; \
+		mkdir -p /tmp/terraform-plugins; \
+		export TF_PLUGIN_CACHE_DIR=/tmp/terraform-plugins; \
+		for module in alb ecr ecs; do \
+			terraform -chdir=/workspace/infra/terraform/$$module fmt -check; \
+			cp -R /workspace/infra/terraform/$$module /tmp/$$module; \
+			rm -rf /tmp/$$module/.terraform; \
+			terraform -chdir=/tmp/$$module init -backend=false; \
+			terraform -chdir=/tmp/$$module validate; \
+			terraform -chdir=/tmp/$$module test; \
+		done'
+	bash -n infra/scripts/deploy_ecs.sh infra/scripts/push_ecr_images.sh infra/scripts/test_deploy_ecs.sh infra/scripts/test_push_ecr_images.sh
+	docker run --rm -v $(CURDIR):/workspace:ro -w /workspace koalaman/shellcheck:v0.10.0 infra/scripts/deploy_ecs.sh infra/scripts/push_ecr_images.sh infra/scripts/test_deploy_ecs.sh infra/scripts/test_push_ecr_images.sh
+	bash infra/scripts/test_deploy_ecs.sh
+	bash infra/scripts/test_push_ecr_images.sh
 
 clean:
 	docker compose down -v

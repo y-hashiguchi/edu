@@ -5,4 +5,5 @@ public_subnet_ids  = ["subnet-aaa", "subnet-bbb"]
 certificate_arn    = "arn:aws:acm:ap-northeast-1:123456789012:certificate/xxxxxxxx"
 app_domain         = "learn.example.com"
 api_domain         = "api.example.com"
+target_type        = "instance"
 instance_id        = "i-xxxxxxxx"

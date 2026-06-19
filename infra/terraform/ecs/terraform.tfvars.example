@@ -1,0 +1,44 @@
+aws_region  = "ap-northeast-1"
+project_name = "edu"
+
+vpc_id             = "vpc-0123456789abcdef0"
+private_subnet_ids  = ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]
+alb_security_group_id = "sg-0123456789abcdef0"
+api_target_group_arn  = "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/edu-api/0123456789abcdef"
+web_target_group_arn  = "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/edu-web/0123456789abcdef"
+
+backend_image  = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/edu-backend:git-sha"
+frontend_image = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/edu-frontend:git-sha"
+
+upload_bucket_arn = "arn:aws:s3:::edu-production-uploads"
+upload_prefix     = "uploads"
+
+backend_desired_count  = 2
+backend_min_count      = 2
+backend_max_count      = 6
+worker_desired_count   = 1
+frontend_desired_count = 2
+frontend_min_count     = 2
+frontend_max_count     = 4
+autoscaling_cpu_target = 60
+cpu_alarm_threshold    = 85
+alarm_action_arns      = ["arn:aws:sns:ap-northeast-1:123456789012:edu-production-alerts"]
+
+common_environment = {
+  CORS_ALLOW_ORIGINS              = "https://learn.example.com"
+  GRADING_ASYNC_ENABLED           = "true"
+  CURRICULUM_CACHE_PUBSUB_ENABLED = "true"
+  CLAUDE_STUB_MODE                = "false"
+  EMBEDDING_STUB_MODE             = "false"
+}
+
+secret_arns = {
+  ANTHROPIC_API_KEY = "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:edu/anthropic"
+  DATABASE_URL      = "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:edu/database-url"
+  JWT_SECRET_KEY    = "arn:aws:ssm:ap-northeast-1:123456789012:parameter/edu/jwt-secret"
+  REDIS_URL         = "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:edu/redis-url"
+}
+
+tags = {
+  Environment = "production"
+}

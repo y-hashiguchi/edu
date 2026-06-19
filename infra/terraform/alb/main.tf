@@ -28,6 +28,8 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_security_group" "app" {
+  count = var.target_type == "instance" ? 1 : 0
+
   name        = "${var.project_name}-app-from-alb"
   description = "Allow traffic from ALB to EC2 app ports"
   vpc_id      = var.vpc_id
@@ -65,10 +67,11 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "api" {
-  name     = "${var.project_name}-api"
-  port     = var.api_port
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "${var.project_name}-api"
+  port        = var.api_port
+  protocol    = "HTTP"
+  target_type = var.target_type
+  vpc_id      = var.vpc_id
 
   health_check {
     path                = "/healthz"
@@ -80,10 +83,11 @@ resource "aws_lb_target_group" "api" {
 }
 
 resource "aws_lb_target_group" "web" {
-  name     = "${var.project_name}-web"
-  port     = var.web_port
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "${var.project_name}-web"
+  port        = var.web_port
+  protocol    = "HTTP"
+  target_type = var.target_type
+  vpc_id      = var.vpc_id
 
   health_check {
     path                = "/login"
@@ -95,12 +99,16 @@ resource "aws_lb_target_group" "web" {
 }
 
 resource "aws_lb_target_group_attachment" "api" {
+  count = var.target_type == "instance" ? 1 : 0
+
   target_group_arn = aws_lb_target_group.api.arn
   target_id        = var.instance_id
   port             = var.api_port
 }
 
 resource "aws_lb_target_group_attachment" "web" {
+  count = var.target_type == "instance" ? 1 : 0
+
   target_group_arn = aws_lb_target_group.web.arn
   target_id        = var.instance_id
   port             = var.web_port

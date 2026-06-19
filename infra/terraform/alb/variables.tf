@@ -73,10 +73,26 @@ variable "api_domain" {
 variable "instance_id" {
   type        = string
   description = "EC2 instance ID running Docker Compose"
+  default     = null
+  nullable    = true
 
   validation {
-    condition     = can(regex("^i-[0-9a-f]+$", var.instance_id))
-    error_message = "instance_id must look like i-xxxxxxxx."
+    condition = (
+      var.target_type == "ip" ||
+      (var.instance_id != null && can(regex("^i-[0-9a-f]+$", var.instance_id)))
+    )
+    error_message = "instance_id must look like i-xxxxxxxx when target_type is instance."
+  }
+}
+
+variable "target_type" {
+  type        = string
+  description = "ALB target type: instance for EC2 Compose, ip for ECS/Fargate"
+  default     = "instance"
+
+  validation {
+    condition     = contains(["instance", "ip"], var.target_type)
+    error_message = "target_type must be instance or ip."
   }
 }
 
