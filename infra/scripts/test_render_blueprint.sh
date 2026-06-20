@@ -13,6 +13,8 @@ ruby -ryaml -e '
   abort "missing edu-demo-web" unless web
   abort "Blueprint must not provision Render Postgres" if config.key?("databases")
   abort "backend must use paid starter plan" unless api["plan"] == "starter"
+  abort "backend Docker command must be Render-compatible" unless api["dockerCommand"] ==
+    "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT"
   abort "backend migration gate missing" unless api["preDeployCommand"] == "uv run alembic upgrade head"
   abort "initial embedding seed missing" unless api["initialDeployHook"] == "uv run python -m scripts.seed_embeddings"
   abort "backend health check missing" unless api["healthCheckPath"] == "/healthz"
