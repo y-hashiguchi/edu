@@ -24,20 +24,21 @@ process内で同期実行する。
   semantic search品質の評価には使用しない
 - upload diskを付けるためbackend deploy時に数秒の停止が発生する
 - Supabase Freeは少人数デモ専用
-- RenderからSupabaseへのDB接続はSupavisor session poolerを使用する
+- RenderからSupabaseへのDB接続はSupavisor transaction poolerを使用する
 
 ## 初回作成
 
 1. SupabaseでSingapore regionのFree projectを作成する。
 2. Supabase DashboardのDatabase Extensionsで`vector`を有効化する。
-3. **Connect** からSession poolerの接続文字列（port `5432`）を取得する。
-4. Render DashboardでGitHub repository `y-hashiguchi/edu` へのアクセスを許可する。
-5. **New > Blueprint** を選択し、このrepositoryの `render.yaml` を指定する。
-6. 初回作成時に以下のsecret値を入力する。
+3. **Connect** からTransaction poolerの接続文字列（port `6543`）を取得する。
+4. 接続文字列へ `prepared_statement_cache_size=0` を追加する。
+5. Render DashboardでGitHub repository `y-hashiguchi/edu` へのアクセスを許可する。
+6. **New > Blueprint** を選択し、このrepositoryの `render.yaml` を指定する。
+7. 初回作成時に以下のsecret値を入力する。
 
 | Key | Value |
 |---|---|
-| `DATABASE_URL` | Supabase Session pooler URL |
+| `DATABASE_URL` | Supabase Transaction pooler URL（`prepared_statement_cache_size=0`付き） |
 | `ANTHROPIC_API_KEY` | デモ用Anthropic API key |
 | `CORS_ALLOW_ORIGINS` | frontendの公開URL |
 | `VITE_API_BASE_URL` | backendの公開URL |
@@ -54,7 +55,8 @@ URLを修正した場合は、frontendをmanual deployしてbuildし直す。
 
 `JWT_SECRET_KEY` はBlueprintが自動生成する。Supabase URLの
 `postgres://` / `postgresql://` schemeはアプリ側でasyncpg URLへ正規化される。
-transaction pooler（port `6543`）はprepared statement制約があるため使用しない。
+transaction pooler（port `6543`）を使うため、asyncpgのprepared statement cacheは
+`prepared_statement_cache_size=0`で無効化する。
 
 ## 自動処理
 
