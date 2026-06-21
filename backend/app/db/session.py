@@ -5,12 +5,18 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.config import settings
+from app.config import asyncpg_connect_args, settings
 
 # NullPool: connections are not reused across event loops.
 # pytest-asyncio creates a fresh loop per test, and asyncpg connections
 # bound to a closed loop fail with "another operation is in progress".
-engine = create_async_engine(settings.database_url, future=True, echo=False, poolclass=NullPool)
+engine = create_async_engine(
+    settings.database_url,
+    future=True,
+    echo=False,
+    poolclass=NullPool,
+    connect_args=asyncpg_connect_args(),
+)
 
 SessionLocal = async_sessionmaker(
     engine,

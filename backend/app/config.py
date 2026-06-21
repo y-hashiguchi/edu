@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from uuid import uuid4
+
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,6 +12,13 @@ def normalize_database_url(value: str) -> str:
     if value.startswith("postgres://"):
         return value.replace("postgres://", "postgresql+asyncpg://", 1)
     return value
+
+
+def asyncpg_connect_args() -> dict[str, Callable[[], str]]:
+    """Avoid prepared-statement name collisions behind transaction poolers."""
+    return {
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
+    }
 
 
 class Settings(BaseSettings):
