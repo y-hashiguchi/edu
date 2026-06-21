@@ -14,6 +14,18 @@ def normalize_database_url(value: str) -> str:
     return value
 
 
+def normalize_api_key(value: str) -> str:
+    """Strip all whitespace from an API key before it reaches an HTTP header.
+
+    A valid Anthropic key never contains whitespace, but env-var entry (e.g.
+    Render's textarea) readily introduces a trailing newline or stray CR/LF.
+    httpx refuses such header values ("Illegal header value"), surfacing as
+    anthropic.APIConnectionError and a chat 502. Removing all whitespace makes
+    key loading resilient regardless of how the secret was pasted.
+    """
+    return "".join(value.split())
+
+
 def asyncpg_connect_args() -> dict[str, Callable[[], str]]:
     """Avoid prepared-statement name collisions behind transaction poolers."""
     return {
@@ -41,6 +53,13 @@ class Settings(BaseSettings):
     def use_async_postgres_driver(cls, value: object) -> object:
         if isinstance(value, str):
             return normalize_database_url(value)
+        return value
+
+    @field_validator("anthropic_api_key", mode="before")
+    @classmethod
+    def strip_api_key_whitespace(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_api_key(value)
         return value
 
     # JWT
