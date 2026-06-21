@@ -73,7 +73,7 @@ def test_chat_rejects_locked_phase_with_403(auth_client):
         app.dependency_overrides.clear()
 
 
-def test_chat_propagates_502_on_claude_error(auth_client):
+def test_chat_propagates_502_and_logs_claude_error(auth_client, caplog):
     from app.main import app
 
     fake_sdk = MagicMock()
@@ -82,8 +82,11 @@ def test_chat_propagates_502_on_claude_error(auth_client):
     app.dependency_overrides[get_claude_client] = lambda: fake
 
     try:
-        response = auth_client.post("/api/chat", json={"phase": 1, "message": "hi"})
+        with caplog.at_level("ERROR", logger="app.api.chat"):
+            response = auth_client.post("/api/chat", json={"phase": 1, "message": "hi"})
         assert response.status_code == 502
+        assert "Anthropic chat completion failed" in caplog.text
+        assert "RuntimeError: upstream down" in caplog.text
     finally:
         app.dependency_overrides.clear()
 
