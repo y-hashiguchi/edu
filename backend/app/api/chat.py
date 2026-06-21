@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
@@ -15,6 +16,7 @@ from app.services.progress import is_phase_unlocked
 from app.services.rag import format_context, search_context
 
 router = APIRouter(prefix="/api", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 async def _ensure_phase_accessible(
@@ -68,6 +70,7 @@ async def chat(
     try:
         reply = await claude.complete(system_prompt=system_prompt, history=next_history)
     except Exception as e:  # noqa: BLE001  upstream SDK error -> 502
+        logger.exception("Anthropic chat completion failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="upstream LLM error"
         ) from e
