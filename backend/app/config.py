@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-5"
 
+    # Render injects these per deploy. Surfaced by GET /version so the live
+    # revision is verifiable from outside (empty locally / in CI).
+    render_git_commit: str = ""
+    render_git_branch: str = ""
+
     # HTTP
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
