@@ -40,3 +40,5 @@ frontend/blob-report/
 /e2e-history-restored.png
 /e2e-homeview-after-login.png
 /e2e-phase1-completed.png
+# Ad-hoc demo screenshots from manual Playwright demo runs.
+/demo-*.png
